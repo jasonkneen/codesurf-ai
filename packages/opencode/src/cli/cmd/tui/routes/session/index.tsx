@@ -1998,7 +1998,7 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
   })
 
   return (
-    <box paddingLeft={3} marginTop={1} marginBottom={0}>
+    <box paddingLeft={3} marginTop={1} marginBottom={1}>
       <box
         flexDirection="row"
         gap={1}
@@ -2023,7 +2023,7 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
       </box>
 
       <Show when={!collapsed()}>
-        <box paddingLeft={2} marginTop={0} gap={-1} flexDirection="column">
+        <box paddingLeft={2} marginTop={0} gap={0} flexDirection="column">
           <For each={props.parts}>{(part) => <ToolPart part={part} message={props.message} indent={0} />}</For>
         </box>
       </Show>
@@ -2329,10 +2329,7 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
   const isFirstInMessage = createMemo(() => {
     const parts = ((props.message as any).parts as Part[] | undefined) ?? []
     const index = parts.findIndex((part) => part.id === props.part.id)
-    if (index <= 0) return true
-    // Check if previous part is a tool - if so, don't add margin
-    const prevPart = parts[index - 1]
-    return prevPart?.type !== "tool"
+    return index <= 0
   })
 
   return (
