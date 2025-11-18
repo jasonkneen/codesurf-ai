@@ -713,8 +713,7 @@ export function Prompt(props: PromptProps) {
                 void handleDropFileTokens(value)
               }}
               keyBindings={textareaKeybindings()}
-              // TODO: fix this any
-              onKeyDown={async (e: any) => {
+              onKeyDown={async (e) => {
                 if (props.disabled) {
                   e.preventDefault()
                   return

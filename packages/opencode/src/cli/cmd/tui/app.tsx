@@ -391,7 +391,7 @@ function App() {
     {
       title: "Exit the app",
       value: "app.exit",
-      onSelect: exit,
+      onSelect: () => exit(),
       category: "System",
     },
     {

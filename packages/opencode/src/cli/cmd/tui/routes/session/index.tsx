@@ -99,6 +99,7 @@ const MAX_TOOL_CHIPS = 30
 const context = createContext<{
   width: number
   conceal: () => boolean
+  showThinking: () => boolean
 }>()
 
 function use() {
@@ -1023,6 +1024,15 @@ export function Session() {
       },
     },
     {
+      title: "Toggle thinking blocks",
+      value: "session.toggle.thinking",
+      category: "Session",
+      onSelect: (dialog) => {
+        setShowThinking((prev) => !prev)
+        dialog.clear()
+      },
+    },
+    {
       title: "Page up",
       value: "session.page.up",
       keybind: "messages_page_up",
@@ -1208,6 +1218,7 @@ export function Session() {
           return contentWidth()
         },
         conceal,
+        showThinking,
       }}
     >
       <box flexDirection="row" paddingBottom={1} paddingTop={1} paddingLeft={2} paddingRight={2} gap={2}>
