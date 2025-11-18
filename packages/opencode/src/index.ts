@@ -1,5 +1,6 @@
 // Setup tiktoken WASM path BEFORE any other imports
 import "./util/tiktoken-setup"
+import { setupEnv } from "./config/env"
 
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
@@ -68,11 +69,7 @@ const cli = yargs(hideBin(process.argv))
       })(),
     })
 
-    process.env.AGENT = "1"
-    process.env.OPENCODE = "1"
-    process.env.CODESURF = "1"
-    process.env["CODESURF"] = "1"
-    process.env["OPENCODE"] = "1" // Keep for backwards compatibility
+    setupEnv()
 
     Log.Default.info("codesurf", {
       version: Installation.VERSION,

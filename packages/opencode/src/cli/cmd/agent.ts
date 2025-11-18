@@ -7,6 +7,7 @@ import path from "path"
 import matter from "gray-matter"
 import { Instance } from "../../project/instance"
 import { Flag } from "../../flag/flag"
+import { AVAILABLE_TOOLS } from "../../tool/constants"
 
 const AgentCreateCommand = cmd({
   command: "create",
@@ -56,19 +57,7 @@ const AgentCreateCommand = cmd({
         })
         spinner.stop(`Agent ${generated.identifier} generated`)
 
-        const availableTools = [
-          "bash",
-          "read",
-          "write",
-          "edit",
-          "list",
-          "glob",
-          "grep",
-          "webfetch",
-          "task",
-          "todowrite",
-          "todoread",
-        ]
+        const availableTools = [...AVAILABLE_TOOLS]
 
         const selectedTools = await prompts.multiselect({
           message: "Select tools to enable",
