@@ -138,7 +138,7 @@ function loadRaidConfig(projectRoot?: string): RaidConfig {
       10,
     ),
     baseUrl: process.env.RAID_BASE_URL ?? process.env.OPENAI_BASE_URL ?? DEFAULTS.baseUrl,
-    apiKey: process.env.RAID_API_KEY ?? process.env.OPENAI_API_KEY ?? "***REMOVED***",
+    apiKey: process.env.RAID_API_KEY ?? process.env.OPENAI_API_KEY,
     shardModel: process.env.RAID_SHARD_MODEL ?? DEFAULTS.shardModel,
     orchModel: process.env.RAID_ORCH_MODEL ?? DEFAULTS.orchModel,
     maxTokensPerShard: parseInt(
