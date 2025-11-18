@@ -2509,27 +2509,7 @@ function ToolPart(props: {
   })
 
   return (
-    <box
-      marginTop={margin()}
-      width="100%"
-      {...style()}
-      renderBefore={function () {
-        const el = this as BoxRenderable
-        const parent = el.parent
-        if (!parent) {
-          setMargin(0)
-          return
-        }
-        const children = parent.getChildren()
-        const index = children.indexOf(el)
-        const previous = children[index - 1]
-        if (!previous) {
-          setMargin(0)
-          return
-        }
-        setMargin(0)
-      }}
-    >
+    <box marginTop={0} marginBottom={0} width="100%" {...style()}>
       {createMemo(() => {
         const RenderComponent = render
         const isCollapsed = collapsed()
