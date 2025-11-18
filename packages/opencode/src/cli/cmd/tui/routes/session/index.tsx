@@ -2766,9 +2766,19 @@ function ToolBadge(props: { children: JSX.Element | string }) {
     if (typeof props.children === "string") return Locale.titlecase(props.children)
     return Locale.titlecase(String(props.children ?? ""))
   })
+
+  const icon = createMemo(() => {
+    const text = label().toLowerCase()
+    if (text.includes("read")) return "→"
+    if (text.includes("write") || text.includes("edit") || text.includes("patch")) return "←"
+    if (text.includes("glob") || text.includes("grep") || text.includes("ls")) return "*"
+    if (text.includes("bash")) return ">"
+    return "•"
+  })
+
   return (
     <text fg={theme.accent} bg={theme.background}>
-      {` ${label()} `}
+      {`${icon()} ${label()}`}
     </text>
   )
 }
