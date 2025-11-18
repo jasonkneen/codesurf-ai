@@ -57,8 +57,12 @@ export namespace BackgroundWorkers {
       await startPrefetchWorker()
     }
 
-    // Subscribe to file watcher events
-    Bus.subscribe(FileWatcher.Event.Updated, onFileChange)
+    // Subscribe to file watcher events (only if in Instance context)
+    try {
+      Bus.subscribe(FileWatcher.Event.Updated, onFileChange)
+    } catch (error) {
+      log.debug("Could not subscribe to file watcher events - not in Instance context", { error })
+    }
 
     log.info("Background workers initialized")
   }

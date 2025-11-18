@@ -36,7 +36,6 @@ import { UIExtensionsProvider, useUIExtensions } from "./context/ui-extensions"
 import { ArgsProvider } from "./context/args"
 import { TransitionAnimation } from "./component/transition-animation"
 import { ContextProvider } from "./context/context"
-import { BackgroundWorkers } from "@/worker/background-workers"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -440,18 +439,6 @@ function App() {
       variant: evt.properties.variant,
       duration: evt.properties.duration,
     })
-  })
-
-  // Initialize background workers
-  createEffect(() => {
-    if (sync.ready && route.data.type === "session") {
-      const sessionRoute = route.data as SessionRoute
-      BackgroundWorkers.init({
-        sessionID: sessionRoute.sessionID,
-        workingDirectory: process.cwd(),
-        validation: { enabled: true },
-      })
-    }
   })
 
   event.on(SessionApi.Event.Deleted.type, (evt) => {
