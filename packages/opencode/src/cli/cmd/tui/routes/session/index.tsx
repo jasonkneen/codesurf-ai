@@ -1887,7 +1887,7 @@ function UserMessage(props: {
         paddingTop={0}
         paddingBottom={1}
         paddingLeft={2}
-        marginTop={props.index === 0 ? 0 : 1}
+        marginTop={1}
         backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
         customBorderChars={SplitBorder.customBorderChars}
         borderColor={color()}
