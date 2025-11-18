@@ -2757,7 +2757,7 @@ function ToolBadge(props: { children: JSX.Element | string }) {
   })
 
   return (
-    <text fg={theme.accent} bg={theme.background}>
+    <text fg={theme.textMuted} bg={theme.background}>
       {`${icon()} ${label()}`}
     </text>
   )
