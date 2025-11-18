@@ -99,7 +99,6 @@ const MAX_TOOL_CHIPS = 30
 const context = createContext<{
   width: number
   conceal: () => boolean
-  showThinking: () => boolean
 }>()
 
 function use() {
@@ -1024,15 +1023,6 @@ export function Session() {
       },
     },
     {
-      title: "Toggle thinking blocks",
-      value: "session.toggle.thinking",
-      category: "Session",
-      onSelect: (dialog) => {
-        setShowThinking((prev) => !prev)
-        dialog.clear()
-      },
-    },
-    {
       title: "Page up",
       value: "session.page.up",
       keybind: "messages_page_up",
@@ -1218,7 +1208,6 @@ export function Session() {
           return contentWidth()
         },
         conceal,
-        showThinking,
       }}
     >
       <box flexDirection="row" paddingBottom={1} paddingTop={1} paddingLeft={2} paddingRight={2} gap={2}>
@@ -1826,7 +1815,7 @@ function MessageControls(props: {
     return order[(index + 1) % order.length]
   }
 
-  const colors: Record<"none" | "green" | "amber" | "red", string> = {
+  const colors = {
     none: theme.textMuted,
     green: theme.success,
     amber: theme.accent,
@@ -1843,15 +1832,8 @@ function MessageControls(props: {
         const next = nextPriority()
         setPriority(event, next)
       }}
-      style={{ cursor: "pointer" }}
     >
-      <text
-        fg={colors[props.priority ?? "none"]}
-        attributes={1}
-        paddingTop={1}
-        paddingRight={1}
-        style={{ fontSize: 18, lineHeight: 1 }}
-      >
+      <text fg={colors[props.priority ?? "none"]} attributes={1} paddingTop={1} paddingRight={1}>
         {props.priority === "none" ? "☆" : "★"}
       </text>
     </box>
@@ -1941,9 +1923,9 @@ function UserMessage(props: {
           </box>
           <Switch>
             <Match when={queued()}>
-              <text fg={theme.accent} marginTop={0}>
-                <span style={{ bg: theme.accent, fg: theme.backgroundPanel, bold: true }}> QUEUED </span>{" "}
-                {displayName()}
+              <text fg={theme.text} marginTop={0}>
+                {displayName()}{" "}
+                <span style={{ bg: theme.accent, fg: theme.backgroundPanel, bold: true }}> QUEUED </span>
               </text>
             </Match>
             <Match when={!queued()}>
@@ -2504,11 +2486,11 @@ function ToolPart(props: {
       return {
         border: ["left"] as const,
         paddingTop: 0,
-        paddingBottom: BLOCK_CONTAINER_PADDING,
+        paddingBottom: collapsedState ? 0 : BLOCK_CONTAINER_PADDING,
         paddingLeft,
         gap: collapsedState ? 0 : 1,
-        minHeight: BLOCK_CONTAINER_MIN_HEIGHT,
-        backgroundColor: theme.backgroundPanel,
+        minHeight: 1,
+        backgroundColor: collapsedState && !permission() ? undefined : theme.backgroundPanel,
         customBorderChars: SplitBorder.customBorderChars,
         borderColor: theme.background,
       } as BoxProps
@@ -2518,11 +2500,11 @@ function ToolPart(props: {
       customBorderChars: SplitBorder.customBorderChars,
       borderColor: theme.background,
       paddingLeft: inlineIndent,
-      paddingTop: BLOCK_CONTAINER_PADDING,
-      paddingBottom: BLOCK_CONTAINER_PADDING,
-      minHeight: BLOCK_CONTAINER_MIN_HEIGHT,
+      paddingTop: 0,
+      paddingBottom: 0,
+      minHeight: 1,
       gap: collapsedState ? 0 : 1,
-      backgroundColor: theme.backgroundPanel,
+      backgroundColor: undefined,
     } as BoxProps
   })
 
@@ -2755,13 +2737,12 @@ function ToolTitle(props: ToolTitleProps) {
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"
-      paddingLeft={1}
-      paddingRight={1}
+      paddingLeft={0}
+      paddingRight={0}
       paddingTop={0}
       paddingBottom={0}
       gap={1}
       width="100%"
-      backgroundColor={theme.backgroundPanel}
     >
       <box flexDirection="row" alignItems="center" gap={1} flexGrow={1} onMouseUp={(event) => handleToggle(event)}>
         <Show fallback={<text fg={theme.textMuted}>~ {props.fallback}</text>} when={props.when}>
@@ -3330,7 +3311,7 @@ toolRegistry.register<typeof AddTaskTool>({
             [{taskInput.subagent_type ?? "unknown"}] {taskInput.description}
           </text>
         </ToolTitle>
-          <Show when={!props.collapsed}>
+        <Show when={!props.collapsed}>
           <Show when={props.metadata.sessionId}>
             {(sessionId) => (
               <text
