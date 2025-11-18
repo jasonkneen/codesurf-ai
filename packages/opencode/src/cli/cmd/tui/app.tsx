@@ -444,8 +444,13 @@ function App() {
 
   // Initialize background workers
   createEffect(() => {
-    if (sync.ready) {
-      BackgroundWorkers.init({ validation: { enabled: true } })
+    if (sync.ready && route.data.type === "session") {
+      const sessionRoute = route.data as SessionRoute
+      BackgroundWorkers.init({
+        sessionID: sessionRoute.sessionID,
+        workingDirectory: process.cwd(),
+        validation: { enabled: true },
+      })
     }
   })
 

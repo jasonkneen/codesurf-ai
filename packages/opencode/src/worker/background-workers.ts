@@ -2,7 +2,6 @@ import { Bus } from "../bus"
 import { FileWatcher } from "../file/watcher"
 import { Rpc } from "../util/rpc"
 import { Log } from "../util/log"
-import { Instance } from "../project/instance"
 import { WorkerConfig } from "../config/worker-config"
 import z from "zod"
 
@@ -17,28 +16,37 @@ export namespace BackgroundWorkers {
     validation: WorkerConfig.BackgroundValidationInfo
     prefetch: WorkerConfig.PrefetchWorkerInfo
   } | null = null
+  let sessionID: string | null = null
+  let workingDirectory: string | null = null
 
   // Events for UI
   const ValidationStateEvent = Bus.event("validation.state.updated", z.any())
   const PrefetchStateEvent = Bus.event("prefetch.state.updated", z.any())
 
-  export async function init(userConfig?: {
+  export async function init(opts: {
+    sessionID: string
+    workingDirectory: string
     validation?: Partial<WorkerConfig.BackgroundValidationInfo>
     prefetch?: Partial<WorkerConfig.PrefetchWorkerInfo>
   }) {
     if (config) return
 
+    sessionID = opts.sessionID
+    workingDirectory = opts.workingDirectory
+
     const defaultValidation = WorkerConfig.BackgroundValidation.parse({})
     const defaultPrefetch = WorkerConfig.PrefetchWorker.parse({})
 
     config = {
-      validation: { ...defaultValidation, ...userConfig?.validation },
-      prefetch: { ...defaultPrefetch, ...userConfig?.prefetch },
+      validation: { ...defaultValidation, ...opts.validation },
+      prefetch: { ...defaultPrefetch, ...opts.prefetch },
     }
 
     log.info("Initializing background workers", {
       validation: config.validation.enabled,
       prefetch: config.prefetch.enabled,
+      sessionID,
+      workingDirectory,
     })
 
     if (config.validation.enabled) {
@@ -56,7 +64,7 @@ export namespace BackgroundWorkers {
   }
 
   async function startValidationWorker() {
-    if (!config) return
+    if (!config || !sessionID) return
 
     try {
       validationWorker = new Worker(new URL("../cli/cmd/tui/workers/background-validation.worker.ts", import.meta.url))
@@ -72,7 +80,7 @@ export namespace BackgroundWorkers {
 
       await validationClient.call("init", {
         serverUrl: "http://localhost:3000",
-        sessionID: Instance.project.id,
+        sessionID,
         commands: config.validation.commands,
         debounceMs: config.validation.debounceMs,
         include: config.validation.include,
@@ -86,7 +94,7 @@ export namespace BackgroundWorkers {
   }
 
   async function startPrefetchWorker() {
-    if (!config) return
+    if (!config || !sessionID || !workingDirectory) return
 
     try {
       prefetchWorker = new Worker(new URL("../cli/cmd/tui/workers/prefetch.worker.ts", import.meta.url))
@@ -102,11 +110,11 @@ export namespace BackgroundWorkers {
 
       await prefetchClient.call("init", {
         serverUrl: "http://localhost:3000",
-        sessionID: Instance.project.id,
+        sessionID,
         maxConcurrent: config.prefetch.maxConcurrent,
         maxCacheSize: config.prefetch.maxCacheSize,
         strategies: config.prefetch.strategies,
-        workingDirectory: Instance.directory,
+        workingDirectory,
       })
 
       log.info("Prefetch worker started")
