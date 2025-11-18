@@ -2527,7 +2527,7 @@ function ToolPart(props: {
           setMargin(0)
           return
         }
-        setMargin(1)
+        setMargin(0)
       }}
     >
       {createMemo(() => {
