@@ -2125,7 +2125,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
       >
         <box
           paddingLeft={2}
-          marginTop={-1}
+          marginTop={1}
           flexDirection="row"
           gap={1}
           border={["left"]}
