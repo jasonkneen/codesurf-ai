@@ -2763,8 +2763,8 @@ function ToolTitle(props: ToolTitleProps) {
 function ToolBadge(props: { children: JSX.Element | string }) {
   const { theme } = useTheme()
   const label = createMemo(() => {
-    if (typeof props.children === "string") return props.children.toUpperCase()
-    return String(props.children ?? "").toUpperCase()
+    if (typeof props.children === "string") return Locale.titlecase(props.children)
+    return Locale.titlecase(String(props.children ?? ""))
   })
   return (
     <text fg={theme.accent} bg={theme.background}>
