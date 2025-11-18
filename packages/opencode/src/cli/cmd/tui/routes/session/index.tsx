@@ -2023,7 +2023,7 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
       </box>
 
       <Show when={!collapsed()}>
-        <box paddingLeft={2} marginTop={1} gap={1}>
+        <box paddingLeft={2} marginTop={0} gap={0}>
           <For each={props.parts}>{(part) => <ToolPart part={part} message={props.message} indent={0} />}</For>
         </box>
       </Show>
@@ -2756,11 +2756,7 @@ function ToolBadge(props: { children: JSX.Element | string }) {
     return "•"
   })
 
-  return (
-    <text fg={theme.textMuted} bg={theme.background}>
-      {`${icon()} ${label()}`}
-    </text>
-  )
+  return <text fg={theme.textMuted}>{`${icon()} ${label()}`}</text>
 }
 
 toolRegistry.register<typeof BashTool>({
