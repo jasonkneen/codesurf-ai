@@ -594,7 +594,9 @@ export function Prompt(props: PromptProps) {
 
   async function handleDropFileTokens(value: string) {
     if (dropProcessing) return
-    const pattern = /(^|\s)([^[]+?)\[(?:Image|File) \d+\]/g
+    // Match file paths before [Image N] or [File N] tokens
+    // Path must look like: file://, /, ./, ../, ~/, or C:\ (Windows)
+    const pattern = /(^|\s)((?:file:\/\/|[~.]?\/|[A-Za-z]:[\\\/])[^\s[]*)\[(?:Image|File) \d+\]/g
     const matches = [...value.matchAll(pattern)]
     if (!matches.length) return
     dropProcessing = true
@@ -631,16 +633,28 @@ export function Prompt(props: PromptProps) {
           const end = getPos(pathEnd)
           input.deleteRange(start.row, start.col, end.row, end.col)
         } else {
-          // Text drop: delete match and attach
+          // Text drop: position cursor, delete old token, then attach at that position
           const rawPath = pathStr.trim()
           if (!rawPath) continue
 
+          // Calculate positions BEFORE any modifications
           const start = getPos(pathStart)
           const end = getPos(tokenEnd)
+
+          // Position cursor where we want the new badge to appear
+          input.cursorOffset = pathStart
+
+          // Delete the terminal-inserted path and token
           input.deleteRange(start.row, start.col, end.row, end.col)
 
-          input.cursorOffset = pathStart
-          await attachFilesFromCandidates([rawPath])
+          // Now attach at the cursor position (which is at pathStart)
+          const attached = await attachFilesFromCandidates([rawPath])
+
+          if (!attached) {
+            // If attachment failed, restore the original text
+            const originalText = fullMatch.substring(prefix.length)
+            input.insertText(originalText)
+          }
         }
       }
 
@@ -795,12 +809,12 @@ export function Prompt(props: PromptProps) {
 
                 const fileCandidates = extractFilePathCandidates(pastedContent)
                 if (fileCandidates.length) {
-                  event.preventDefault()
                   const attached = await attachFilesFromCandidates(fileCandidates)
-                  if (!attached) {
-                    input.insertText(rawContent)
+                  if (attached) {
+                    event.preventDefault()
+                    return
                   }
-                  return
+                  // If attachment failed, allow default paste behavior to continue
                 }
 
                 const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
