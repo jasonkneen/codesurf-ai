@@ -211,14 +211,18 @@ export const { use: useKanban, provider: KanbanProvider } = createSimpleContext(
             if (targetIndex < 0) return
             if (targetIndex >= draft.columns.length) return
 
-            // Move card
-            const [cardProxy] = fromColumn.cards.splice(draft.focus.card, 1)
+            // Move card - use explicit array filtering to ensure reactivity triggers
+            const cardProxy = fromColumn.cards[draft.focus.card]
             if (!cardProxy) return
 
-            // Clone to detach from proxy to prevent "ghost" artifacts in UI
+            // Clone to detach from proxy
             const card = JSON.parse(JSON.stringify(cardProxy))
 
+            // Remove from source by creating new array
+            fromColumn.cards = fromColumn.cards.filter((_, i) => i !== draft.focus.card)
+
             const toColumn = draft.columns[targetIndex]
+            // Add to target
             toColumn.cards.unshift(card)
 
             // Update WIP

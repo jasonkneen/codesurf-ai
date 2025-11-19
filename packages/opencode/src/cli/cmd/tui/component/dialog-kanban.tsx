@@ -92,8 +92,22 @@ export function DialogKanban() {
       typeof targetColumnIndex === "number" ? board.columns[targetColumnIndex] : board.columns[board.focus.column]
     if (!column) return
     const value = await DialogPrompt.show(dialog, `New card for ${column.title}`)
-    if (!value) return
-    actions.createCard(column.id, { title: value })
+    if (value) {
+      actions.createCard(column.id, { title: value })
+    }
+    // Restore kanban since prompt replaces it
+    dialog.replace(() => <DialogKanban />)
+  }
+
+  const editCard = async () => {
+    const card = activeCard()
+    if (!card) return
+    const value = await DialogPrompt.show(dialog, "Edit card", card.title)
+    if (value) {
+      actions.updateCard(card.id, { title: value })
+    }
+    // Restore kanban since prompt replaces it
+    dialog.replace(() => <DialogKanban />)
   }
 
   useKeyboard(async (evt) => {
@@ -131,6 +145,11 @@ export function DialogKanban() {
     if ((evt.name === "a" || evt.name === "n") && !evt.ctrl && !evt.meta) {
       evt.preventDefault()
       await createCard()
+      return
+    }
+    if (evt.name === "return") {
+      evt.preventDefault()
+      await editCard()
       return
     }
     if (evt.name === "c" && !evt.ctrl && !evt.meta) {
@@ -413,7 +432,9 @@ export function DialogKanban() {
           )}
         </Show>
         <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1}>
-          <text fg={theme.textMuted}>ctrl+←/→ move card · c toggle compact · a add card · enter closes prompt</text>
+          <text fg={theme.textMuted}>
+            ctrl+←/→ move card · enter edit · c toggle compact · a add card · enter closes prompt
+          </text>
         </box>
       </box>
     </box>
