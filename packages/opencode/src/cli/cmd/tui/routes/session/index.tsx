@@ -2049,7 +2049,9 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
 
       <Show when={!collapsed()}>
         <box paddingLeft={2} marginTop={0} gap={0} flexDirection="column">
-          <For each={props.parts}>{(part) => <ToolPart part={part} message={props.message} indent={0} />}</For>
+          <For each={props.parts}>
+            {(part) => <ToolPart part={part} message={props.message} indent={0} noBorder={true} />}
+          </For>
         </box>
       </Show>
     </box>
@@ -2529,6 +2531,7 @@ function ToolPart(props: {
   message: AssistantMessage
   indent?: number
   showPriorityControls?: boolean
+  noBorder?: boolean
 }) {
   const { theme } = useTheme()
   const sync = useSync()
@@ -2579,25 +2582,26 @@ function ToolPart(props: {
 
   const style = createMemo(() => {
     const collapsedState = collapsed()
+    const showBorder = !props.noBorder
     if (container === "block" || permission()) {
       const basePaddingLeft = 0
       const paddingLeft = isTaskTool ? 0 : basePaddingLeft
       return {
-        border: ["left"] as const,
+        border: showBorder ? (["left"] as const) : undefined,
         paddingTop: 0,
         paddingBottom: collapsedState ? 0 : BLOCK_CONTAINER_PADDING,
         paddingLeft,
         gap: collapsedState ? 0 : 1,
         minHeight: 1,
         backgroundColor: collapsedState && !permission() ? undefined : theme.backgroundPanel,
-        customBorderChars: SplitBorder.customBorderChars,
-        borderColor: theme.background,
+        customBorderChars: showBorder ? SplitBorder.customBorderChars : undefined,
+        borderColor: showBorder ? theme.background : undefined,
       } as BoxProps
     }
     return {
-      border: ["left"] as const,
-      customBorderChars: SplitBorder.customBorderChars,
-      borderColor: theme.background,
+      border: showBorder ? (["left"] as const) : undefined,
+      customBorderChars: showBorder ? SplitBorder.customBorderChars : undefined,
+      borderColor: showBorder ? theme.background : undefined,
       paddingLeft: inlineIndent,
       paddingTop: 0,
       paddingBottom: 0,

@@ -1061,7 +1061,7 @@ export function Sidebar(props: {
         {/* Tab Content */}
         <Show when={activeTab() === "tools"}>
           <Show when={toolsUsed().length > 0}>
-            <box marginTop={0}>
+            <box marginTop={0} flexDirection="column">
               <text
                 attributes={TextAttributes.BOLD}
                 onMouseUp={() => {
@@ -1072,37 +1072,31 @@ export function Sidebar(props: {
                 {expandedSections().has("toolsUsed") ? "▼" : "▶"} Tools Used {`(${toolsUsed().length})`}
               </text>
               <Show when={expandedSections().has("toolsUsed")}>
-                <For each={toolsUsed()}>
-                  {([toolName, count]) => {
-                    const isClaudeCode = toolName.startsWith("cc_")
-                    const star = createMemo(() => getStarIcon(toolName))
-                    return (
-                      <box flexDirection="row" gap={1} justifyContent="space-between">
-                        <box flexDirection="row" gap={1}>
-                          <text
-                            fg={star().color}
-                            onMouseUp={() => {
-                              if (renderer.getSelection()?.getSelectedText()) return
-                              cycleFavorite(toolName)
-                            }}
-                          >
-                            {star().icon}
-                          </text>
-                          <text
-                            fg={isClaudeCode ? theme.accent : theme.text}
-                            onMouseUp={() => {
-                              if (renderer.getSelection()?.getSelectedText()) return
-                              cycleFavorite(toolName)
-                            }}
-                          >
-                            {toolName}
-                          </text>
-                        </box>
-                        <text fg={theme.textMuted}>×{count}</text>
-                      </box>
-                    )
-                  }}
-                </For>
+                <box flexDirection="row" gap={1} flexWrap="wrap" rowGap={0}>
+                  <For each={toolsUsed()}>
+                    {([toolName, count]) => {
+                      const isClaudeCode = toolName.startsWith("cc_")
+                      const star = createMemo(() => getStarIcon(toolName))
+                      const isFavorite = createMemo(() => getFavoriteLevel(toolName) !== "none")
+
+                      return (
+                        <text
+                          attributes={TextAttributes.BOLD}
+                          bg="#FFFFFF"
+                          fg="#000000"
+                          paddingLeft={0}
+                          paddingRight={0}
+                          onMouseUp={() => {
+                            if (renderer.getSelection()?.getSelectedText()) return
+                            cycleFavorite(toolName)
+                          }}
+                        >
+                          {` ${toolName.toUpperCase()}${count > 1 ? `(${count})` : ""} `}
+                        </text>
+                      )
+                    }}
+                  </For>
+                </box>
               </Show>
             </box>
           </Show>
@@ -1407,9 +1401,9 @@ export function Sidebar(props: {
             </text>
           </box>
           <Show when={expandedSections().has("context")}>
-            <box flexDirection="column" gap={1}>
+            <box flexDirection="column" gap={0}>
               <Show when={contexts().length > 0}>
-                <box flexDirection="row" gap={1} flexWrap="wrap">
+                <box flexDirection="row" gap={0} flexWrap="wrap" rowGap={0}>
                   <For each={sortedContexts()}>
                     {(ctx) => {
                       const isIncluded = createMemo(() => activeContextIds().has(ctx.id))
