@@ -294,6 +294,20 @@ export function DialogSubagentAdd(props: { sessionID: string }) {
                   }}
                   initialValue={field.initialValue ?? ""}
                   placeholder={field.placeholder}
+                  onKeyDown={(evt: any) => {
+                    if (evt.name === "return" && evt.ctrl) {
+                      evt.preventDefault()
+                      void submit()
+                    }
+                    if (evt.name === "tab") {
+                      evt.preventDefault()
+                      if (evt.shift) {
+                        focusField((focusedIndex() - 1 + FIELD_CONFIG.length) % FIELD_CONFIG.length)
+                      } else {
+                        focusField((focusedIndex() + 1) % FIELD_CONFIG.length)
+                      }
+                    }
+                  }}
                 />
               </box>
             </box>
