@@ -14,6 +14,7 @@ import {
   type SetSessionModeResponse,
   type ToolCallContent,
   type ToolKind,
+  RequestError,
 } from "@agentclientprotocol/sdk"
 import { Log } from "../util/log"
 import { ACPSessionManager } from "./session"
@@ -660,6 +661,10 @@ export namespace ACP {
         case "compact":
           await this.config.sdk.session.summarize({
             path: { id: sessionID },
+            body: {
+              providerID: model.providerID,
+              modelID: model.modelID,
+            },
             throwOnError: true,
             query: {
               directory,

@@ -149,7 +149,7 @@ function init() {
       }
       batch(() => {
         setStore("size", "medium")
-        setStore("frame", { width: null, height: null })
+        setStore("frame", { width: null, height: null, left: null, top: null })
         setStore("stack", [])
       })
       refocus()
@@ -162,7 +162,7 @@ function init() {
         if (item.onClose) item.onClose()
       }
       setStore("size", "medium")
-      setStore("frame", { width: null, height: null })
+      setStore("frame", { width: null, height: null, left: null, top: null })
       setStore("stack", [
         {
           element: input,

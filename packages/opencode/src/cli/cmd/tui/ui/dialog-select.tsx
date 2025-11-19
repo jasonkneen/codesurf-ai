@@ -166,7 +166,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
       evt.sequence &&
       !["up", "down", "left", "right", "pageup", "pagedown", "return", "escape"].includes(name || "")
     ) {
-      if (input && !evt.ctrl && !evt.meta) {
+      if (input && !input.isDestroyed && !input.focused && !evt.ctrl && !evt.meta) {
         input.focus()
       }
     }
@@ -292,7 +292,11 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
             focusedTextColor={theme.textMuted}
             ref={(r) => {
               input = r
-              setTimeout(() => input.focus(), 1)
+              setTimeout(() => {
+                if (input && !input.isDestroyed) {
+                  input.focus()
+                }
+              }, 50)
             }}
             placeholder="Enter search term"
           />
