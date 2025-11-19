@@ -1293,13 +1293,7 @@ export function Session() {
         </Show>
 
         {/* Main Content */}
-        <box
-          flexGrow={1}
-          flexShrink={1}
-          gap={1}
-          justifyContent={bothSidebarsCollapsed() ? "center" : "flex-start"}
-          maxWidth={bothSidebarsCollapsed() ? 120 : undefined}
-        >
+        <box flexGrow={1} flexShrink={1} gap={1} justifyContent="flex-start" maxWidth={undefined}>
           <Show when={session()}>
             <Show when={session().parentID}>
               <box
