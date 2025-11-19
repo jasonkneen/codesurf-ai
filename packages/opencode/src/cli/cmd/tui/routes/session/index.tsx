@@ -53,6 +53,8 @@ import type { TaskTool } from "@/tool/task"
 import type { AddTaskTool } from "@/tool/add-task"
 import { useKeyboard, useRenderer, useTerminalDimensions, type BoxProps, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
+import { BackgroundWorkers } from "@/worker/background-workers"
+import { Instance } from "@/project/instance"
 
 import { useCommandDialog } from "@tui/component/dialog-command"
 import { Shimmer } from "@tui/ui/shimmer"
@@ -323,6 +325,16 @@ export function Session() {
   const kv = useKV()
   const { theme } = useTheme()
   const session = createMemo(() => sync.session.get(route.sessionID)!)
+
+  // Initialize background workers when entering a session
+  createEffect(() => {
+    BackgroundWorkers.init({
+      sessionID: route.sessionID,
+      workingDirectory: Instance.directory,
+      validation: { enabled: true },
+      prefetch: { enabled: false },
+    })
+  })
 
   // Track open session tabs
   const [openTabs, setOpenTabs] = createSignal<string[]>(kv.get("openTabs", []))
@@ -1887,7 +1899,7 @@ function UserMessage(props: {
         paddingTop={0}
         paddingBottom={1}
         paddingLeft={2}
-        marginTop={props.index === 0 ? 0 : 1}
+        marginTop={1}
         backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
         customBorderChars={SplitBorder.customBorderChars}
         borderColor={color()}
@@ -1998,7 +2010,7 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
   })
 
   return (
-    <box paddingLeft={3} marginTop={1}>
+    <box paddingLeft={3} marginTop={0} marginBottom={0}>
       <box
         flexDirection="row"
         gap={1}
@@ -2023,7 +2035,7 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
       </box>
 
       <Show when={!collapsed()}>
-        <box paddingLeft={2} marginTop={1} gap={1}>
+        <box paddingLeft={2} marginTop={0} gap={0} flexDirection="column">
           <For each={props.parts}>{(part) => <ToolPart part={part} message={props.message} indent={0} />}</For>
         </box>
       </Show>
@@ -2125,7 +2137,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
       >
         <box
           paddingLeft={2}
-          marginTop={-1}
+          marginTop={1}
           flexDirection="row"
           gap={1}
           border={["left"]}
@@ -2227,7 +2239,7 @@ function ReasoningPart(props: { part: ReasoningPart; message: AssistantMessage; 
   const showBody = createMemo(() => body().length > 0)
   return (
     <Show when={text()}>
-      <box id={"reasoning-" + props.part.id} marginTop={1} flexShrink={0}>
+      <box id={"reasoning-" + props.part.id} marginTop={previousIsReasoning() ? 0 : 1} flexShrink={0}>
         <box
           border={["left"]}
           customBorderChars={SplitBorder.customBorderChars}
@@ -2363,7 +2375,10 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
   const isFirstInMessage = createMemo(() => {
     const parts = ((props.message as any).parts as Part[] | undefined) ?? []
     const index = parts.findIndex((part) => part.id === props.part.id)
-    return index <= 0
+    if (index <= 0) return true
+    // Even if not first, don't add margin if previous part is also text
+    const prevPart = parts[index - 1]
+    return prevPart?.type === "text"
   })
 
   return (
@@ -2374,6 +2389,7 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
         paddingTop={1}
         paddingBottom={1}
         marginTop={isFirstInMessage() ? 0 : 1}
+        marginBottom={1}
         flexShrink={0}
         flexDirection="column"
       >
@@ -2543,27 +2559,7 @@ function ToolPart(props: {
   })
 
   return (
-    <box
-      marginTop={margin()}
-      width="100%"
-      {...style()}
-      renderBefore={function () {
-        const el = this as BoxRenderable
-        const parent = el.parent
-        if (!parent) {
-          setMargin(0)
-          return
-        }
-        const children = parent.getChildren()
-        const index = children.indexOf(el)
-        const previous = children[index - 1]
-        if (!previous) {
-          setMargin(0)
-          return
-        }
-        setMargin(1)
-      }}
-    >
+    <box marginTop={0} marginBottom={-1} width="100%" {...style()}>
       {createMemo(() => {
         const RenderComponent = render
         const isCollapsed = collapsed()
@@ -2797,14 +2793,20 @@ function ToolTitle(props: ToolTitleProps) {
 function ToolBadge(props: { children: JSX.Element | string }) {
   const { theme } = useTheme()
   const label = createMemo(() => {
-    if (typeof props.children === "string") return props.children.toUpperCase()
-    return String(props.children ?? "").toUpperCase()
+    if (typeof props.children === "string") return Locale.titlecase(props.children)
+    return Locale.titlecase(String(props.children ?? ""))
   })
-  return (
-    <text fg={theme.accent} bg={theme.background}>
-      {` ${label()} `}
-    </text>
-  )
+
+  const icon = createMemo(() => {
+    const text = label().toLowerCase()
+    if (text.includes("read")) return "→"
+    if (text.includes("write") || text.includes("edit") || text.includes("patch")) return "←"
+    if (text.includes("glob") || text.includes("grep") || text.includes("ls")) return "*"
+    if (text.includes("bash")) return ">"
+    return "•"
+  })
+
+  return <text fg={theme.textMuted}>{`${icon()} ${label()}`}</text>
 }
 
 toolRegistry.register<typeof BashTool>({

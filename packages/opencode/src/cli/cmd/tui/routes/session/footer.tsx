@@ -3,7 +3,7 @@ import { useDialog } from "@tui/ui/dialog"
 import { useRenderer } from "@opentui/solid"
 import { TextAttributes } from "@opentui/core"
 import { useLocal } from "../../context/local"
-import { Show, For, createSignal, onCleanup } from "solid-js"
+import { Show, For, createSignal, onCleanup, createEffect, createMemo } from "solid-js"
 import { Installation } from "@/installation"
 import { Global } from "@/global"
 import { DialogAgent } from "@tui/component/dialog-agent"
@@ -16,6 +16,178 @@ import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { Bus } from "@/bus"
 import z from "zod"
 import { BackgroundWorkers } from "@/worker/background-workers"
+import { readFileSync } from "fs"
+
+function WorkerDialog(props: { onClose: () => void }) {
+  const { theme } = useTheme()
+  const [validationLogs, setValidationLogs] = createSignal<string[]>([])
+  const [prefetchLogs, setPrefetchLogs] = createSignal<string[]>([])
+  const [activeTab, setActiveTab] = createSignal<"validation" | "prefetch">("validation")
+  const [scrollOffset, setScrollOffset] = createSignal(0)
+
+  // Load logs on mount
+  createEffect(() => {
+    try {
+      const content = readFileSync("/tmp/opencode-validation-worker.log", "utf-8")
+      const lines = content
+        .split("\n")
+        .filter((line) => line.trim())
+        .slice(-100) // Last 100 lines
+      setValidationLogs(lines)
+    } catch (e) {
+      setValidationLogs(["No validation logs yet"])
+    }
+
+    try {
+      const content = readFileSync("/tmp/opencode-prefetch-worker.log", "utf-8")
+      const lines = content
+        .split("\n")
+        .filter((line) => line.trim())
+        .slice(-100) // Last 100 lines
+      setPrefetchLogs(lines)
+    } catch (e) {
+      setPrefetchLogs(["No prefetch logs yet"])
+    }
+  })
+
+  const workerConfig = BackgroundWorkers.getConfig()
+  const logs = createMemo(() => (activeTab() === "validation" ? validationLogs() : prefetchLogs()))
+  const isEnabled = createMemo(() =>
+    activeTab() === "validation" ? workerConfig?.validation.enabled : workerConfig?.prefetch.enabled,
+  )
+
+  // Visible logs with scrolling
+  const logHeight = 12 // Fixed height for log area
+  const visibleLogs = createMemo(() => {
+    const allLogs = logs()
+    const offset = scrollOffset()
+    return allLogs.slice(Math.max(0, allLogs.length - logHeight - offset), allLogs.length - offset)
+  })
+
+  return (
+    <box flexDirection="column" width="80%" height={16} backgroundColor={theme.background} borderStyle="rounded">
+      {/* Header with tabs */}
+      <box flexDirection="row" gap={3} paddingLeft={2} paddingRight={2} paddingTop={1}>
+        <text
+          fg={activeTab() === "validation" ? theme.accent : theme.textMuted}
+          onMouseUp={() => {
+            setActiveTab("validation")
+            setScrollOffset(0)
+          }}
+          attributes={activeTab() === "validation" ? TextAttributes.BOLD : undefined}
+        >
+          Validation{" "}
+          <span
+            style={{
+              fg: workerConfig?.validation.enabled ? theme.success : theme.textMuted,
+            }}
+          >
+            {workerConfig?.validation.enabled ? "●" : "○"}
+          </span>
+        </text>
+        <text
+          fg={activeTab() === "prefetch" ? theme.accent : theme.textMuted}
+          onMouseUp={() => {
+            setActiveTab("prefetch")
+            setScrollOffset(0)
+          }}
+          attributes={activeTab() === "prefetch" ? TextAttributes.BOLD : undefined}
+        >
+          Prefetch{" "}
+          <span
+            style={{
+              fg: workerConfig?.prefetch.enabled ? theme.success : theme.textMuted,
+            }}
+          >
+            {workerConfig?.prefetch.enabled ? "●" : "○"}
+          </span>
+        </text>
+      </box>
+
+      {/* Log area - fixed height with scrolling */}
+      <box
+        flexDirection="column"
+        height={logHeight}
+        backgroundColor={theme.backgroundElement}
+        paddingLeft={2}
+        paddingRight={2}
+        paddingTop={1}
+        paddingBottom={1}
+      >
+        <For each={visibleLogs()}>
+          {(line) => (
+            <text fg={theme.textMuted} wrapMode="none">
+              {line.length > 75 ? line.substring(0, 75) + "…" : line}
+            </text>
+          )}
+        </For>
+      </box>
+
+      {/* Scroll indicators */}
+      <box flexDirection="row" gap={1} paddingLeft={2} paddingRight={2} height={1}>
+        <text
+          fg={scrollOffset() < logs().length - logHeight ? theme.accent : theme.textMuted}
+          onMouseUp={() => setScrollOffset(Math.min(scrollOffset() + 1, logs().length - logHeight))}
+        >
+          [↓]
+        </text>
+        <text
+          fg={scrollOffset() > 0 ? theme.accent : theme.textMuted}
+          onMouseUp={() => setScrollOffset(Math.max(scrollOffset() - 1, 0))}
+        >
+          [↑]
+        </text>
+        <text fg={theme.textMuted}>
+          {scrollOffset() + logHeight}/{logs().length}
+        </text>
+      </box>
+
+      {/* Controls */}
+      <box
+        flexDirection="row"
+        gap={2}
+        justifyContent="space-between"
+        paddingLeft={2}
+        paddingRight={2}
+        paddingBottom={1}
+        height={1}
+      >
+        <box flexDirection="row" gap={2}>
+          <text
+            fg={theme.accent}
+            onMouseUp={() => {
+              const currentEnabled = isEnabled() ?? false
+              if (activeTab() === "validation") {
+                BackgroundWorkers.updateConfig({
+                  validation: { enabled: !currentEnabled },
+                })
+              } else {
+                BackgroundWorkers.updateConfig({
+                  prefetch: { enabled: !currentEnabled },
+                })
+              }
+            }}
+          >
+            [{isEnabled() ? "Disable" : "Enable"}]
+          </text>
+          <text
+            fg={theme.accent}
+            onMouseUp={() => {
+              if (activeTab() === "validation") {
+                BackgroundWorkers.runValidationNow()
+              }
+            }}
+          >
+            [Run Now]
+          </text>
+        </box>
+        <text fg={theme.accent} onMouseUp={() => props.onClose()}>
+          [Close]
+        </text>
+      </box>
+    </box>
+  )
+}
 
 export function Footer() {
   const { theme } = useTheme()
@@ -79,11 +251,41 @@ export function Footer() {
 
   const showWorkerDialog = () => {
     const workerConfig = BackgroundWorkers.getConfig()
+
+    let validationLogs = "No logs yet"
+    let prefetchLogs = "No logs yet"
+
+    try {
+      validationLogs = readFileSync("/tmp/opencode-validation-worker.log", "utf-8")
+        .split("\n")
+        .filter((line) => line.trim())
+        .slice(-15)
+        .join("\n")
+    } catch (e) {
+      //
+    }
+
+    try {
+      prefetchLogs = readFileSync("/tmp/opencode-prefetch-worker.log", "utf-8")
+        .split("\n")
+        .filter((line) => line.trim())
+        .slice(-15)
+        .join("\n")
+    } catch (e) {
+      //
+    }
+
     const options: DialogSelectOption<string>[] = [
       {
-        title: workerConfig?.validation.enabled ? "Disable Validation" : "Enable Validation",
+        title: workerConfig?.validation.enabled ? "✓ Validation" : "  Validation",
+        value: "validation-status",
+        description: validationLogs,
+        onSelect: () => {},
+      },
+      {
+        title: "Toggle Validation",
         value: "toggle-validation",
-        description: "Toggle background lint/typecheck/codereview",
+        description: "Enable/disable background lint/typecheck/codereview",
         onSelect: (ctx) => {
           BackgroundWorkers.updateConfig({
             validation: { enabled: !(workerConfig?.validation.enabled ?? false) },
@@ -92,9 +294,15 @@ export function Footer() {
         },
       },
       {
-        title: workerConfig?.prefetch.enabled ? "Disable Prefetch" : "Enable Prefetch",
+        title: workerConfig?.prefetch.enabled ? "✓ Prefetch" : "  Prefetch",
+        value: "prefetch-status",
+        description: prefetchLogs,
+        onSelect: () => {},
+      },
+      {
+        title: "Toggle Prefetch",
         value: "toggle-prefetch",
-        description: "Toggle file prefetch caching",
+        description: "Enable/disable file prefetch caching",
         onSelect: (ctx) => {
           BackgroundWorkers.updateConfig({
             prefetch: { enabled: !(workerConfig?.prefetch.enabled ?? false) },
@@ -104,7 +312,7 @@ export function Footer() {
       },
     ]
 
-    dialog.replace(() => <DialogSelect title="Worker Services" options={options} />)
+    dialog.replace(() => <DialogSelect title="Background Workers" options={options} />)
   }
 
   return (
@@ -211,7 +419,6 @@ export function Footer() {
 
           return (
             <>
-             
               <text fg={local.agent.color(agentForColor)}></text>
               <text
                 bg={local.agent.color(agentForColor)}
@@ -223,7 +430,6 @@ export function Footer() {
                   dialog.replace(() => <DialogAgent />)
                 }}
               >
-                 
                 {(() => {
                   const agentName = (() => {
                     if (currentAgent && rootAgent && currentAgent !== rootAgent) {
