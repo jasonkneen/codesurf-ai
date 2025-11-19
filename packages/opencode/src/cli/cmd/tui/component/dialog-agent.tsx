@@ -1,19 +1,16 @@
 import { createMemo } from "solid-js"
 import { useLocal } from "@tui/context/local"
-import { useSync } from "@tui/context/sync"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
 import { useTheme } from "@tui/context/theme"
 
 export function DialogAgent() {
   const local = useLocal()
-  const sync = useSync()
   const dialog = useDialog()
   const { theme } = useTheme()
 
-
   const options = createMemo(() => {
-    const allAgents = sync.data.agent
+    const allAgents = local.agent.list()
     const primaryAgents = allAgents.filter((x) => x.mode !== "subagent")
     const subagents = allAgents.filter((x) => x.mode === "subagent")
 
@@ -43,10 +40,8 @@ export function DialogAgent() {
       options={options()}
       collapsibleDescriptions={true}
       onSelect={(option) => {
-        if (!option.disabled) {
-          local.agent.set(option.value)
-          dialog.clear()
-        }
+        local.agent.set(option.value)
+        dialog.clear()
       }}
     />
   )
