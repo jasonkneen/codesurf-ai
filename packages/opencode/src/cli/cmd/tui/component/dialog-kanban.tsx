@@ -5,8 +5,8 @@ import { useKanban, type KanbanCard } from "@tui/context/kanban"
 import { useDialog } from "@tui/ui/dialog"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
-import { DialogPrompt } from "../ui/dialog-prompt"
 import { DialogAlert } from "../ui/dialog-alert"
+import { DialogKanbanCardEditor } from "./DialogKanbanCardEditor"
 
 const LINK_ATTRS = TextAttributes.UNDERLINE
 
@@ -18,7 +18,7 @@ export function DialogKanban() {
   const { theme } = useTheme()
   const term = useTerminalDimensions()
   const renderer = useRenderer()
-  const { board, actions, ready } = useKanban()
+  const { board, actions } = useKanban()
 
   const layoutBounds = {
     minWidth: 80,
@@ -92,9 +92,9 @@ export function DialogKanban() {
     const column =
       typeof targetColumnIndex === "number" ? board.columns[targetColumnIndex] : board.columns[board.focus.column]
     if (!column) return
-    const value = await DialogPrompt.show(dialog, `New card for ${column.title}`)
-    if (value) {
-      actions.createCard(column.id, { title: value })
+    const data = await DialogKanbanCardEditor.show(dialog, `New card for ${column.title}`)
+    if (data) {
+      actions.createCard(column.id, data)
     }
     dialog.replace(() => <DialogKanban />)
   }
@@ -102,9 +102,9 @@ export function DialogKanban() {
   const editCard = async () => {
     const card = activeCard()
     if (!card) return
-    const value = await DialogPrompt.show(dialog, "Edit card", card.title)
-    if (value) {
-      actions.updateCard(card.id, { title: value })
+    const data = await DialogKanbanCardEditor.show(dialog, "Edit card", card)
+    if (data) {
+      actions.updateCard(card.id, data)
     }
     dialog.replace(() => <DialogKanban />)
   }

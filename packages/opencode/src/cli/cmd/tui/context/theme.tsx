@@ -30,6 +30,21 @@ import synthwave84 from "./theme/synthwave84.json" with { type: "json" }
 import tokyonight from "./theme/tokyonight.json" with { type: "json" }
 import vesper from "./theme/vesper.json" with { type: "json" }
 import zenburn from "./theme/zenburn.json" with { type: "json" }
+import cyberNexus from "./theme/cyber-nexus (codesurf).json" with { type: "json" }
+import obsidianDepths from "./theme/obsidian-depths (codesurf).json" with { type: "json" }
+import midnightForge from "./theme/midnight-forge (codesurf).json" with { type: "json" }
+import voidRunner from "./theme/void-runner (codesurf).json" with { type: "json" }
+import quantumShift from "./theme/quantum-shift (codesurf).json" with { type: "json" }
+import neonWave from "./theme/neon-wave (codesurf).json" with { type: "json" }
+import arcticNight from "./theme/arctic-night (codesurf).json" with { type: "json" }
+import sunsetCode from "./theme/sunset-code (codesurf).json" with { type: "json" }
+import emeraldTwilight from "./theme/emerald-twilight (codesurf).json" with { type: "json" }
+import crimsonSpark from "./theme/crimson-spark (codesurf).json" with { type: "json" }
+import deepOcean from "./theme/deep-ocean (codesurf).json" with { type: "json" }
+import phantomCode from "./theme/phantom-code (codesurf).json" with { type: "json" }
+import amberGlow from "./theme/amber-glow (codesurf).json" with { type: "json" }
+import galacticPurple from "./theme/galactic-purple (codesurf).json" with { type: "json" }
+import carbonSteel from "./theme/carbon-steel (codesurf).json" with { type: "json" }
 import { useKV } from "./kv"
 import { useRenderer } from "@opentui/solid"
 import { createStore, produce } from "solid-js/store"
@@ -103,32 +118,47 @@ type ThemeJson = {
 }
 
 export const DEFAULT_THEMES: Record<string, ThemeJson> = {
+  "amber-glow (codesurf)": amberGlow,
+  "arctic-night (codesurf)": arcticNight,
   aura,
   ayu,
+  "carbon-steel (codesurf)": carbonSteel,
   catppuccin,
   cobalt2,
   codesurf,
   "codesurf-blue": codesurfBlue,
   "codesurf-green": codesurfGreen,
   "codesurf-red": codesurfRed,
+  "crimson-spark (codesurf)": crimsonSpark,
+  "cyber-nexus (codesurf)": cyberNexus,
+  "deep-ocean (codesurf)": deepOcean,
   dracula,
+  "emerald-twilight (codesurf)": emeraldTwilight,
   everforest,
+  "galactic-purple (codesurf)": galacticPurple,
   github,
   gruvbox,
   kanagawa,
   material,
   matrix,
+  "midnight-forge (codesurf)": midnightForge,
   monokai,
+  "neon-wave (codesurf)": neonWave,
   nightowl,
   nord,
+  "obsidian-depths (codesurf)": obsidianDepths,
   ["one-dark"]: onedark,
   opencode,
   palenight,
+  "phantom-code (codesurf)": phantomCode,
+  "quantum-shift (codesurf)": quantumShift,
   rosepine,
   solarized,
+  "sunset-code (codesurf)": sunsetCode,
   synthwave84,
   tokyonight,
   vesper,
+  "void-runner (codesurf)": voidRunner,
   zenburn,
 }
 

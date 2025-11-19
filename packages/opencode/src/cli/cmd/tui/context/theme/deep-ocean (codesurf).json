@@ -1,0 +1,219 @@
+{
+  "$schema": "https://opencode.ai/theme.json",
+  "defs": {
+    "background": "#001824",
+    "backgroundPanel": "#0a202e",
+    "backgroundElement": "#112938",
+    "foreground": "#d4e6f1",
+    "foregroundMuted": "#85a1b3",
+    "oceanBlue": "#4dabf7",
+    "oceanCyan": "#3bc9db",
+    "oceanTeal": "#20c997",
+    "oceanNavy": "#5f8fd8",
+    "oceanAqua": "#66d9ef",
+    "oceanSky": "#74c0fc",
+    "oceanPurple": "#9775fa"
+  },
+  "theme": {
+    "primary": {
+      "dark": "oceanBlue",
+      "light": "#0277bd"
+    },
+    "secondary": {
+      "dark": "oceanPurple",
+      "light": "#5e35b1"
+    },
+    "accent": {
+      "dark": "oceanCyan",
+      "light": "#00838f"
+    },
+    "error": {
+      "dark": "#fa5252",
+      "light": "#d32f2f"
+    },
+    "warning": {
+      "dark": "#ffd43b",
+      "light": "#f57f17"
+    },
+    "success": {
+      "dark": "oceanTeal",
+      "light": "#2e7d32"
+    },
+    "info": {
+      "dark": "oceanAqua",
+      "light": "#0288d1"
+    },
+    "text": {
+      "dark": "foreground",
+      "light": "#001824"
+    },
+    "textMuted": {
+      "dark": "foregroundMuted",
+      "light": "#455a64"
+    },
+    "background": {
+      "dark": "background",
+      "light": "#fafafa"
+    },
+    "backgroundPanel": {
+      "dark": "backgroundPanel",
+      "light": "#f0f0f0"
+    },
+    "backgroundElement": {
+      "dark": "backgroundElement",
+      "light": "#e8e8e8"
+    },
+    "border": {
+      "dark": "#1a3545",
+      "light": "#d0d0d0"
+    },
+    "borderActive": {
+      "dark": "oceanCyan",
+      "light": "#00838f"
+    },
+    "borderSubtle": {
+      "dark": "#0f2832",
+      "light": "#e8e8e8"
+    },
+    "diffAdded": {
+      "dark": "oceanTeal",
+      "light": "#2e7d32"
+    },
+    "diffRemoved": {
+      "dark": "#fa5252",
+      "light": "#d32f2f"
+    },
+    "diffContext": {
+      "dark": "foregroundMuted",
+      "light": "#455a64"
+    },
+    "diffHunkHeader": {
+      "dark": "oceanPurple",
+      "light": "#5e35b1"
+    },
+    "diffHighlightAdded": {
+      "dark": "#3ce3ad",
+      "light": "#43a047"
+    },
+    "diffHighlightRemoved": {
+      "dark": "#ff6b6b",
+      "light": "#e53935"
+    },
+    "diffAddedBg": {
+      "dark": "#0a2820",
+      "light": "#e8f5e9"
+    },
+    "diffRemovedBg": {
+      "dark": "#280a12",
+      "light": "#ffebee"
+    },
+    "diffContextBg": {
+      "dark": "backgroundPanel",
+      "light": "#f0f0f0"
+    },
+    "diffLineNumber": {
+      "dark": "#1a3545",
+      "light": "#b0b0b0"
+    },
+    "diffAddedLineNumberBg": {
+      "dark": "#0a2820",
+      "light": "#e8f5e9"
+    },
+    "diffRemovedLineNumberBg": {
+      "dark": "#280a12",
+      "light": "#ffebee"
+    },
+    "markdownText": {
+      "dark": "foreground",
+      "light": "#001824"
+    },
+    "markdownHeading": {
+      "dark": "oceanSky",
+      "light": "#0277bd"
+    },
+    "markdownLink": {
+      "dark": "oceanBlue",
+      "light": "#0277bd"
+    },
+    "markdownLinkText": {
+      "dark": "oceanCyan",
+      "light": "#00838f"
+    },
+    "markdownCode": {
+      "dark": "oceanTeal",
+      "light": "#2e7d32"
+    },
+    "markdownBlockQuote": {
+      "dark": "foregroundMuted",
+      "light": "#455a64"
+    },
+    "markdownEmph": {
+      "dark": "oceanAqua",
+      "light": "#0288d1"
+    },
+    "markdownStrong": {
+      "dark": "oceanNavy",
+      "light": "#1565c0"
+    },
+    "markdownHorizontalRule": {
+      "dark": "#1a3545",
+      "light": "#d0d0d0"
+    },
+    "markdownListItem": {
+      "dark": "oceanBlue",
+      "light": "#0277bd"
+    },
+    "markdownListEnumeration": {
+      "dark": "oceanCyan",
+      "light": "#00838f"
+    },
+    "markdownImage": {
+      "dark": "oceanBlue",
+      "light": "#0277bd"
+    },
+    "markdownImageText": {
+      "dark": "oceanCyan",
+      "light": "#00838f"
+    },
+    "markdownCodeBlock": {
+      "dark": "foreground",
+      "light": "#001824"
+    },
+    "syntaxComment": {
+      "dark": "foregroundMuted",
+      "light": "#455a64"
+    },
+    "syntaxKeyword": {
+      "dark": "oceanPurple",
+      "light": "#5e35b1"
+    },
+    "syntaxFunction": {
+      "dark": "oceanBlue",
+      "light": "#0277bd"
+    },
+    "syntaxVariable": {
+      "dark": "foreground",
+      "light": "#001824"
+    },
+    "syntaxString": {
+      "dark": "oceanTeal",
+      "light": "#2e7d32"
+    },
+    "syntaxNumber": {
+      "dark": "#ffd43b",
+      "light": "#f57f17"
+    },
+    "syntaxType": {
+      "dark": "oceanAqua",
+      "light": "#0288d1"
+    },
+    "syntaxOperator": {
+      "dark": "oceanCyan",
+      "light": "#00838f"
+    },
+    "syntaxPunctuation": {
+      "dark": "foreground",
+      "light": "#001824"
+    }
+  }
+}

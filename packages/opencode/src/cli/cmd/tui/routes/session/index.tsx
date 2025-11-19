@@ -15,6 +15,8 @@ import {
   type Component,
 } from "solid-js"
 
+const DimFactorContext = createContext<() => number>(() => 1.0)
+
 import { Dynamic } from "solid-js/web"
 import path from "path"
 import { tmpdir } from "os"
@@ -1394,95 +1396,120 @@ export function Session() {
                       return toolParts.length > 0 && toolParts.every((p) => p.tool === "add_task")
                     })
 
+                    // Calculate dimming/fade effect for top 5 and bottom 2 messages
+                    const dimFactor = createMemo(() => {
+                      const totalMessages = messages().length
+                      const currentIndex = index()
+
+                      // Top 5 messages fade
+                      if (currentIndex < 5) {
+                        return 0.3 + (currentIndex / 5) * 0.7 // 0.3 to 1.0
+                      }
+
+                      // Bottom 2 messages fade
+                      if (currentIndex >= totalMessages - 2) {
+                        const fromBottom = totalMessages - 1 - currentIndex // 0 or 1
+                        return 0.3 + ((1 - fromBottom) / 2) * 0.7 // 0.65 or 0.3
+                      }
+
+                      return 1.0 // Full opacity for middle messages
+                    })
+
                     return (
-                      <Switch>
-                        <Match when={message.id === revert()?.messageID}>
-                          {(function () {
-                            const command = useCommandDialog()
-                            const [hover, setHover] = createSignal(false)
-                            const dialog = useDialog()
+                      <DimFactorContext.Provider value={dimFactor}>
+                        <Switch>
+                          <Match when={message.id === revert()?.messageID}>
+                            {(function () {
+                              const command = useCommandDialog()
+                              const [hover, setHover] = createSignal(false)
+                              const dialog = useDialog()
 
-                            const handleUnrevert = async () => {
-                              const confirmed = await DialogConfirm.show(
-                                dialog,
-                                "Confirm Redo",
-                                "Are you sure you want to restore the reverted messages?",
-                              )
-                              if (confirmed) {
-                                command.trigger("session.redo")
+                              const handleUnrevert = async () => {
+                                const confirmed = await DialogConfirm.show(
+                                  dialog,
+                                  "Confirm Redo",
+                                  "Are you sure you want to restore the reverted messages?",
+                                )
+                                if (confirmed) {
+                                  command.trigger("session.redo")
+                                }
                               }
-                            }
 
-                            return (
-                              <box
-                                onMouseOver={() => setHover(true)}
-                                onMouseOut={() => setHover(false)}
-                                onMouseUp={handleUnrevert}
-                                marginTop={1}
-                                flexShrink={0}
-                                border={["left"]}
-                                customBorderChars={SplitBorder.customBorderChars}
-                                borderColor={theme.backgroundPanel}
-                              >
+                              return (
                                 <box
-                                  paddingTop={1}
-                                  paddingBottom={1}
-                                  paddingLeft={2}
-                                  backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+                                  onMouseOver={() => setHover(true)}
+                                  onMouseOut={() => setHover(false)}
+                                  onMouseUp={handleUnrevert}
+                                  marginTop={1}
+                                  flexShrink={0}
+                                  border={["left"]}
+                                  customBorderChars={SplitBorder.customBorderChars}
+                                  borderColor={theme.backgroundPanel}
                                 >
-                                  <text fg={theme.textMuted}>{revert()!.reverted.length} message reverted</text>
-                                  <text fg={theme.textMuted}>
-                                    <span style={{ fg: theme.text }}>{keybind.print("messages_redo")}</span> or /redo to
-                                    restore
-                                  </text>
-                                  <Show when={revert()!.diffFiles?.length}>
-                                    <box marginTop={1}>
-                                      <For each={revert()!.diffFiles}>
-                                        {(file) => (
-                                          <text>
-                                            {file.filename}
-                                            <Show when={file.additions > 0}>
-                                              <span style={{ fg: theme.diffAdded }}> +{file.additions}</span>
-                                            </Show>
-                                            <Show when={file.deletions > 0}>
-                                              <span style={{ fg: theme.diffRemoved }}> -{file.deletions}</span>
-                                            </Show>
-                                          </text>
-                                        )}
-                                      </For>
-                                    </box>
-                                  </Show>
+                                  <box
+                                    paddingTop={1}
+                                    paddingBottom={1}
+                                    paddingLeft={2}
+                                    backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+                                  >
+                                    <text fg={theme.textMuted}>{revert()!.reverted.length} message reverted</text>
+                                    <text fg={theme.textMuted}>
+                                      <span style={{ fg: theme.text }}>{keybind.print("messages_redo")}</span> or /redo
+                                      to restore
+                                    </text>
+                                    <Show when={revert()!.diffFiles?.length}>
+                                      <box marginTop={1}>
+                                        <For each={revert()!.diffFiles}>
+                                          {(file) => (
+                                            <text>
+                                              {file.filename}
+                                              <Show when={file.additions > 0}>
+                                                <span style={{ fg: theme.diffAdded }}> +{file.additions}</span>
+                                              </Show>
+                                              <Show when={file.deletions > 0}>
+                                                <span style={{ fg: theme.diffRemoved }}> -{file.deletions}</span>
+                                              </Show>
+                                            </text>
+                                          )}
+                                        </For>
+                                      </box>
+                                    </Show>
+                                  </box>
                                 </box>
-                              </box>
-                            )
-                          })()}
-                        </Match>
-                        <Match when={revert()?.messageID && message.id >= revert()!.messageID}>
-                          <></>
-                        </Match>
-                        <Match when={message.role === "user" && !shouldHideUserMessage()}>
-                          <UserMessage
-                            index={index()}
-                            onMouseUp={() => {
-                              if (renderer.getSelection()?.getSelectedText()) return
-                              dialog.replace(() => <DialogMessage messageID={message.id} sessionID={route.sessionID} />)
-                            }}
-                            message={message as UserMessage}
-                            parts={messageParts()}
-                            pending={pending()}
-                          />
-                        </Match>
-                        <Match when={message.role === "user" && shouldHideUserMessage()}>
-                          <></>
-                        </Match>
-                        <Match when={message.role === "assistant"}>
-                          <AssistantMessage
-                            last={index() === messages().length - 1}
-                            message={message as AssistantMessage}
-                            parts={messageParts()}
-                          />
-                        </Match>
-                      </Switch>
+                              )
+                            })()}
+                          </Match>
+                          <Match when={revert()?.messageID && message.id >= revert()!.messageID}>
+                            <></>
+                          </Match>
+                          <Match when={message.role === "user" && !shouldHideUserMessage()}>
+                            <UserMessage
+                              index={index()}
+                              onMouseUp={() => {
+                                if (renderer.getSelection()?.getSelectedText()) return
+                                dialog.replace(() => (
+                                  <DialogMessage messageID={message.id} sessionID={route.sessionID} />
+                                ))
+                              }}
+                              message={message as UserMessage}
+                              parts={messageParts()}
+                              pending={pending()}
+                              dimFactor={dimFactor()}
+                            />
+                          </Match>
+                          <Match when={message.role === "user" && shouldHideUserMessage()}>
+                            <></>
+                          </Match>
+                          <Match when={message.role === "assistant"}>
+                            <AssistantMessage
+                              last={index() === messages().length - 1}
+                              message={message as AssistantMessage}
+                              parts={messageParts()}
+                              dimFactor={dimFactor()}
+                            />
+                          </Match>
+                        </Switch>
+                      </DimFactorContext.Provider>
                     )
                   }}
                 </For>
@@ -1724,34 +1751,34 @@ function PriorityCircles(props: {
     { key: "red", color: theme.error },
   ]
 
+  const currentColor = createMemo(() => {
+    if (props.priority === "green") return theme.success
+    if (props.priority === "amber") return theme.accent
+    if (props.priority === "red") return theme.error
+    return theme.backgroundElement
+  })
+
+  const cycleNext = () => {
+    const order: Array<"none" | "green" | "amber" | "red"> = ["none", "green", "amber", "red"]
+    const current = props.priority ?? "none"
+    const currentIndex = order.indexOf(current)
+    const nextIndex = (currentIndex + 1) % order.length
+    return order[nextIndex]
+  }
+
   return (
-    <box
-      flexDirection="row"
-      justifyContent={props.compact ? undefined : "flex-end"}
-      alignItems="center"
-      paddingRight={props.compact ? 0 : 1}
-      gap={props.compact ? 0 : 1}
+    <text
+      bg={currentColor()}
+      fg={props.priority ? theme.background : theme.textMuted}
+      paddingLeft={1}
+      paddingRight={1}
+      onMouseUp={(e) => {
+        e.stopPropagation()
+        setPriority(e, cycleNext())
+      }}
     >
-      <For each={items}>
-        {(item, index) => (
-          <box flexDirection="row" alignItems="center">
-            <text onMouseUp={(e) => setPriority(e, props.priority === item.key ? "none" : item.key)}>
-              <span
-                style={{
-                  fg: props.priority === item.key ? item.color : theme.textMuted,
-                  bold: true,
-                }}
-              >
-                {props.priority === item.key ? "●" : "○"}
-              </span>
-            </text>
-            <Show when={index() < items.length - 1}>
-              <text> </text>
-            </Show>
-          </box>
-        )}
-      </For>
-    </box>
+      {"  "}
+    </text>
   )
 }
 
@@ -1906,6 +1933,7 @@ function UserMessage(props: {
   onMouseUp: () => void
   index: number
   pending?: string
+  dimFactor?: number
 }) {
   const text = createMemo(() => props.parts.flatMap((x) => (x.type === "text" && !x.synthetic ? [x] : []))[0])
   const files = createMemo(() => props.parts.filter((part): part is FilePart => part.type === "file"))
@@ -1918,6 +1946,20 @@ function UserMessage(props: {
   const queued = createMemo(() => props.pending && props.message.id > props.pending)
   const color = createMemo(() => (queued() ? theme.info : theme.secondary))
   const displayName = createMemo(() => sync.data.config.username ?? "You")
+
+  const dimFactor = useContext(DimFactorContext)
+
+  const dimColor = (color: any) => {
+    const factor = dimFactor()
+    if (factor === 1.0) return color
+    if (color instanceof RGBA) {
+      return RGBA.fromValues(color.r, color.g, color.b, color.a * factor)
+    }
+    return color
+  }
+
+  const dimmedText = createMemo(() => dimColor(theme.text))
+  const dimmedTextMuted = createMemo(() => dimColor(theme.textMuted))
 
   const openAttachment = async (event: any, file: FilePart) => {
     event.stopPropagation()
@@ -1965,15 +2007,15 @@ function UserMessage(props: {
           <box flexDirection="row" alignItems="flex-start" justifyContent="space-between" gap={1}>
             <box flexDirection="column" flexGrow={1} gap={hasFiles() ? 1 : 0}>
               <Show when={!hasFiles()}>
-                <text fg={theme.text}>{text()?.text}</text>
+                <text fg={dimmedText()}>{text()?.text}</text>
               </Show>
               <Show when={hasFiles()}>
                 <box flexDirection="column" gap={0}>
                   <For each={files()}>
                     {(file) => (
-                      <text fg={theme.text} onMouseUp={(event) => void openAttachment(event, file)}>
-                        <span style={{ fg: theme.text, bold: true }}>{MIME_BADGE[file.mime] ?? file.mime}</span>{" "}
-                        <span style={{ fg: theme.textMuted }}>{file.filename ?? "attachment"}</span>
+                      <text fg={dimmedText()} onMouseUp={(event) => void openAttachment(event, file)}>
+                        <span style={{ fg: dimmedText(), bold: true }}>{MIME_BADGE[file.mime] ?? file.mime}</span>{" "}
+                        <span style={{ fg: dimmedTextMuted() }}>{file.filename ?? "attachment"}</span>
                       </text>
                     )}
                   </For>
@@ -1983,15 +2025,15 @@ function UserMessage(props: {
           </box>
           <Switch>
             <Match when={queued()}>
-              <text fg={theme.text} marginTop={0}>
+              <text fg={dimmedText()} marginTop={0}>
                 {displayName()}{" "}
                 <span style={{ bg: theme.accent, fg: theme.backgroundPanel, bold: true }}> QUEUED </span>
               </text>
             </Match>
             <Match when={!queued()}>
-              <text fg={theme.text} marginTop={0} style={{ justifyContent: "space-between" }}>
+              <text fg={dimmedText()} marginTop={0} style={{ justifyContent: "space-between" }}>
                 <span>{displayName()}</span>
-                <span style={{ fg: theme.textMuted }}> ({Locale.time(props.message.time.created)})</span>
+                <span style={{ fg: dimmedTextMuted() }}> ({Locale.time(props.message.time.created)})</span>
               </text>
             </Match>
           </Switch>
@@ -2104,10 +2146,20 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
   )
 }
 
-function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
+function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean; dimFactor?: number }) {
   const local = useLocal()
   const { theme } = useTheme()
   const route = useRouteData("session")
+  const dimFactor = useContext(DimFactorContext)
+
+  const dimColor = (color: any) => {
+    const factor = dimFactor()
+    if (factor === 1.0) return color
+    if (color instanceof RGBA) {
+      return RGBA.fromValues(color.r, color.g, color.b, color.a * factor)
+    }
+    return color
+  }
 
   // Get session status from SessionStatus module
   const status = createMemo(() => SessionStatus.get(route.sessionID))
@@ -2190,7 +2242,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
           customBorderChars={SplitBorder.customBorderChars}
           borderColor={theme.error}
         >
-          <text fg={theme.textMuted}>{props.message.error?.data.message}</text>
+          <text fg={dimColor(theme.textMuted)}>{props.message.error?.data.message}</text>
         </box>
       </Show>
       <Show
@@ -2865,24 +2917,20 @@ function ToolTitle(props: ToolTitleProps) {
     <box
       flexDirection="row"
       alignItems="center"
-      justifyContent="space-between"
       paddingLeft={0}
       paddingRight={0}
       paddingTop={0}
       paddingBottom={0}
       gap={1}
       width="100%"
+      onMouseUp={(event) => handleToggle(event)}
     >
-      <box flexDirection="row" alignItems="center" gap={1} flexGrow={1} onMouseUp={(event) => handleToggle(event)}>
-        <Show fallback={<text fg={theme.textMuted}>~ {props.fallback}</text>} when={props.when}>
-          <box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
-            {props.children}
-          </box>
-        </Show>
-      </box>
-      <Show when={props.trailing}>
-        <box flexDirection="row" alignItems="center" gap={0} flexShrink={0}>
-          <box alignItems="center">{props.trailing}</box>
+      <Show fallback={<text fg={theme.textMuted}>~ {props.fallback}</text>} when={props.when}>
+        <box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
+          {props.children}
+          <Show when={props.trailing}>
+            <box alignItems="center">{props.trailing}</box>
+          </Show>
         </box>
       </Show>
     </box>

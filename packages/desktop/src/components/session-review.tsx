@@ -1,3 +1,4 @@
+import { useLocal } from "@/context/local"
 import { useSession } from "@/context/session"
 import { FileIcon } from "@/ui"
 import { getDirectory, getFilename } from "@/utils"
@@ -5,10 +6,9 @@ import { Accordion, Button, Diff, DiffChanges, Icon, IconButton, Tooltip } from 
 import { For, Match, Show, Switch } from "solid-js"
 import { StickyAccordionHeader } from "./sticky-accordion-header"
 import { createStore } from "solid-js/store"
-import { useLayout } from "@/context/layout"
 
 export const SessionReview = (props: { split?: boolean; class?: string; hideExpand?: boolean }) => {
-  const layout = useLayout()
+  const local = useLocal()
   const session = useSession()
   const [store, setStore] = createStore({
     open: session.diffs().map((d) => d.file),
@@ -51,7 +51,7 @@ export const SessionReview = (props: { split?: boolean; class?: string; hideExpa
                 icon="expand"
                 variant="ghost"
                 onClick={() => {
-                  layout.review.tab()
+                  local.layout.review.tab()
                   session.layout.setActiveTab("review")
                 }}
               />

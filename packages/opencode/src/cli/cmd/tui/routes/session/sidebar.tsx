@@ -434,7 +434,20 @@ export function Sidebar(props: {
   }
 
   const toggleContext = (contextId: string) => {
+    const allContexts = contexts()
+    const context = allContexts.find((c) => c.id === contextId)
+    if (!context) return
+
+    const wasActive = activeContextIds().has(contextId)
     contextManager.toggleContext(contextId)
+
+    // Show toast notification
+    const action = wasActive ? "removed" : "added"
+    const preposition = wasActive ? "from" : "to"
+    toast.show({
+      variant: wasActive ? "info" : "success",
+      message: `Context "${context.name}" ${action} ${preposition} conversation`,
+    })
   }
 
   // Get child sessions reactively from sync.data (SSE-based, no polling)
@@ -1082,9 +1095,9 @@ export function Sidebar(props: {
 
                       return (
                         <text
-                          attributes={TextAttributes.BOLD}
-                          bg="#FFFFFF"
-                          fg="#000000"
+                          bg={isFavorite() ? theme.borderSubtle : theme.backgroundElement}
+                          fg={theme.textMuted}
+                          attributes={isFavorite() ? TextAttributes.BOLD : undefined}
                           paddingLeft={0}
                           paddingRight={0}
                           onMouseUp={() => {
@@ -1092,7 +1105,7 @@ export function Sidebar(props: {
                             cycleFavorite(toolName)
                           }}
                         >
-                          {` ${toolName.toUpperCase()}${count > 1 ? `(${count})` : ""} `}
+                          {`${star().icon} ${toolName.toLowerCase()}${count > 1 ? `(${count})` : ""} `}
                         </text>
                       )
                     }}
@@ -1124,11 +1137,10 @@ export function Sidebar(props: {
                   <For each={sync.data.lsp}>
                     {(item) => (
                       <text
-                        bg={item.status === "connected" ? theme.success : theme.error}
-                        fg={theme.background}
-                        attributes={TextAttributes.BOLD}
+                        bg={item.status === "connected" ? theme.borderSubtle : theme.backgroundElement}
+                        fg={theme.textMuted}
                       >
-                        {` ${item.id.toUpperCase()} `}
+                        {` ${item.id.toLowerCase()} `}
                       </text>
                     )}
                   </For>
@@ -1236,8 +1248,8 @@ export function Sidebar(props: {
                 <box flexDirection="row" gap={1} flexWrap="wrap" rowGap={0}>
                   <For each={uniquePlugins()}>
                     {(plugin) => (
-                      <text bg={theme.success} fg={theme.background} attributes={TextAttributes.BOLD}>
-                        {` ${plugin.name.toUpperCase()} `}
+                      <text bg={theme.backgroundElement} fg={theme.textMuted}>
+                        {` ${plugin.name.toLowerCase()} `}
                       </text>
                     )}
                   </For>
@@ -1390,9 +1402,9 @@ export function Sidebar(props: {
                           if (isManualPriority()) return theme.warning
                           return theme.accent
                         }
-                        if (isNegative()) return "#8B0000"
-                        if (isManualPriority()) return "#B8860B"
-                        return "#444444"
+                        if (isNegative()) return theme.backgroundElement
+                        if (isManualPriority()) return theme.backgroundElement
+                        return theme.backgroundElement
                       }
 
                       const getTextColor = () => {
@@ -1401,9 +1413,9 @@ export function Sidebar(props: {
                           return wasUsed() ? theme.text : theme.textMuted
                         }
                         if (isIncluded()) return theme.background
-                        if (isNegative()) return "#FFFFFF"
-                        if (isManualPriority()) return "#FFFFFF"
-                        return "#000000"
+                        if (isNegative()) return theme.textMuted
+                        if (isManualPriority()) return theme.textMuted
+                        return theme.textMuted
                       }
 
                       const attributes = () => {
@@ -1425,7 +1437,7 @@ export function Sidebar(props: {
                             toggleContext(ctx.id)
                           }}
                         >
-                          {` ${ctx.name.toUpperCase()}${usageCount() > 0 ? ` (${usageCount()})` : ""}${hasContent() ? "*" : ""} `}
+                          {` ${ctx.name.toLowerCase()}${usageCount() > 0 ? ` (${usageCount()})` : ""}${hasContent() ? "*" : ""} `}
                         </text>
                       )
                     }}
@@ -1464,7 +1476,7 @@ export function Sidebar(props: {
                 handleAddSubagent()
               }}
             >
-              + Add
+              + add
             </text>
           </box>
           <Show when={expandedSections().has("subagents")}>

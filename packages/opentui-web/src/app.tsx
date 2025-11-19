@@ -4,7 +4,6 @@ import { TerminalView } from "./components/TerminalViewNew"
 import { SDKProvider } from "./context/sdk"
 import { SyncProvider } from "./context/sync"
 import { BejazzleProvider } from "./context/bejazzle"
-import "./theme/terminal-theme.css"
 import "./theme/bejazzle.css"
 import "./theme/bejazzle-progressive.css"
 

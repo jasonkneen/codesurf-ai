@@ -20,7 +20,3 @@ dist
 /.claude.backup.*
 packages/opencode-kanban/
 /.claude/tsc-cache
-/result
-refs
-Session.vim
-opencode.json

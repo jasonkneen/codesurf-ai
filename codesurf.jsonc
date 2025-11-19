@@ -3,13 +3,14 @@
     "cc_computer_use",
     "write",
     "cc_bash",
-    "cc_glob",
-    "cc_grep",
     "add_memory",
     "todoread",
     "switch_mode",
     "glob",
-    "todowrite"
+    "todowrite",
+    "cc_read",
+    "cc_edit",
+    "bash"
   ],
   "$schema": "https://opencode.ai/config.json"
 }
