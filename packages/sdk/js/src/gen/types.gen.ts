@@ -379,13 +379,6 @@ export type EventMessagePartRemoved = {
   }
 }
 
-export type EventSessionCompacted = {
-  type: "session.compacted"
-  properties: {
-    sessionID: string
-  }
-}
-
 export type Permission = {
   id: string
   type: string
@@ -413,6 +406,42 @@ export type EventPermissionReplied = {
     sessionID: string
     permissionID: string
     response: string
+  }
+}
+
+export type SessionStatus =
+  | {
+      type: "idle"
+    }
+  | {
+      type: "retry"
+      attempt: number
+      message: string
+      next: number
+    }
+  | {
+      type: "busy"
+    }
+
+export type EventSessionStatus = {
+  type: "session.status"
+  properties: {
+    sessionID: string
+    status: SessionStatus
+  }
+}
+
+export type EventSessionIdle = {
+  type: "session.idle"
+  properties: {
+    sessionID: string
+  }
+}
+
+export type EventSessionCompacted = {
+  type: "session.compacted"
+  properties: {
+    sessionID: string
   }
 }
 
@@ -461,13 +490,6 @@ export type EventCommandExecuted = {
     sessionID: string
     arguments: string
     messageID: string
-  }
-}
-
-export type EventSessionIdle = {
-  type: "session.idle"
-  properties: {
-    sessionID: string
   }
 }
 
@@ -612,6 +634,16 @@ export type EventFileWatcherUpdated = {
   }
 }
 
+export type EventValidationStateUpdated = {
+  type: "validation.state.updated"
+  properties: unknown
+}
+
+export type EventPrefetchStateUpdated = {
+  type: "prefetch.state.updated"
+  properties: unknown
+}
+
 export type Event =
   | EventInstallationUpdated
   | EventLspClientDiagnostics
@@ -620,13 +652,14 @@ export type Event =
   | EventMessageRemoved
   | EventMessagePartUpdated
   | EventMessagePartRemoved
-  | EventSessionCompacted
   | EventPermissionUpdated
   | EventPermissionReplied
+  | EventSessionStatus
+  | EventSessionIdle
+  | EventSessionCompacted
   | EventFileEdited
   | EventTodoUpdated
   | EventCommandExecuted
-  | EventSessionIdle
   | EventSessionCreated
   | EventSessionUpdated
   | EventSessionDeleted
@@ -637,6 +670,8 @@ export type Event =
   | EventTuiToastShow
   | EventServerConnected
   | EventFileWatcherUpdated
+  | EventValidationStateUpdated
+  | EventPrefetchStateUpdated
 
 export type GlobalEvent = {
   directory: string
@@ -1117,33 +1152,37 @@ export type Config = {
   mcp?: {
     [key: string]: McpLocalConfig | McpRemoteConfig
   }
-  formatter?: {
-    [key: string]: {
-      disabled?: boolean
-      command?: Array<string>
-      environment?: {
-        [key: string]: string
-      }
-      extensions?: Array<string>
-    }
-  }
-  lsp?: {
-    [key: string]:
-      | {
-          disabled: true
-        }
-      | {
-          command: Array<string>
-          extensions?: Array<string>
+  formatter?:
+    | false
+    | {
+        [key: string]: {
           disabled?: boolean
-          env?: {
+          command?: Array<string>
+          environment?: {
             [key: string]: string
           }
-          initialization?: {
-            [key: string]: unknown
-          }
+          extensions?: Array<string>
         }
-  }
+      }
+  lsp?:
+    | false
+    | {
+        [key: string]:
+          | {
+              disabled: true
+            }
+          | {
+              command: Array<string>
+              extensions?: Array<string>
+              disabled?: boolean
+              env?: {
+                [key: string]: string
+              }
+              initialization?: {
+                [key: string]: unknown
+              }
+            }
+      }
   /**
    * Additional instruction files or patterns to include
    */
@@ -1261,6 +1300,52 @@ export type Config = {
    * List of favorite tool IDs that will be prioritized and shown at the top
    */
   favoriteTools?: Array<string>
+  /**
+   * Background validation worker configuration
+   */
+  backgroundValidation?: {
+    /**
+     * Enable background validation
+     */
+    enabled: boolean
+    /**
+     * Commands to run for validation
+     */
+    commands?: Array<string>
+    /**
+     * Debounce delay in milliseconds
+     */
+    debounceMs?: number
+    /**
+     * Glob patterns for files to include
+     */
+    include?: Array<string>
+    /**
+     * Glob patterns for files to exclude
+     */
+    exclude?: Array<string>
+  }
+  /**
+   * Prefetch worker configuration for caching file contents
+   */
+  prefetchWorker?: {
+    /**
+     * Enable prefetch worker
+     */
+    enabled: boolean
+    /**
+     * Maximum concurrent prefetch operations
+     */
+    maxConcurrent?: number
+    /**
+     * Maximum cache size in bytes
+     */
+    maxCacheSize?: number
+    /**
+     * Prefetch strategies to use
+     */
+    strategies?: Array<string>
+  }
 }
 
 export type BadRequestError = {
@@ -1269,6 +1354,58 @@ export type BadRequestError = {
     [key: string]: unknown
   }>
   success: false
+}
+
+export type Model = {
+  id: string
+  name: string
+  release_date: string
+  attachment: boolean
+  reasoning: boolean
+  temperature: boolean
+  tool_call: boolean
+  cost: {
+    input: number
+    output: number
+    cache_read?: number
+    cache_write?: number
+    context_over_200k?: {
+      input: number
+      output: number
+      cache_read?: number
+      cache_write?: number
+    }
+  }
+  limit: {
+    context: number
+    output: number
+  }
+  modalities?: {
+    input: Array<"text" | "audio" | "image" | "video" | "pdf">
+    output: Array<"text" | "audio" | "image" | "video" | "pdf">
+  }
+  experimental?: boolean
+  status?: "alpha" | "beta" | "deprecated"
+  options: {
+    [key: string]: unknown
+  }
+  headers?: {
+    [key: string]: string
+  }
+  provider?: {
+    npm: string
+  }
+}
+
+export type Provider = {
+  api?: string
+  name: string
+  env: Array<string>
+  id: string
+  npm?: string
+  models: {
+    [key: string]: Model
+  }
 }
 
 export type ToolIds = Array<string>
@@ -1336,58 +1473,6 @@ export type Command = {
   model?: string
   template: string
   subtask?: boolean
-}
-
-export type Model = {
-  id: string
-  name: string
-  release_date: string
-  attachment: boolean
-  reasoning: boolean
-  temperature: boolean
-  tool_call: boolean
-  cost: {
-    input: number
-    output: number
-    cache_read?: number
-    cache_write?: number
-    context_over_200k?: {
-      input: number
-      output: number
-      cache_read?: number
-      cache_write?: number
-    }
-  }
-  limit: {
-    context: number
-    output: number
-  }
-  modalities?: {
-    input: Array<"text" | "audio" | "image" | "video" | "pdf">
-    output: Array<"text" | "audio" | "image" | "video" | "pdf">
-  }
-  experimental?: boolean
-  status?: "alpha" | "beta" | "deprecated"
-  options: {
-    [key: string]: unknown
-  }
-  headers?: {
-    [key: string]: string
-  }
-  provider?: {
-    npm: string
-  }
-}
-
-export type Provider = {
-  api?: string
-  name: string
-  env: Array<string>
-  id: string
-  npm?: string
-  models: {
-    [key: string]: Model
-  }
 }
 
 export type Symbol = {
@@ -1633,6 +1718,29 @@ export type ConfigUpdateResponses = {
 
 export type ConfigUpdateResponse = ConfigUpdateResponses[keyof ConfigUpdateResponses]
 
+export type ConfigProvidersData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/config/providers"
+}
+
+export type ConfigProvidersResponses = {
+  /**
+   * List of providers
+   */
+  200: {
+    providers: Array<Provider>
+    default: {
+      [key: string]: string
+    }
+  }
+}
+
+export type ConfigProvidersResponse = ConfigProvidersResponses[keyof ConfigProvidersResponses]
+
 export type FavoriteToolsListData = {
   body?: never
   path?: never
@@ -1712,8 +1820,10 @@ export type FavoriteToolsGetLevelResponse = FavoriteToolsGetLevelResponses[keyof
 export type ToolIdsData = {
   body?: never
   path?: never
-  query?: {
+  query: {
     directory?: string
+    provider: string
+    model: string
   }
   url: "/experimental/tool/ids"
 }
@@ -1746,15 +1856,6 @@ export type ToolListData = {
   }
   url: "/experimental/tool"
 }
-
-export type ToolListErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-}
-
-export type ToolListError = ToolListErrors[keyof ToolListErrors]
 
 export type ToolListResponses = {
   /**
@@ -2203,9 +2304,6 @@ export type SessionShareResponse = SessionShareResponses[keyof SessionShareRespo
 export type SessionDiffData = {
   body?: never
   path: {
-    /**
-     * Session ID
-     */
     id: string
   }
   query?: {
@@ -2215,22 +2313,9 @@ export type SessionDiffData = {
   url: "/session/{id}/diff"
 }
 
-export type SessionDiffErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-  /**
-   * Not found
-   */
-  404: NotFoundError
-}
-
-export type SessionDiffError = SessionDiffErrors[keyof SessionDiffErrors]
-
 export type SessionDiffResponses = {
   /**
-   * List of diffs
+   * Successfully retrieved diff
    */
   200: Array<FileDiff>
 }
@@ -2329,6 +2414,11 @@ export type SessionPromptData = {
     tools?: {
       [key: string]: boolean
     }
+    context?: Array<{
+      id: string
+      name: string
+      content: string
+    }>
     parts: Array<TextPartInput | FilePartInput | AgentPartInput>
   }
   path: {
@@ -2703,29 +2793,6 @@ export type CommandListResponses = {
 
 export type CommandListResponse = CommandListResponses[keyof CommandListResponses]
 
-export type ConfigProvidersData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-  }
-  url: "/config/providers"
-}
-
-export type ConfigProvidersResponses = {
-  /**
-   * List of providers
-   */
-  200: {
-    providers: Array<Provider>
-    default: {
-      [key: string]: string
-    }
-  }
-}
-
-export type ConfigProvidersResponse = ConfigProvidersResponses[keyof ConfigProvidersResponses]
-
 export type FindTextData = {
   body?: never
   path?: never
@@ -2901,6 +2968,31 @@ export type AppLogResponses = {
 }
 
 export type AppLogResponse = AppLogResponses[keyof AppLogResponses]
+
+export type GitStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/git/status"
+}
+
+export type GitStatusResponses = {
+  /**
+   * Git status
+   */
+  200: {
+    branch: string
+    ahead: number
+    behind: number
+    modified: number
+    staged: number
+    untracked: number
+  }
+}
+
+export type GitStatusResponse = GitStatusResponses[keyof GitStatusResponses]
 
 export type AppAgentsData = {
   body?: never

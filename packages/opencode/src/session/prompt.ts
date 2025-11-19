@@ -110,6 +110,15 @@ export namespace SessionPrompt {
     noReply: z.boolean().optional(),
     system: z.string().optional(),
     tools: z.record(z.string(), z.boolean()).optional(),
+    context: z
+      .array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          content: z.string(),
+        }),
+      )
+      .optional(),
     parts: z.array(
       z.discriminatedUnion("type", [
         MessageV2.TextPart.omit({
@@ -294,6 +303,7 @@ export namespace SessionPrompt {
           signal: abort.signal,
         }),
         (messages) => insertReminders({ messages, agent }),
+        (messages) => replaceContextPlaceholders({ messages, context: input.context }),
       )
       lastMessages = msgs
       step++
@@ -842,6 +852,20 @@ export namespace SessionPrompt {
       model: context.model,
     }
 
+    const contextPlaceholder: MessageV2.Part[] =
+      input.context && input.context.length > 0
+        ? [
+            {
+              id: Identifier.ascending("part"),
+              messageID: info.id,
+              sessionID: input.sessionID,
+              type: "text" as const,
+              text: "{{CONTEXT_CHIPS}}",
+              synthetic: true,
+            },
+          ]
+        : []
+
     const parts = await Promise.all(
       input.parts.map(async (part): Promise<MessageV2.Part[]> => {
         if (part.type === "file") {
@@ -1078,6 +1102,8 @@ export namespace SessionPrompt {
       }),
     ).then((x) => x.flat())
 
+    const allParts = [...contextPlaceholder, ...parts]
+
     await Plugin.trigger(
       "chat.message",
       {
@@ -1088,18 +1114,18 @@ export namespace SessionPrompt {
       },
       {
         message: info,
-        parts,
+        parts: allParts,
       },
     )
 
     await Session.updateMessage(info)
-    for (const part of parts) {
+    for (const part of allParts) {
       await Session.updatePart(part)
     }
 
     return {
       info,
-      parts,
+      parts: allParts,
     }
   }
 
@@ -1128,6 +1154,35 @@ export namespace SessionPrompt {
       })
     }
     return input.messages
+  }
+
+  function replaceContextPlaceholders(input: {
+    messages: MessageV2.WithParts[]
+    context?: Array<{ id: string; name: string; content: string }>
+  }) {
+    return input.messages.map((msg) => {
+      const replacedParts = msg.parts
+        .map((part) => {
+          if (part.type === "text" && part.text === "{{CONTEXT_CHIPS}}") {
+            if (input.context && input.context.length > 0) {
+              return {
+                ...part,
+                text: input.context.map((ctx) => `Context: ${ctx.name}\n${ctx.content}`).join("\n\n"),
+                synthetic: true,
+              }
+            } else {
+              return null
+            }
+          }
+          return part
+        })
+        .filter(Boolean) as MessageV2.Part[]
+
+      return {
+        ...msg,
+        parts: replacedParts,
+      }
+    })
   }
 
   export type Processor = Awaited<ReturnType<typeof createProcessor>>

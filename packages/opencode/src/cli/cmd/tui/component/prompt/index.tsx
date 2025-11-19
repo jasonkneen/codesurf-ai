@@ -317,14 +317,6 @@ export function Prompt(props: PromptProps) {
             return shouldIncludeConditionalContext(ctx, props.sessionID!)
           })
         : []
-    const contextParts =
-      props.sessionID && activeContexts.length > 0
-        ? activeContexts.map((ctx) => ({
-            id: Identifier.ascending("part"),
-            type: "text" as const,
-            text: `Context: ${ctx.name}\n${ctx.content}`,
-          }))
-        : []
 
     if (store.mode === "shell") {
       sdk.client.session.shell({
@@ -404,8 +396,15 @@ export function Prompt(props: PromptProps) {
           messageID,
           agent: currentAgent.name,
           model: currentModel,
+          context:
+            activeContexts.length > 0
+              ? activeContexts.map((ctx) => ({
+                  id: ctx.id,
+                  name: ctx.name,
+                  content: ctx.content,
+                }))
+              : undefined,
           parts: [
-            ...contextParts,
             {
               id: Identifier.ascending("part"),
               type: "text",

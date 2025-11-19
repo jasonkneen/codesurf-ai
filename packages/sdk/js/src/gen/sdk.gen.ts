@@ -13,6 +13,8 @@ import type {
   ConfigUpdateData,
   ConfigUpdateResponses,
   ConfigUpdateErrors,
+  ConfigProvidersData,
+  ConfigProvidersResponses,
   FavoriteToolsListData,
   FavoriteToolsListResponses,
   FavoriteToolsCycleData,
@@ -25,7 +27,6 @@ import type {
   ToolIdsErrors,
   ToolListData,
   ToolListResponses,
-  ToolListErrors,
   PathGetData,
   PathGetResponses,
   SessionListData,
@@ -67,7 +68,6 @@ import type {
   SessionShareErrors,
   SessionDiffData,
   SessionDiffResponses,
-  SessionDiffErrors,
   SessionSummarizeData,
   SessionSummarizeResponses,
   SessionSummarizeErrors,
@@ -103,8 +103,6 @@ import type {
   PostSessionIdPermissionsPermissionIdErrors,
   CommandListData,
   CommandListResponses,
-  ConfigProvidersData,
-  ConfigProvidersResponses,
   FindTextData,
   FindTextResponses,
   FindFilesData,
@@ -120,6 +118,8 @@ import type {
   AppLogData,
   AppLogResponses,
   AppLogErrors,
+  GitStatusData,
+  GitStatusResponses,
   AppAgentsData,
   AppAgentsResponses,
   McpStatusData,
@@ -318,10 +318,10 @@ class FavoriteTools extends _HeyApiClient {
 
 class Tool extends _HeyApiClient {
   /**
-   * List all tool IDs (including built-in and dynamically registered)
+   * List all tool IDs for a provider/model (including built-in and dynamically registered)
    */
-  public ids<ThrowOnError extends boolean = false>(options?: Options<ToolIdsData, ThrowOnError>) {
-    return (options?.client ?? this._client).get<ToolIdsResponses, ToolIdsErrors, ThrowOnError>({
+  public ids<ThrowOnError extends boolean = false>(options: Options<ToolIdsData, ThrowOnError>) {
+    return (options.client ?? this._client).get<ToolIdsResponses, ToolIdsErrors, ThrowOnError>({
       url: "/experimental/tool/ids",
       ...options,
     })
@@ -331,7 +331,7 @@ class Tool extends _HeyApiClient {
    * List tools with JSON schema parameters for a provider/model
    */
   public list<ThrowOnError extends boolean = false>(options: Options<ToolListData, ThrowOnError>) {
-    return (options.client ?? this._client).get<ToolListResponses, ToolListErrors, ThrowOnError>({
+    return (options.client ?? this._client).get<ToolListResponses, unknown, ThrowOnError>({
       url: "/experimental/tool",
       ...options,
     })
@@ -502,10 +502,10 @@ class Session extends _HeyApiClient {
   }
 
   /**
-   * Get the diff for this session
+   * Get the diff that resulted from this user message
    */
   public diff<ThrowOnError extends boolean = false>(options: Options<SessionDiffData, ThrowOnError>) {
-    return (options.client ?? this._client).get<SessionDiffResponses, SessionDiffErrors, ThrowOnError>({
+    return (options.client ?? this._client).get<SessionDiffResponses, unknown, ThrowOnError>({
       url: "/session/{id}/diff",
       ...options,
     })
@@ -745,6 +745,18 @@ class App extends _HeyApiClient {
   public agents<ThrowOnError extends boolean = false>(options?: Options<AppAgentsData, ThrowOnError>) {
     return (options?.client ?? this._client).get<AppAgentsResponses, unknown, ThrowOnError>({
       url: "/agent",
+      ...options,
+    })
+  }
+}
+
+class Git extends _HeyApiClient {
+  /**
+   * Get git repository status
+   */
+  public status<ThrowOnError extends boolean = false>(options?: Options<GitStatusData, ThrowOnError>) {
+    return (options?.client ?? this._client).get<GitStatusResponses, unknown, ThrowOnError>({
+      url: "/git/status",
       ...options,
     })
   }
@@ -1093,6 +1105,7 @@ export class OpencodeClient extends _HeyApiClient {
   find = new Find({ client: this._client })
   file = new File({ client: this._client })
   app = new App({ client: this._client })
+  git = new Git({ client: this._client })
   mcp = new Mcp({ client: this._client })
   lsp = new Lsp({ client: this._client })
   formatter = new Formatter({ client: this._client })
