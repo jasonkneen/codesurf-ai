@@ -3,6 +3,7 @@ import { describeRoute, validator } from "hono-openapi"
 import { resolver } from "hono-openapi"
 import z from "zod"
 import { Log } from "../../util/log"
+import { Perf } from "../../util/perf"
 import { Agent } from "../../agent/agent"
 import { Auth } from "../../auth"
 import { LSP } from "../../lsp"
@@ -288,6 +289,82 @@ export function logRoutes() {
       }
 
       return c.json(true)
+    },
+  )
+
+  return router
+}
+
+export function perfRoutes() {
+  const router = new Hono()
+
+  router.get(
+    "/metrics",
+    describeRoute({
+      description: "Get performance metrics",
+      operationId: "perf.metrics",
+      responses: {
+        200: {
+          description: "Performance metrics",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.array(
+                  z.object({
+                    name: z.string(),
+                    count: z.number(),
+                    totalTime: z.number(),
+                    avgTime: z.number(),
+                    minTime: z.number(),
+                    maxTime: z.number(),
+                    lastCall: z.number(),
+                    memoryDelta: z.number().optional(),
+                    asyncWaitTime: z.number().optional(),
+                    cpuTime: z.number().optional(),
+                  }),
+                ),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const metrics = Perf.getMetrics()
+      return c.json(metrics)
+    },
+  )
+
+  router.get(
+    "/bottlenecks",
+    describeRoute({
+      description: "Get performance bottlenecks",
+      operationId: "perf.bottlenecks",
+      responses: {
+        200: {
+          description: "Performance bottlenecks (functions >100ms)",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.array(
+                  z.object({
+                    name: z.string(),
+                    count: z.number(),
+                    avgTime: z.number(),
+                    totalTime: z.number(),
+                    memoryDelta: z.number().optional(),
+                  }),
+                ),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const threshold = c.req.query("threshold")
+      const bottlenecks = Perf.detectBottlenecks(threshold ? parseInt(threshold) : 100)
+      return c.json(bottlenecks)
     },
   )
 

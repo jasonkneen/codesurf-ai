@@ -55,7 +55,13 @@ export const ModelPicker: Component<ModelPickerProps> = (props) => {
   }
 
   const groupedModels = () => {
-    return groupModelsByProvider(filteredModels())
+    const groups = groupModelsByProvider(filteredModels())
+    let currentIndex = 0
+    return groups.map((group) => {
+      const startIndex = currentIndex
+      currentIndex += group.models.length
+      return { ...group, startIndex }
+    })
   }
 
   // Flatten models for keyboard navigation
@@ -105,9 +111,6 @@ export const ModelPicker: Component<ModelPickerProps> = (props) => {
     setSearchTerm(value)
     setSelectedIndex(0)
   }
-
-  // Track current index for models in flat list
-  let currentIndex = 0
 
   return (
     <Show when={props.isOpen}>
@@ -213,8 +216,6 @@ export const ModelPicker: Component<ModelPickerProps> = (props) => {
             >
               <For each={groupedModels()}>
                 {(group) => {
-                  const groupStartIndex = currentIndex
-                  currentIndex += group.models.length
                   return (
                     <div style={{ "margin-bottom": "0.25em" }}>
                       {/* Provider header */}
@@ -231,7 +232,7 @@ export const ModelPicker: Component<ModelPickerProps> = (props) => {
                       {/* Group models */}
                       <For each={group.models}>
                         {(model, index) => {
-                          const modelIndex = groupStartIndex + index()
+                          const modelIndex = group.startIndex + index()
                           const isSelected = () => selectedIndex() === modelIndex
                           const isCurrent = () => props.currentModelId === model.id
                           return (

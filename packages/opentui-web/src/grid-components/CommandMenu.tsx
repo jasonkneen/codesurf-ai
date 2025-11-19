@@ -283,7 +283,12 @@ export const CommandMenu: Component<CommandMenuProps> = (props) => {
       groups.get(cmd.group)!.push(cmd)
     })
 
-    return Array.from(groups.entries())
+    let currentIndex = 0
+    return Array.from(groups.entries()).map(([name, commands]) => {
+      const startIndex = currentIndex
+      currentIndex += commands.length
+      return { name, commands, startIndex }
+    })
   }
 
   const handleSelect = (command: Command) => {
@@ -329,9 +334,6 @@ export const CommandMenu: Component<CommandMenuProps> = (props) => {
     setSearchTerm(value)
     setSelectedIndex(0)
   }
-
-  // Track current index for commands in flat list
-  let currentIndex = 0
 
   return (
     <Show when={props.isOpen}>
@@ -426,9 +428,7 @@ export const CommandMenu: Component<CommandMenuProps> = (props) => {
               }
             >
               <For each={groupedCommands()}>
-                {([groupName, groupCommands]) => {
-                  const groupStartIndex = currentIndex
-                  currentIndex += groupCommands.length
+                {(group) => {
                   return (
                     <div style={{ "margin-bottom": "0.5em" }}>
                       {/* Group header */}
@@ -440,13 +440,13 @@ export const CommandMenu: Component<CommandMenuProps> = (props) => {
                           "font-weight": "bold",
                         }}
                       >
-                        {groupName}
+                        {group.name}
                       </div>
 
                       {/* Group commands */}
-                      <For each={groupCommands}>
+                      <For each={group.commands}>
                         {(cmd, index) => {
-                          const cmdIndex = groupStartIndex + index()
+                          const cmdIndex = group.startIndex + index()
                           const isSelected = () => selectedIndex() === cmdIndex
                           return (
                             <div

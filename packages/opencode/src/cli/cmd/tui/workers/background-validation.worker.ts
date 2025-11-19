@@ -93,16 +93,27 @@ function shouldValidateFile(filePath: string): boolean {
 }
 
 async function executeValidation(task: ValidationTask): Promise<ValidationResult[]> {
-  await logWorker(`Executing validation task ${task.id} with ${task.commands.length} commands`)
-  const results: ValidationResult[] = []
+  await logWorker(`Executing validation task ${task.id} with ${task.commands.length} commands in parallel`)
 
-  for (const command of task.commands) {
+  const abortController = new AbortController()
+  let firstFailure: ValidationResult | null = null
+
+  // Execute all commands in parallel
+  const commandPromises = task.commands.map(async (command) => {
     const startTime = Date.now()
+
     try {
       await logWorker(`Running: ${command}`)
-      const result = await $`sh -c ${command}`.quiet().nothrow()
 
+      // Check if already aborted
+      if (abortController.signal.aborted) {
+        await logWorker(`Command aborted: ${command}`)
+        return null
+      }
+
+      const result = await $`sh -c ${command}`.quiet().nothrow()
       const duration = Date.now() - startTime
+
       const validationResult: ValidationResult = {
         command,
         exitCode: result.exitCode,
@@ -111,27 +122,47 @@ async function executeValidation(task: ValidationTask): Promise<ValidationResult
         duration,
       }
 
-      results.push(validationResult)
       await logWorker(`Command completed: exit ${result.exitCode}, duration ${duration}ms`)
 
-      // Stop on first failure for faster feedback
-      if (result.exitCode !== 0) {
-        await logWorker(`Validation failed on command: ${command}`)
-        break
+      // Fail-fast: abort other commands on first failure
+      if (result.exitCode !== 0 && !firstFailure) {
+        firstFailure = validationResult
+        await logWorker(`Validation failed on command: ${command}, aborting remaining commands`)
+        abortController.abort()
       }
+
+      return validationResult
     } catch (error) {
       const duration = Date.now() - startTime
-      results.push({
+      const validationResult: ValidationResult = {
         command,
         exitCode: -1,
         stdout: "",
         stderr: error instanceof Error ? error.message : String(error),
         duration,
-      })
+      }
+
       await logWorker(`Command error: ${error}`)
-      break
+
+      // Fail-fast on exception
+      if (!firstFailure) {
+        firstFailure = validationResult
+        abortController.abort()
+      }
+
+      return validationResult
     }
-  }
+  })
+
+  // Wait for all commands to complete or abort
+  const settled = await Promise.allSettled(commandPromises)
+
+  // Extract results, filtering out null values from aborted commands
+  const results: ValidationResult[] = settled
+    .map((s) => (s.status === "fulfilled" ? s.value : null))
+    .filter((r): r is ValidationResult => r !== null)
+
+  await logWorker(`Parallel validation completed with ${results.length} results`)
 
   return results
 }

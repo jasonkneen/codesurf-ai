@@ -89,7 +89,13 @@ export const SessionPicker: Component<SessionPickerProps> = (props) => {
   }
 
   const groupedSessions = () => {
-    return groupSessionsByDate(filteredSessions())
+    const groups = groupSessionsByDate(filteredSessions())
+    let currentIndex = 0
+    return groups.map((group) => {
+      const startIndex = currentIndex
+      currentIndex += group.sessions.length
+      return { ...group, startIndex }
+    })
   }
 
   // Flatten sessions for keyboard navigation
@@ -151,9 +157,6 @@ export const SessionPicker: Component<SessionPickerProps> = (props) => {
     setSearchTerm(value)
     setSelectedIndex(0)
   }
-
-  // Track current index for sessions in flat list
-  let currentIndex = 0
 
   return (
     <Show when={props.isOpen}>
@@ -259,8 +262,6 @@ export const SessionPicker: Component<SessionPickerProps> = (props) => {
             >
               <For each={groupedSessions()}>
                 {(group) => {
-                  const groupStartIndex = currentIndex
-                  currentIndex += group.sessions.length
                   return (
                     <div style={{ "margin-bottom": "0.25em" }}>
                       {/* Date header */}
@@ -277,7 +278,7 @@ export const SessionPicker: Component<SessionPickerProps> = (props) => {
                       {/* Group sessions */}
                       <For each={group.sessions}>
                         {(session, index) => {
-                          const sessionIndex = groupStartIndex + index()
+                          const sessionIndex = group.startIndex + index()
                           const isSelected = () => selectedIndex() === sessionIndex
                           const isCurrent = () => props.currentSessionId === session.id
                           return (

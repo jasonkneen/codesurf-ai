@@ -22,11 +22,14 @@ function WorkerDialog(props: { onClose: () => void }) {
   const { theme } = useTheme()
   const [validationLogs, setValidationLogs] = createSignal<string[]>([])
   const [prefetchLogs, setPrefetchLogs] = createSignal<string[]>([])
+  const [validationState, setValidationState] = createSignal<any>(null)
+  const [prefetchState, setPrefetchState] = createSignal<any>(null)
   const [activeTab, setActiveTab] = createSignal<"validation" | "prefetch">("validation")
   const [scrollOffset, setScrollOffset] = createSignal(0)
+  const [autoScroll, setAutoScroll] = createSignal(true)
 
-  // Load logs on mount
-  createEffect(() => {
+  // Load logs and refresh every 500ms for real-time updates
+  const loadLogs = () => {
     try {
       const content = readFileSync("/tmp/opencode-validation-worker.log", "utf-8")
       const lines = content
@@ -34,6 +37,7 @@ function WorkerDialog(props: { onClose: () => void }) {
         .filter((line) => line.trim())
         .slice(-100) // Last 100 lines
       setValidationLogs(lines)
+      if (autoScroll()) setScrollOffset(0)
     } catch (e) {
       setValidationLogs(["No validation logs yet"])
     }
@@ -45,10 +49,22 @@ function WorkerDialog(props: { onClose: () => void }) {
         .filter((line) => line.trim())
         .slice(-100) // Last 100 lines
       setPrefetchLogs(lines)
+      if (autoScroll()) setScrollOffset(0)
     } catch (e) {
       setPrefetchLogs(["No prefetch logs yet"])
     }
-  })
+
+    // Load worker states
+    BackgroundWorkers.getValidationState().then((state) => setValidationState(state))
+    BackgroundWorkers.getPrefetchState().then((state) => setPrefetchState(state))
+  }
+
+  // Initial load
+  loadLogs()
+
+  // Auto-refresh every 500ms
+  const interval = setInterval(loadLogs, 500)
+  onCleanup(() => clearInterval(interval))
 
   const workerConfig = BackgroundWorkers.getConfig()
   const logs = createMemo(() => (activeTab() === "validation" ? validationLogs() : prefetchLogs()))

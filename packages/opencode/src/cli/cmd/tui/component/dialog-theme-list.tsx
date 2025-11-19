@@ -18,34 +18,14 @@ export function DialogThemeList() {
   let ref: DialogSelectRef<string>
   const initial = theme.selected
 
-  onCleanup(() => {
-    if (!confirmed) theme.set(initial)
-  })
-
   return (
     <DialogSelect
       title="Themes"
       current={initial}
       options={options}
-      onMove={(opt) => {
-        theme.set(opt.value)
-      }}
       onSelect={(opt) => {
         theme.set(opt.value)
-        confirmed = true
         dialog.clear()
-      }}
-      ref={(r) => {
-        ref = r
-      }}
-      onFilter={(query) => {
-        if (query.length === 0) {
-          theme.set(initial)
-          return
-        }
-
-        const first = ref.filtered[0]
-        if (first) theme.set(first.value)
       }}
     />
   )

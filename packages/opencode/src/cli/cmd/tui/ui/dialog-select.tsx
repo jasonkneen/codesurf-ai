@@ -127,10 +127,11 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   createEffect(() => {
     store.filter
     setStore("selected", 0)
-    scroll.scrollTo(0)
+    if (scroll) scroll.scrollTo(0)
   })
 
   function move(direction: number) {
+    if (flat().length === 0) return
     let next = store.selected + direction
     if (next < 0) next = flat().length - 1
     if (next >= flat().length) next = 0
@@ -139,7 +140,11 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   function moveTo(next: number) {
     setStore("selected", next)
-    props.onMove?.(selected()!)
+    const sel = selected()
+    if (sel) {
+      props.onMove?.(sel)
+    }
+    if (!scroll) return
     const target = scroll.getChildren().find((child) => {
       return child.id === JSON.stringify(selected()?.value)
     })
@@ -150,7 +155,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
     }
     if (y < 0) {
       scroll.scrollBy(y)
-      if (isDeepEqual(flat()[0].value, selected()?.value)) {
+      if (flat().length > 0 && isDeepEqual(flat()[0].value, selected()?.value)) {
         scroll.scrollTo(0)
       }
     }

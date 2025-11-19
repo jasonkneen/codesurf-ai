@@ -24,6 +24,7 @@ interface PrefetchState {
     cacheSize: number
   }
   recentAccess: Array<{ file: string; timestamp: number }>
+  runningTasks: Set<Promise<void>>
 }
 
 let config: {
@@ -46,6 +47,7 @@ let state: PrefetchState = {
     cacheSize: 0,
   },
   recentAccess: [],
+  runningTasks: new Set(),
 }
 
 // Log to file since console.log won't show in TUI
@@ -213,30 +215,58 @@ async function prefetchFile(task: PrefetchTask): Promise<void> {
 }
 
 async function processQueue() {
-  if (state.running || state.queue.length === 0) return
+  // Process up to maxConcurrent files simultaneously
+  while (state.runningTasks.size < config.maxConcurrent && state.queue.length > 0) {
+    const task = state.queue.shift()!
+    task.status = "loading"
 
-  const task = state.queue.shift()!
-  state.running = task
-  task.status = "loading"
-  broadcastState()
-
-  try {
-    await prefetchFile(task)
-  } catch (error) {
-    task.status = "error"
-    await logWorker(`Queue processing error for ${task.filePath}: ${error}`)
-  } finally {
-    state.running = null
-
-    // Clean cache if too large
-    if (state.stats.cacheSize > config.maxCacheSize) {
-      await cleanCache()
+    // Update running state for backward compatibility (set to first running task)
+    if (!state.running) {
+      state.running = task
     }
+
+    await logWorker(
+      `Starting task ${task.filePath} (${state.runningTasks.size + 1}/${config.maxConcurrent} concurrent, ${state.queue.length} queued)`,
+    )
 
     broadcastState()
 
-    // Continue processing queue
-    setTimeout(processQueue, 50)
+    // Create and track task promise
+    const processTask = async () => {
+      try {
+        await prefetchFile(task)
+      } catch (error) {
+        task.status = "error"
+        await logWorker(`Queue processing error for ${task.filePath}: ${error}`)
+      } finally {
+        // Remove from running tasks
+        state.runningTasks.delete(taskPromise)
+
+        await logWorker(
+          `Completed task ${task.filePath} (${state.runningTasks.size} still running, ${state.queue.length} queued)`,
+        )
+
+        // Clear running state if this was the last task
+        if (state.runningTasks.size === 0) {
+          state.running = null
+        }
+
+        // Clean cache if too large
+        if (state.stats.cacheSize > config.maxCacheSize) {
+          await cleanCache()
+        }
+
+        broadcastState()
+
+        // Continue processing queue if there are more items
+        if (state.queue.length > 0) {
+          processQueue()
+        }
+      }
+    }
+
+    const taskPromise = processTask()
+    state.runningTasks.add(taskPromise)
   }
 }
 

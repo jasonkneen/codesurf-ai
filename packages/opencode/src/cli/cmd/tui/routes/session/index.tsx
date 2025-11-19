@@ -724,8 +724,8 @@ export function Session() {
     const interval = setInterval(() => {
       if (!scroll) return
       const { y, height, scrollHeight } = scroll
-      // Tolerance 2
-      const atBottom = y + height >= scrollHeight - 2
+      // Tolerance: consider us at the bottom even if we're a few rows above.
+      const atBottom = y + height >= scrollHeight - 5
 
       const contentGrew = scrollHeight > lastScrollHeight
       const scrolledUp = y < lastScrollY
@@ -803,6 +803,19 @@ export function Session() {
         }, 200)
       }
     }
+  })
+
+  // Ensure we snap to the latest assistant message once streaming completes,
+  // as long as the user has not intentionally scrolled up.
+  createEffect(() => {
+    const list = messages()
+    const last = list[list.length - 1]
+    if (!last) return
+    if (last.role !== "assistant") return
+    if (!last.time?.completed) return
+    if (userScrolledUp()) return
+    if (!scroll) return
+    toBottom()
   })
 
   const local = useLocal()
@@ -1282,6 +1295,8 @@ export function Session() {
         {/* Main Content */}
         <box
           flexGrow={1}
+          flexShrink={1}
+          flexBasis={0}
           gap={1}
           justifyContent={bothSidebarsCollapsed() ? "center" : "flex-start"}
           maxWidth={bothSidebarsCollapsed() ? 120 : undefined}
@@ -2678,6 +2693,26 @@ function ToolPart(props: {
     }
   })
 
+  const marginTop = createMemo(() => {
+    const parts = sync.data.part[props.message.id] ?? []
+    const index = parts.findIndex((part) => part.id === props.part.id)
+
+    if (index === -1) return 0
+
+    // If it's the first part, we want a margin to separate from the previous message (e.g. UserMessage)
+    if (index === 0) return 1
+
+    const prevPart = parts[index - 1]
+
+    // If previous part is tool, no margin (keep them tight)
+    if (prevPart?.type === "tool") return 0
+
+    // If previous part is text, it has marginBottom=1, so we don't need extra margin
+    if (prevPart?.type === "text") return 0
+
+    return 1
+  })
+
   const style = createMemo(() => {
     const collapsedState = collapsed()
     const showBorder = !props.noBorder
@@ -2712,7 +2747,7 @@ function ToolPart(props: {
   })
 
   return (
-    <box marginTop={0} marginBottom={0} width="100%" {...style()}>
+    <box marginTop={marginTop()} marginBottom={0} width="100%" {...style()}>
       {createMemo(() => {
         const RenderComponent = render
         const isCollapsed = collapsed()
