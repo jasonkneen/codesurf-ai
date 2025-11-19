@@ -1296,7 +1296,6 @@ export function Session() {
         <box
           flexGrow={1}
           flexShrink={1}
-          flexBasis={0}
           gap={1}
           justifyContent={bothSidebarsCollapsed() ? "center" : "flex-start"}
           maxWidth={bothSidebarsCollapsed() ? 120 : undefined}
