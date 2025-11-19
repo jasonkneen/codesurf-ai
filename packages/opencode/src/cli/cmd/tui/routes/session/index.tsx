@@ -2134,40 +2134,6 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
         >
           <text fg={local.agent.color(props.message.mode)}>{Locale.titlecase(props.message.mode)}</text>
           <Shimmer text={`${props.message.modelID}`} color={theme.text} />
-          {(() => {
-            const retry = createMemo(() => {
-              const s = status()
-              if (s.type !== "retry") return
-              return s
-            })
-            const message = createMemo(() => {
-              const r = retry()
-              if (!r) return
-              if (r.message.includes("exceeded your current quota") && r.message.includes("gemini"))
-                return "gemini 3 way too hot right now"
-              if (r.message.length > 50) return r.message.slice(0, 50) + "..."
-              return r.message
-            })
-            const [seconds, setSeconds] = createSignal(0)
-            onMount(() => {
-              const timer = setInterval(() => {
-                const next = retry()?.next
-                if (next) setSeconds(Math.round((next - Date.now()) / 1000))
-              }, 1000)
-
-              onCleanup(() => {
-                clearInterval(timer)
-              })
-            })
-            return (
-              <Show when={retry()}>
-                <text fg={theme.error}>
-                  {message()} [retrying {seconds() > 0 ? `in ${seconds()}s ` : ""}
-                  attempt #{retry()!.attempt}]
-                </text>
-              </Show>
-            )
-          })()}
         </box>
       </Show>
       <Show

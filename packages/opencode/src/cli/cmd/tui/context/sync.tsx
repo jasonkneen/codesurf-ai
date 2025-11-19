@@ -18,7 +18,7 @@ import { Binary } from "@/util/binary"
 import { createSimpleContext } from "./helper"
 import type { Snapshot } from "@/snapshot"
 import { useExit } from "./exit"
-import { batch, onMount } from "solid-js"
+import { onMount } from "solid-js"
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -27,7 +27,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       ready: boolean
       status: "loading" | "partial" | "complete"
       provider: Provider[]
-      provider_default: Record<string, string>
       agent: Agent[]
       command: Command[]
       permission: {
@@ -65,7 +64,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       permission: {},
       command: [],
       provider: [],
-      provider_default: {},
       session: [],
       session_diff: {},
       todo: {},
@@ -231,12 +229,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     onMount(() => {
       Promise.all([
-        sdk.client.config.providers({ throwOnError: true }).then((x) => {
-          batch(() => {
-            setStore("provider", x.data!.providers)
-            setStore("provider_default", x.data!.default)
-          })
-        }),
+        sdk.client.config.providers({ throwOnError: true }).then((x) => setStore("provider", x.data!.providers)),
         sdk.client.app.agents({ throwOnError: true }).then((x) => setStore("agent", x.data ?? [])),
         sdk.client.config.get({ throwOnError: true }).then((x) => setStore("config", x.data!)),
       ])

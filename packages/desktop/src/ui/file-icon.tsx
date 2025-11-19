@@ -9,13 +9,12 @@ export type FileIconProps = JSX.GSVGAttributes<SVGSVGElement> & {
 }
 
 export const FileIcon: Component<FileIconProps> = (props) => {
-  const [local, rest] = splitProps(props, ["node", "class", "classList", "expanded"])
+  const [local, rest] = splitProps(props, ["node", "class", "expanded"])
   const name = createMemo(() => chooseIconName(local.node.path, local.node.type, local.expanded || false))
   return (
     <svg
       {...rest}
       classList={{
-        ...(local.classList ?? {}),
         "shrink-0 size-4": true,
         [local.class ?? ""]: !!local.class,
       }}

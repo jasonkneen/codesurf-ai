@@ -15,7 +15,6 @@ import { logger } from "./logger"
 import { AuthError, CreditsError, MonthlyLimitError, UserLimitError, ModelError, RateLimitError } from "./error"
 import { createBodyConverter, createStreamPartConverter, createResponseConverter } from "./provider/provider"
 import { anthropicHelper } from "./provider/anthropic"
-import { googleHelper } from "./provider/google"
 import { openaiHelper } from "./provider/openai"
 import { oaCompatHelper } from "./provider/openai-compatible"
 import { createRateLimiter } from "./rateLimiter"
@@ -31,8 +30,6 @@ export async function handler(
   opts: {
     format: ZenData.Format
     parseApiKey: (headers: Headers) => string | undefined
-    parseModel: (url: string, body: any) => string
-    parseIsStream: (url: string, body: any) => boolean
   },
 ) {
   type AuthInfo = Awaited<ReturnType<typeof authenticate>>
@@ -46,18 +43,15 @@ export async function handler(
   ]
 
   try {
-    const url = input.request.url
     const body = await input.request.json()
     const ip = input.request.headers.get("x-real-ip") ?? ""
-    const model = opts.parseModel(url, body)
-    const isStream = opts.parseIsStream(url, body)
     logger.metric({
-      is_tream: isStream,
+      is_tream: !!body.stream,
       session: input.request.headers.get("x-opencode-session"),
       request: input.request.headers.get("x-opencode-request"),
     })
     const zenData = ZenData.list()
-    const modelInfo = validateModel(zenData, model)
+    const modelInfo = validateModel(zenData, body.model)
     const rateLimiter = createRateLimiter(modelInfo.id, modelInfo.rateLimit, ip)
     await rateLimiter?.check()
 
@@ -70,7 +64,7 @@ export async function handler(
       logger.metric({ provider: providerInfo.id })
 
       const startTimestamp = Date.now()
-      const reqUrl = providerInfo.modifyUrl(providerInfo.api, providerInfo.model, isStream)
+      const reqUrl = providerInfo.modifyUrl(providerInfo.api)
       const reqBody = JSON.stringify(
         providerInfo.modifyBody({
           ...createBodyConverter(opts.format, providerInfo.format)(body),
@@ -120,7 +114,7 @@ export async function handler(
     logger.debug("STATUS: " + res.status + " " + res.statusText)
 
     // Handle non-streaming response
-    if (!isStream) {
+    if (!body.stream) {
       const responseConverter = createResponseConverter(providerInfo.format, opts.format)
       const json = await res.json()
       const body = JSON.stringify(responseConverter(json))
@@ -175,7 +169,7 @@ export async function handler(
               responseLength += value.length
               buffer += decoder.decode(value, { stream: true })
 
-              const parts = buffer.split(providerInfo.streamSeparator)
+              const parts = buffer.split("\n\n")
               buffer = parts.pop() ?? ""
 
               for (let part of parts) {
@@ -289,7 +283,6 @@ export async function handler(
       ...(() => {
         const format = zenData.providers[provider.id].format
         if (format === "anthropic") return anthropicHelper
-        if (format === "google") return googleHelper
         if (format === "openai") return openaiHelper
         return oaCompatHelper
       })(),

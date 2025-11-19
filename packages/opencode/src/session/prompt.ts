@@ -941,7 +941,7 @@ export namespace SessionPrompt {
                       abort: new AbortController().signal,
                       agent: input.agent!,
                       messageID: info.id,
-                      extra: { bypassCwdCheck: true, ...info.model },
+                      extra: { bypassCwdCheck: true },
                       metadata: async () => {},
                     })
                     pieces.push(
@@ -2072,11 +2072,7 @@ export namespace SessionPrompt {
       ...small.info.options,
     }
     if (small.providerID === "openai" || small.modelID.includes("gpt-5")) {
-      if (small.modelID.includes("5.1")) {
-        options["reasoningEffort"] = "low"
-      } else {
-        options["reasoningEffort"] = "minimal"
-      }
+      options["reasoningEffort"] = "minimal"
     }
     if (small.providerID === "google") {
       options["thinkingConfig"] = {

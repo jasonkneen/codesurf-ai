@@ -1,4 +1,4 @@
-import { generateText, streamText, wrapLanguageModel, type ModelMessage, type StreamTextResult, type Tool as AITool } from "ai"
+import { generateText, streamText, type ModelMessage, type StreamTextResult, type Tool as AITool } from "ai"
 import { Session } from "."
 import { Identifier } from "../id/id"
 import { Instance } from "../project/instance"
@@ -275,17 +275,10 @@ ${combined}
 
     const doStream = () =>
       streamText({
-        onError(error) {
-          log.error("stream error", {
-            error,
-          })
-        },
         // set to 0, we handle loop
         maxRetries: 0,
-        providerOptions: ProviderTransform.providerOptions(model.npm, model.providerID, {
-          ...ProviderTransform.options(model.providerID, model.modelID, model.npm ?? "", input.sessionID),
-          ...model.info.options,
-        }),
+        model: model.language,
+        providerOptions: ProviderTransform.providerOptions(model.npm, model.providerID, model.info.options),
         headers: model.info.headers,
         abortSignal: signal,
         onError(error) {
@@ -301,21 +294,7 @@ ${combined}
               content: x,
             }),
           ),
-          ...MessageV2.toModelMessage(
-            input.messages.filter((m) => {
-              if (m.info.role !== "assistant" || m.info.error === undefined) {
-                return true
-              }
-              if (
-                MessageV2.AbortedError.isInstance(m.info.error) &&
-                m.parts.some((part) => part.type !== "step-start" && part.type !== "reasoning")
-              ) {
-                return true
-              }
-
-              return false
-            }),
-          ),
+          ...MessageV2.toModelMessage(toSummarize),
           {
             role: "user",
             content: [
@@ -490,75 +469,4 @@ ${combined}
       parts: result.parts,
     }
   }
-        model: wrapLanguageModel({
-          model: model.language,
-          middleware: [
-            {
-              async transformParams(args) {
-                if (args.type === "stream") {
-                  // @ts-expect-error
-                  args.params.prompt = ProviderTransform.message(args.params.prompt, model.providerID, model.modelID)
-                }
-                return args.params
-              },
-            },
-          ],
-        }),
-      }),
-    )
-    if (result === "continue") {
-      const continueMsg = await Session.updateMessage({
-        id: Identifier.ascending("message"),
-        role: "user",
-        sessionID: input.sessionID,
-        time: {
-          created: Date.now(),
-        },
-        agent: "build",
-        model: input.model,
-      })
-      await Session.updatePart({
-        id: Identifier.ascending("part"),
-        messageID: continueMsg.id,
-        sessionID: input.sessionID,
-        type: "text",
-        synthetic: true,
-        text: "Continue if you have next steps",
-        time: {
-          start: Date.now(),
-          end: Date.now(),
-        },
-      })
-    }
-    if (processor.message.error) return "stop"
-    return "continue"
-  }
-
-  export const create = fn(
-    z.object({
-      sessionID: Identifier.schema("session"),
-      model: z.object({
-        providerID: z.string(),
-        modelID: z.string(),
-      }),
-    }),
-    async (input) => {
-      const msg = await Session.updateMessage({
-        id: Identifier.ascending("message"),
-        role: "user",
-        model: input.model,
-        sessionID: input.sessionID,
-        agent: "build",
-        time: {
-          created: Date.now(),
-        },
-      })
-      await Session.updatePart({
-        id: Identifier.ascending("part"),
-        messageID: msg.id,
-        sessionID: msg.sessionID,
-        type: "compaction",
-      })
-    },
-  )
 }
