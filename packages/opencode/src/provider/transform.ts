@@ -134,6 +134,7 @@ export namespace ProviderTransform {
     modelID: string,
     npm: string,
     sessionID: string,
+    extra?: { reasoning?: boolean; reasoningTokens?: number },
   ): Record<string, any> | undefined {
     const result: Record<string, any> = {}
 
@@ -141,7 +142,7 @@ export namespace ProviderTransform {
       result["promptCacheKey"] = sessionID
     }
 
-    if (providerID === "google") {
+    if (providerID === "google" && extra?.reasoning) {
       result["thinkingConfig"] = {
         includeThoughts: true,
       }
@@ -152,7 +153,7 @@ export namespace ProviderTransform {
         result["store"] = false
       }
 
-      if (!mid.includes("codex") && !mid.includes("gpt-5.1-pro")) {
+      if (!modelID.includes("codex") && !modelID.includes("gpt-5.1-pro")) {
         result["reasoningEffort"] = result["reasoningEffort"] ?? "medium"
       }
 
