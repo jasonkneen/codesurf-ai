@@ -73,17 +73,27 @@ function WorkerDialog(props: { onClose: () => void }) {
   )
 
   // Visible logs with scrolling
-  const logHeight = 12 // Fixed height for log area
+  const logHeight = 15 // Fixed height for log area
   const visibleLogs = createMemo(() => {
     const allLogs = logs()
     const offset = scrollOffset()
     return allLogs.slice(Math.max(0, allLogs.length - logHeight - offset), allLogs.length - offset)
   })
 
+  const currentState = createMemo(() => (activeTab() === "validation" ? validationState() : prefetchState()))
+
   return (
-    <box flexDirection="column" width="80%" height={16} backgroundColor={theme.background} borderStyle="rounded">
-      {/* Header with tabs */}
-      <box flexDirection="row" gap={3} paddingLeft={2} paddingRight={2} paddingTop={1}>
+    <box flexDirection="column" gap={1} paddingLeft={2} paddingRight={2} paddingBottom={1}>
+      {/* Header */}
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Background Workers
+        </text>
+        <text fg={theme.textMuted}>esc</text>
+      </box>
+
+      {/* Tabs */}
+      <box flexDirection="row" gap={3}>
         <text
           fg={activeTab() === "validation" ? theme.accent : theme.textMuted}
           onMouseUp={() => {
@@ -120,6 +130,23 @@ function WorkerDialog(props: { onClose: () => void }) {
         </text>
       </box>
 
+      {/* Stats */}
+      <Show when={currentState()}>
+        <text fg={theme.textMuted}>
+          {activeTab() === "validation" ? (
+            <>
+              Queue: {currentState()?.queue?.length ?? 0} | Runs: {currentState()?.stats?.totalRuns ?? 0} | Success:{" "}
+              {((currentState()?.stats?.successRate ?? 0) * 100).toFixed(0)}%
+            </>
+          ) : (
+            <>
+              Queue: {currentState()?.queue?.length ?? 0} | Cache: {currentState()?.cache?.length ?? 0} | Hits:{" "}
+              {currentState()?.stats?.cacheHits ?? 0}
+            </>
+          )}
+        </text>
+      </Show>
+
       {/* Log area - fixed height with scrolling */}
       <box
         flexDirection="column"
@@ -133,72 +160,117 @@ function WorkerDialog(props: { onClose: () => void }) {
         <For each={visibleLogs()}>
           {(line) => (
             <text fg={theme.textMuted} wrapMode="none">
-              {line.length > 75 ? line.substring(0, 75) + "…" : line}
+              {line.length > 150 ? line.substring(0, 150) + "…" : line}
             </text>
           )}
         </For>
       </box>
 
-      {/* Scroll indicators */}
-      <box flexDirection="row" gap={1} paddingLeft={2} paddingRight={2} height={1}>
-        <text
-          fg={scrollOffset() < logs().length - logHeight ? theme.accent : theme.textMuted}
-          onMouseUp={() => setScrollOffset(Math.min(scrollOffset() + 1, logs().length - logHeight))}
-        >
-          [↓]
-        </text>
-        <text
-          fg={scrollOffset() > 0 ? theme.accent : theme.textMuted}
-          onMouseUp={() => setScrollOffset(Math.max(scrollOffset() - 1, 0))}
-        >
-          [↑]
-        </text>
+      {/* Scroll controls */}
+      <box flexDirection="row" gap={2} justifyContent="space-between" height={1}>
+        <box flexDirection="row" gap={1}>
+          <text
+            bg={scrollOffset() < logs().length - logHeight ? theme.primary : theme.backgroundElement}
+            fg={scrollOffset() < logs().length - logHeight ? theme.background : theme.textMuted}
+            onMouseUp={() => {
+              setScrollOffset(Math.min(scrollOffset() + 5, logs().length - logHeight))
+              setAutoScroll(false)
+            }}
+          >
+            {" "}
+            ↓{" "}
+          </text>
+          <text
+            bg={scrollOffset() > 0 ? theme.primary : theme.backgroundElement}
+            fg={scrollOffset() > 0 ? theme.background : theme.textMuted}
+            onMouseUp={() => {
+              setScrollOffset(Math.max(scrollOffset() - 5, 0))
+              setAutoScroll(false)
+            }}
+          >
+            {" "}
+            ↑{" "}
+          </text>
+          <text
+            bg={autoScroll() ? theme.primary : theme.backgroundElement}
+            fg={autoScroll() ? theme.background : theme.textMuted}
+            onMouseUp={() => {
+              setAutoScroll(!autoScroll())
+              if (!autoScroll()) setScrollOffset(0)
+            }}
+          >
+            {" "}
+            {autoScroll() ? "Auto●" : "Auto○"}{" "}
+          </text>
+        </box>
         <text fg={theme.textMuted}>
-          {scrollOffset() + logHeight}/{logs().length}
+          {Math.max(0, logs().length - logHeight - scrollOffset())}-{logs().length - scrollOffset()} / {logs().length}
         </text>
       </box>
 
       {/* Controls */}
-      <box
-        flexDirection="row"
-        gap={2}
-        justifyContent="space-between"
-        paddingLeft={2}
-        paddingRight={2}
-        paddingBottom={1}
-        height={1}
-      >
-        <box flexDirection="row" gap={2}>
+      <box flexDirection="row" gap={2} justifyContent="flex-start">
+        <text
+          bg={theme.primary}
+          fg={theme.background}
+          onMouseUp={() => {
+            const currentEnabled = isEnabled() ?? false
+            if (activeTab() === "validation") {
+              BackgroundWorkers.updateConfig({
+                validation: { enabled: !currentEnabled },
+              })
+            } else {
+              BackgroundWorkers.updateConfig({
+                prefetch: { enabled: !currentEnabled },
+              })
+            }
+          }}
+        >
+          {" "}
+          {isEnabled() ? "Disable" : "Enable"}{" "}
+        </text>
+        <Show when={activeTab() === "validation"}>
           <text
-            fg={theme.accent}
+            bg={theme.primary}
+            fg={theme.background}
             onMouseUp={() => {
-              const currentEnabled = isEnabled() ?? false
-              if (activeTab() === "validation") {
-                BackgroundWorkers.updateConfig({
-                  validation: { enabled: !currentEnabled },
-                })
-              } else {
-                BackgroundWorkers.updateConfig({
-                  prefetch: { enabled: !currentEnabled },
-                })
-              }
+              BackgroundWorkers.runValidationNow()
             }}
           >
-            [{isEnabled() ? "Disable" : "Enable"}]
+            {" "}
+            Run Now{" "}
           </text>
           <text
-            fg={theme.accent}
+            bg={theme.primary}
+            fg={theme.background}
             onMouseUp={() => {
-              if (activeTab() === "validation") {
-                BackgroundWorkers.runValidationNow()
-              }
+              BackgroundWorkers.clearValidationQueue()
             }}
           >
-            [Run Now]
+            {" "}
+            Clear Queue{" "}
           </text>
-        </box>
-        <text fg={theme.accent} onMouseUp={() => props.onClose()}>
-          [Close]
+        </Show>
+        <Show when={activeTab() === "prefetch"}>
+          <text
+            bg={theme.primary}
+            fg={theme.background}
+            onMouseUp={() => {
+              BackgroundWorkers.clearPrefetchCache()
+            }}
+          >
+            {" "}
+            Clear Cache{" "}
+          </text>
+        </Show>
+      </box>
+
+      {/* Config display */}
+      <box flexDirection="row">
+        <text fg={theme.textMuted}>
+          {activeTab() === "validation"
+            ? `Commands: ${workerConfig?.validation.commands.join(", ") ?? "none"}`
+            : `Strategies: ${workerConfig?.prefetch.strategies.join(", ") ?? "none"}`}
         </text>
       </box>
     </box>
@@ -214,22 +286,40 @@ export function Footer() {
   const sync = useSync()
   const uiExtensions = useUIExtensions()
   const serverStatus = useServerStatus()
-  const [validationStatus, setValidationStatus] = createSignal("idle")
-  const [prefetchStatus, setPrefetchStatus] = createSignal("idle")
+  const [validationStatus, setValidationStatus] = createSignal<{
+    status: "idle" | "running" | "queued"
+    queueLength: number
+    lastResult?: "success" | "error"
+  }>({ status: "idle", queueLength: 0 })
+
+  const [prefetchStatus, setPrefetchStatus] = createSignal<{
+    status: "idle" | "loading" | "queued"
+    queueLength: number
+    cacheSize: number
+    cacheHits: number
+  }>({ status: "idle", queueLength: 0, cacheSize: 0, cacheHits: 0 })
 
   // Subscribe to worker state updates
   const validationUnsub = Bus.subscribe(Bus.event("validation.state.updated", z.any()), (event) => {
     const state = event.properties
-    if (state.running) setValidationStatus("running")
-    else if (state.queue?.length > 0) setValidationStatus("queued")
-    else setValidationStatus("idle")
+    const status = state.running ? "running" : state.queue?.length > 0 ? "queued" : "idle"
+    const lastResult = state.lastResults?.[0]?.exitCode === 0 ? "success" : state.lastResults?.[0] ? "error" : undefined
+    setValidationStatus({
+      status,
+      queueLength: state.queue?.length ?? 0,
+      lastResult,
+    })
   })
 
   const prefetchUnsub = Bus.subscribe(Bus.event("prefetch.state.updated", z.any()), (event) => {
     const state = event.properties
-    if (state.running) setPrefetchStatus("loading")
-    else if (state.queue?.length > 0) setPrefetchStatus("queued")
-    else setPrefetchStatus("idle")
+    const status = state.running ? "loading" : state.queue?.length > 0 ? "queued" : "idle"
+    setPrefetchStatus({
+      status,
+      queueLength: state.queue?.length ?? 0,
+      cacheSize: state.stats?.cacheSize ?? 0,
+      cacheHits: state.stats?.cacheHits ?? 0,
+    })
   })
 
   onCleanup(() => {
@@ -266,69 +356,8 @@ export function Footer() {
   }
 
   const showWorkerDialog = () => {
-    const workerConfig = BackgroundWorkers.getConfig()
-
-    let validationLogs = "No logs yet"
-    let prefetchLogs = "No logs yet"
-
-    try {
-      validationLogs = readFileSync("/tmp/opencode-validation-worker.log", "utf-8")
-        .split("\n")
-        .filter((line) => line.trim())
-        .slice(-15)
-        .join("\n")
-    } catch (e) {
-      //
-    }
-
-    try {
-      prefetchLogs = readFileSync("/tmp/opencode-prefetch-worker.log", "utf-8")
-        .split("\n")
-        .filter((line) => line.trim())
-        .slice(-15)
-        .join("\n")
-    } catch (e) {
-      //
-    }
-
-    const options: DialogSelectOption<string>[] = [
-      {
-        title: workerConfig?.validation.enabled ? "✓ Validation" : "  Validation",
-        value: "validation-status",
-        description: validationLogs,
-        onSelect: () => {},
-      },
-      {
-        title: "Toggle Validation",
-        value: "toggle-validation",
-        description: "Enable/disable background lint/typecheck/codereview",
-        onSelect: (ctx) => {
-          BackgroundWorkers.updateConfig({
-            validation: { enabled: !(workerConfig?.validation.enabled ?? false) },
-          })
-          ctx.clear()
-        },
-      },
-      {
-        title: workerConfig?.prefetch.enabled ? "✓ Prefetch" : "  Prefetch",
-        value: "prefetch-status",
-        description: prefetchLogs,
-        onSelect: () => {},
-      },
-      {
-        title: "Toggle Prefetch",
-        value: "toggle-prefetch",
-        description: "Enable/disable file prefetch caching",
-        onSelect: (ctx) => {
-          BackgroundWorkers.updateConfig({
-            prefetch: { enabled: !(workerConfig?.prefetch.enabled ?? false) },
-          })
-          ctx.clear()
-        },
-      },
-    ]
-
-    dialog.replace(() => <DialogSelect title="Background Workers" options={options} />)
+    dialog.setFrame({ width: 160 })
+    dialog.replace(() => <WorkerDialog onClose={() => dialog.clear()} />)
   }
 
   return (
@@ -382,38 +411,54 @@ export function Footer() {
         >
           [Manage]
         </text> */}
-        <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Val:</text>
+        <box flexDirection="row" gap={0} alignItems="center">
           <text
             fg={
-              validationStatus() === "running"
+              validationStatus().status === "running"
                 ? theme.success
-                : validationStatus() === "queued"
-                  ? theme.accent
-                  : theme.textMuted
+                : validationStatus().lastResult === "error"
+                  ? theme.error
+                  : validationStatus().status === "queued"
+                    ? theme.accent
+                    : theme.textMuted
             }
             onMouseUp={() => {
               if (renderer.getSelection()?.getSelectedText()) return
               showWorkerDialog()
             }}
+            attributes={validationStatus().status === "running" ? TextAttributes.BOLD : undefined}
           >
-            {validationStatus() === "running" ? "●" : validationStatus() === "queued" ? "○" : "•"}
+            {validationStatus().status === "running"
+              ? "Val●"
+              : validationStatus().lastResult === "error"
+                ? "Val✗"
+                : validationStatus().status === "queued"
+                  ? `Val(${validationStatus().queueLength})`
+                  : "Val○"}
           </text>
-          <text fg={theme.textMuted}>Pre:</text>
           <text
             fg={
-              prefetchStatus() === "loading"
+              prefetchStatus().status === "loading"
                 ? theme.accent
-                : prefetchStatus() === "queued"
+                : prefetchStatus().status === "queued"
                   ? theme.warning
-                  : theme.textMuted
+                  : prefetchStatus().cacheHits > 0
+                    ? theme.success
+                    : theme.textMuted
             }
             onMouseUp={() => {
               if (renderer.getSelection()?.getSelectedText()) return
               showWorkerDialog()
             }}
+            attributes={prefetchStatus().status === "loading" ? TextAttributes.BOLD : undefined}
           >
-            {prefetchStatus() === "loading" ? "●" : prefetchStatus() === "queued" ? "○" : "•  "}
+            {prefetchStatus().status === "loading"
+              ? "Pre●"
+              : prefetchStatus().status === "queued"
+                ? `Pre(${prefetchStatus().queueLength})`
+                : prefetchStatus().cacheHits > 0
+                  ? "Pre✓"
+                  : "Pre○"}
           </text>
         </box>
         <box flexDirection="row" gap={1} alignItems="center">

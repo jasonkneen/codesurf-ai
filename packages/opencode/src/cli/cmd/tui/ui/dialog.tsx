@@ -51,10 +51,11 @@ export function Dialog(
         onMouseUp={async (e) => {
           e.stopPropagation()
         }}
-        width={Math.min(
-          dimensions().width - 2,
-          typeof props.frame?.width === "number" ? props.frame.width : props.size === "large" ? 80 : 60,
-        )}
+        width={
+          typeof props.frame?.width === "number"
+            ? Math.min(props.frame.width, dimensions().width - 2)
+            : Math.min(props.size === "large" ? 80 : 60, dimensions().width - 2)
+        }
         height={
           typeof props.frame?.height === "number" ? Math.min(dimensions().height - 2, props.frame.height) : undefined
         }

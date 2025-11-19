@@ -2073,7 +2073,7 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
     const firstAppearance = new Map<string, number>()
 
     for (let i = 0; i < props.parts.length; i++) {
-      const name = props.parts[i].tool.toUpperCase()
+      const name = props.parts[i].tool.toLowerCase()
       counts.set(name, (counts.get(name) || 0) + 1)
       if (!firstAppearance.has(name)) {
         firstAppearance.set(name, i)
