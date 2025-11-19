@@ -160,7 +160,7 @@ function WorkerDialog(props: { onClose: () => void }) {
         <For each={visibleLogs()}>
           {(line) => (
             <text fg={theme.textMuted} wrapMode="none">
-              {line.length > 150 ? line.substring(0, 150) + "…" : line}
+              {line.length > 270 ? line.substring(0, 270) + "…" : line}
             </text>
           )}
         </For>
@@ -356,7 +356,7 @@ export function Footer() {
   }
 
   const showWorkerDialog = () => {
-    dialog.setFrame({ width: 160 })
+    dialog.setFrame({ width: 280 })
     dialog.replace(() => <WorkerDialog onClose={() => dialog.clear()} />)
   }
 
@@ -411,7 +411,7 @@ export function Footer() {
         >
           [Manage]
         </text> */}
-        <box flexDirection="row" gap={0} alignItems="center">
+        <box flexDirection="row" gap={1} alignItems="center">
           <text
             fg={
               validationStatus().status === "running"
@@ -490,7 +490,7 @@ export function Footer() {
 
             return (
               <box flexDirection="row" gap={0}>
-                <text fg={local.agent.color(agentForColor)}></text>
+                <text fg={local.agent.color(agentForColor)}></text>
                 <text
                   bg={local.agent.color(agentForColor)}
                   fg={theme.background}
