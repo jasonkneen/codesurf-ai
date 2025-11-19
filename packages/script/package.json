@@ -4,6 +4,9 @@
   "devDependencies": {
     "@types/bun": "catalog:"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "exports": {
     ".": "./src/index.ts"
   }
