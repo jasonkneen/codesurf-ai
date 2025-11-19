@@ -2009,17 +2009,8 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
     }
   })
 
-  // Check if previous part in message is text - if so, don't add margin (text has marginBottom)
-  const shouldAddMargin = createMemo(() => {
-    const parts = ((props.message as any).parts as Part[] | undefined) ?? []
-    const toolPartIndex = parts.findIndex((p) => p === props.parts[0])
-    if (toolPartIndex <= 0) return false
-    const prevPart = parts[toolPartIndex - 1]
-    return prevPart?.type !== "text"
-  })
-
   return (
-    <box paddingLeft={3} marginTop={shouldAddMargin() ? 1 : 0} marginBottom={0}>
+    <box paddingLeft={3} marginTop={0} marginBottom={0}>
       <box
         flexDirection="row"
         gap={1}
@@ -2214,7 +2205,7 @@ function ReasoningPart(props: { part: ReasoningPart; message: AssistantMessage; 
   const showBody = createMemo(() => body().length > 0)
   return (
     <Show when={text()}>
-      <box id={"reasoning-" + props.part.id} marginTop={1} flexShrink={0}>
+      <box id={"reasoning-" + props.part.id} marginTop={previousIsReasoning() ? 0 : 1} flexShrink={0}>
         <box
           border={["left"]}
           customBorderChars={SplitBorder.customBorderChars}
