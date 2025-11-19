@@ -8,8 +8,10 @@
     "switch_mode",
     "glob",
     "todowrite",
-    "cc_read",
-    "cc_edit",
+    "cc_write",
+    "cc_glob",
+    "edit",
+    "read",
     "bash"
   ],
   "$schema": "https://opencode.ai/config.json"
