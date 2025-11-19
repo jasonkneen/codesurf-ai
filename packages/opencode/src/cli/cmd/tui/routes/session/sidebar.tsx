@@ -1294,7 +1294,7 @@ export function Sidebar(props: {
                   handleAddTodo()
                 }}
               >
-                + Add
+                + add
               </text>
             </box>
             <Show when={todo().length > 0}>
@@ -1397,7 +1397,7 @@ export function Sidebar(props: {
                 configureContexts()
               }}
             >
-              + Configure
+              + edit
             </text>
           </box>
           <Show when={expandedSections().has("context")}>
