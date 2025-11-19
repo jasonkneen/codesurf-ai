@@ -175,10 +175,10 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     const sync = useSync()
     const kv = useKV()
     const resolveInitialTheme = () => {
-      const configTheme = sync.data.config.theme
-      if (configTheme) return configTheme as string
       const saved = kv.get("theme") as string | undefined
       if (saved && saved !== "opencode") return saved
+      const configTheme = sync.data.config.theme
+      if (configTheme) return configTheme as string
       kv.set("theme", "codesurf")
       return "codesurf"
     }

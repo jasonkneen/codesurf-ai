@@ -92,10 +92,10 @@ import { SessionStatus } from "@/session/status"
 addDefaultParsers(parsers.parsers)
 
 const SIDEBAR_WIDTH_STEP = 2
-const LEFT_SIDEBAR_WIDTH_DEFAULT = 45
+const LEFT_SIDEBAR_WIDTH_DEFAULT = 30
 const LEFT_SIDEBAR_WIDTH_MIN = 30
 const LEFT_SIDEBAR_WIDTH_MAX = 60
-const RIGHT_SIDEBAR_WIDTH_DEFAULT = 40
+const RIGHT_SIDEBAR_WIDTH_DEFAULT = 36
 const RIGHT_SIDEBAR_WIDTH_MIN = 30
 const RIGHT_SIDEBAR_WIDTH_MAX = 60
 const MAX_TOOL_CHIPS = 30

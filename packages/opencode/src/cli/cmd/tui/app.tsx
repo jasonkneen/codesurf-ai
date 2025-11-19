@@ -14,6 +14,7 @@ import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { ServerStatusProvider } from "./context/server-status"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
+import { KanbanProvider } from "./context/kanban"
 import { DialogKanban } from "./component/dialog-kanban"
 import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogAgentManager } from "@tui/component/dialog-agent-manager"
@@ -146,13 +147,15 @@ export function tui(input: {
                                     initialAgent={input.agent}
                                     initialPrompt={input.prompt}
                                   >
-                                    <DialogProvider>
-                                      <CommandProvider>
-                                        <PromptHistoryProvider>
-                                          <App />
-                                        </PromptHistoryProvider>
-                                      </CommandProvider>
-                                    </DialogProvider>
+                                    <KanbanProvider>
+                                      <DialogProvider>
+                                        <CommandProvider>
+                                          <PromptHistoryProvider>
+                                            <App />
+                                          </PromptHistoryProvider>
+                                        </CommandProvider>
+                                      </DialogProvider>
+                                    </KanbanProvider>
                                   </LocalProvider>
                                 </ThemeProvider>
                               </KeybindProvider>

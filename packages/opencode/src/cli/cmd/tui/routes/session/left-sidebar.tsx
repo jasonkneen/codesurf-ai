@@ -26,7 +26,7 @@ function SessionSpinner() {
     }, RUNNING_SPINNER_INTERVAL_MS)
     onCleanup(() => clearInterval(interval))
   })
-  return <text>{RUNNING_SPINNER_FRAMES[index()]} </text>
+  return <text>{RUNNING_SPINNER_FRAMES[index()]}</text>
 }
 const STALE_SPINNER_TIMEOUT_MS = 15_000
 const HIDE_ICON = "⊖"
@@ -373,6 +373,8 @@ export function LeftSidebar(props: {
           paddingBottom={1}
           border={["bottom"]}
           borderColor={theme.border}
+          backgroundColor={theme.backgroundPanel}
+          flexShrink={0}
           onMouseUp={() => {
             if (renderer.getSelection()?.getSelectedText()) return
             openSearchDialog()
@@ -396,7 +398,7 @@ export function LeftSidebar(props: {
           </Show>
         </box>
 
-        <box overflow="hidden">
+        <scrollbox flexGrow={1} height="100%" scrollbarOptions={{ visible: false }} paddingTop={1} paddingBottom={1}>
           <For each={allCategories()}>
             {(category) => {
               const isExpanded = () => expandedCategories().has(category)
@@ -437,7 +439,7 @@ export function LeftSidebar(props: {
                           Locale.truncate(Locale.stripMarkdown(session.title), isOpen() && hover() ? 33 : 37)
                         const suffix = () => (isOpen() && hover() ? " ×" : "")
                         const staticPrefix = () => {
-                          return session.id === props.sessionID ? "▶ " : "  "
+                          return ""
                         }
                         const lineText = () => `${staticPrefix()}${title()}${suffix()}`
                         const showSpinner = () => {
@@ -529,7 +531,7 @@ export function LeftSidebar(props: {
               )
             }}
           </For>
-        </box>
+        </scrollbox>
 
         <box marginTop={1}>
           <text
