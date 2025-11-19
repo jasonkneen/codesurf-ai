@@ -142,6 +142,8 @@ async function spawnThreadedSubagent(options: {
     output: workerState.result || "Task completed in worker thread",
   }
 }
+import { iife } from "@/util/iife"
+import { defer } from "@/util/defer"
 
 export const TaskTool = Tool.define("task", async () => {
   const log = Log.create({ service: "task-tool" })
@@ -171,6 +173,24 @@ export const TaskTool = Tool.define("task", async () => {
       try {
         const agent = await Agent.get(params.subagent_type)
         if (!agent) throw new Error(`Unknown agent type: ${params.subagent_type} is not a valid agent type`)
+    /*   session_id: z.string().describe("Existing Task session to continue").optional(),
+    }),
+    async execute(params, ctx) {
+      const agent = await Agent.get(params.subagent_type)
+      if (!agent) throw new Error(`Unknown agent type: ${params.subagent_type} is not a valid agent type`)
+      const session = await iife(async () => {
+        if (params.session_id) {
+          const found = await Session.get(params.session_id).catch(() => {})
+          if (found) return found
+        }
+
+        return await Session.create({
+          parentID: ctx.sessionID,
+          title: params.description + ` (@${agent.name} subagent)`,
+        })
+      })
+      const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
+      if (msg.info.role !== "assistant") throw new Error("Not an assistant message") */
 
         // If threaded mode requested, spawn in isolated worker thread
         if (params.threaded) {
@@ -339,17 +359,53 @@ export const TaskTool = Tool.define("task", async () => {
           stack: errorStack,
           params,
         })
-        // Write to file for debugging
-        await Bun.write(
-          "/tmp/opencode-task-error.log",
-          `
-Error: ${errorMsg}
-Stack: ${errorStack}
-Params: ${JSON.stringify(params, null, 2)}
-Time: ${new Date().toISOString()}
-        `,
-        )
-        throw error
+
+      }
+
+      const model = agent.model ?? {
+        modelID: msg.info.modelID,
+        providerID: msg.info.providerID,
+      }
+
+      function cancel() {
+        SessionPrompt.cancel(session.id)
+      }
+      ctx.abort.addEventListener("abort", cancel)
+      using _ = defer(() => ctx.abort.removeEventListener("abort", cancel))
+      const promptParts = await SessionPrompt.resolvePromptParts(params.prompt)
+      const result = await SessionPrompt.prompt({
+        messageID,
+        sessionID: session.id,
+        model: {
+          modelID: model.modelID,
+          providerID: model.providerID,
+        },
+        agent: agent.name,
+        tools: {
+          todowrite: false,
+          todoread: false,
+          task: false,
+          ...agent.tools,
+        },
+        parts: promptParts,
+      })
+      unsub()
+      let all
+      all = await Session.messages({ sessionID: session.id })
+      all = all.filter((x) => x.info.role === "assistant")
+      all = all.flatMap((msg) => msg.parts.filter((x: any) => x.type === "tool") as MessageV2.ToolPart[])
+      const text = result.parts.findLast((x) => x.type === "text")?.text ?? ""
+
+      const output = text + "\n\n" + ["<task_metadata>", `session_id: ${session.id}`, "</task_metadata>"].join("\n")
+
+      return {
+        title: params.description,
+        metadata: {
+          summary: all,
+          sessionId: session.id,
+        },
+        output,
+
       }
     },
   }
