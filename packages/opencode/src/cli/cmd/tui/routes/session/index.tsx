@@ -714,8 +714,43 @@ export function Session() {
     }
   })
 
+  const [userScrolledUp, setUserScrolledUp] = createSignal(false)
+  let lastScrollY = 0
+  let lastScrollHeight = 0
+
+  createEffect(() => {
+    const interval = setInterval(() => {
+      if (!scroll) return
+      const { y, height, scrollHeight } = scroll
+      // Tolerance 2
+      const atBottom = y + height >= scrollHeight - 2
+
+      const contentGrew = scrollHeight > lastScrollHeight
+      const scrolledUp = y < lastScrollY
+
+      if (atBottom) {
+        if (userScrolledUp()) setUserScrolledUp(false)
+      } else {
+        // Not at bottom
+        // If user explicitly scrolled up
+        if (scrolledUp) {
+          setUserScrolledUp(true)
+        }
+        // OR if we are just hanging out up there and content is stable
+        else if (!contentGrew && !userScrolledUp()) {
+          setUserScrolledUp(true)
+        }
+      }
+
+      lastScrollY = y
+      lastScrollHeight = scrollHeight
+    }, 50)
+    onCleanup(() => clearInterval(interval))
+  })
+
   function toBottom() {
     if (!scroll) return
+    setUserScrolledUp(false)
 
     // IMPORTANT: Scroll in chunks to force viewport recalculation.
     // Jumping directly with scrollBy(100000) breaks the scrollbox's virtual rendering,
@@ -761,7 +796,7 @@ export function Session() {
       // Throttle to max once per 200ms to avoid flickering
       if (!scrollTimeout) {
         scrollTimeout = setTimeout(() => {
-          if (scroll) toBottom()
+          if (scroll && !userScrolledUp()) toBottom()
           scrollTimeout = null
         }, 200)
       }
@@ -1454,6 +1489,17 @@ export function Session() {
               </scrollbox>
             </box>
             <box flexShrink={0}>
+              <Show when={userScrolledUp()}>
+                <box
+                  height={1}
+                  justifyContent="center"
+                  alignItems="center"
+                  backgroundColor={theme.backgroundPanel}
+                  onMouseUp={toBottom}
+                >
+                  <text fg={theme.accent}>↓</text>
+                </box>
+              </Show>
               <Prompt
                 ref={(r) => (prompt = r)}
                 disabled={permissions().length > 0}
@@ -2022,7 +2068,7 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
   })
 
   return (
-    <box paddingLeft={3} marginTop={0} marginBottom={0}>
+    <box paddingLeft={1} marginTop={0} marginBottom={0}>
       <box
         flexDirection="row"
         gap={1}
@@ -2242,7 +2288,7 @@ function ReasoningPart(props: { part: ReasoningPart; message: AssistantMessage; 
       const prevToolPart = prevPart as ToolPart
       const prevPrevPart = parts[index - 2]
       const wasGrouped = prevPrevPart?.type === "tool" && (prevPrevPart as ToolPart).tool === prevToolPart.tool
-      if (!wasGrouped) return 2
+      // if (!wasGrouped) return 2
     }
 
     return 1
@@ -2426,7 +2472,7 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
       const wasGrouped = prevPrevPart?.type === "tool" && (prevPrevPart as ToolPart).tool === prevToolPart.tool
 
       // Single tool parts have marginBottom={-1}, so we need 2 to get 1 line of visual space
-      if (!wasGrouped) return 2
+      // if (!wasGrouped) return 2
     }
 
     return 1
@@ -2612,7 +2658,7 @@ function ToolPart(props: {
   })
 
   return (
-    <box marginTop={0} marginBottom={-1} width="100%" {...style()}>
+    <box marginTop={0} marginBottom={0} width="100%" {...style()}>
       {createMemo(() => {
         const RenderComponent = render
         const isCollapsed = collapsed()

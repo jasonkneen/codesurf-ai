@@ -485,7 +485,7 @@ export default function Share(props: { id: string; api: string; info: Session.In
                 }, 3000)
               }
             }}
-            title="Scroll to bottom"
+            title=""
             aria-label="Scroll to bottom"
           >
             <IconArrowDown width={20} height={20} />

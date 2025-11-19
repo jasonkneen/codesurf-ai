@@ -268,7 +268,7 @@ export function Sidebar(props: {
   const [projectFavorites, setProjectFavorites] = createSignal<Set<string>>(new Set())
   const [globalFavorites, setGlobalFavorites] = createSignal<Set<string>>(new Set())
   const [isAddingTodo, setIsAddingTodo] = createSignal(false)
-  const [expandedSections, setExpandedSections] = createSignal<Set<string>>(new Set(["toolsUsed"]))
+  const [expandedSections, setExpandedSections] = createSignal<Set<string>>(new Set(["toolsUsed", "lsp"]))
   const [expandedTodos, setExpandedTodos] = createSignal<Set<string>>(new Set())
   const [optimisticTodos, setOptimisticTodos] = createSignal<
     Array<{ id: string; content: string; status: string; priority: string }>
@@ -708,12 +708,13 @@ export function Sidebar(props: {
 
   function toggleSection(sectionId: string) {
     setExpandedSections((prev) => {
-      // If clicking the already-open section, collapse it
-      if (prev.has(sectionId)) {
-        return new Set<string>()
+      const next = new Set(prev)
+      if (next.has(sectionId)) {
+        next.delete(sectionId)
+      } else {
+        next.add(sectionId)
       }
-      // Otherwise, open only this section (mutually exclusive)
-      return new Set<string>([sectionId])
+      return next
     })
   }
 
@@ -1119,26 +1120,19 @@ export function Sidebar(props: {
                 {expandedSections().has("lsp") ? "▼" : "▶"} LSP {`(${sync.data.lsp.length})`}
               </text>
               <Show when={expandedSections().has("lsp")}>
-                <For each={sync.data.lsp}>
-                  {(item) => (
-                    <box flexDirection="row" gap={1}>
+                <box flexDirection="row" gap={1} flexWrap="wrap" rowGap={0}>
+                  <For each={sync.data.lsp}>
+                    {(item) => (
                       <text
-                        flexShrink={0}
-                        style={{
-                          fg: {
-                            connected: theme.success,
-                            error: theme.error,
-                          }[item.status],
-                        }}
+                        bg={item.status === "connected" ? theme.success : theme.error}
+                        fg={theme.background}
+                        attributes={TextAttributes.BOLD}
                       >
-                        •
+                        {` ${item.id.toUpperCase()} `}
                       </text>
-                      <text fg={theme.textMuted}>
-                        {item.id} {item.root}
-                      </text>
-                    </box>
-                  )}
-                </For>
+                    )}
+                  </For>
+                </box>
               </Show>
             </box>
           </Show>
@@ -1239,44 +1233,15 @@ export function Sidebar(props: {
                 {expandedSections().has("plugins") ? "▼" : "▶"} Plugins {`(${uniquePlugins().length})`}
               </text>
               <Show when={expandedSections().has("plugins")}>
-                <For each={uniquePlugins()}>
-                  {(plugin) => (
-                    <box flexDirection="column">
-                      <box flexDirection="row" gap={1}>
-                        <text flexShrink={0} fg={theme.success}>
-                          ●
-                        </text>
-                        <text
-                          fg={theme.text}
-                          attributes={TextAttributes.BOLD}
-                          onMouseUp={() => {
-                            if (renderer.getSelection()?.getSelectedText()) return
-                            togglePlugin(plugin.name)
-                          }}
-                        >
-                          {expandedPlugins().has(plugin.name) ? "▼" : "▶"} {plugin.name}
-                        </text>
-                      </box>
-                      <Show when={expandedPlugins().has(plugin.name) && pluginTools()[plugin.name]}>
-                        <box marginLeft={3} flexDirection="column">
-                          <Show when={pluginTools()[plugin.name]?.length > 0}>
-                            <text fg={theme.textMuted}>Tools/Functions:</text>
-                            <For each={pluginTools()[plugin.name] || []}>
-                              {(tool) => (
-                                <text fg={theme.textMuted}>• {typeof tool === "string" ? tool : tool.name}</text>
-                              )}
-                            </For>
-                          </Show>
-                          <Show when={!pluginTools()[plugin.name] || pluginTools()[plugin.name]?.length === 0}>
-                            <text fg={theme.textMuted}>
-                              <i>No tools registered</i>
-                            </text>
-                          </Show>
-                        </box>
-                      </Show>
-                    </box>
-                  )}
-                </For>
+                <box flexDirection="row" gap={1} flexWrap="wrap" rowGap={0}>
+                  <For each={uniquePlugins()}>
+                    {(plugin) => (
+                      <text bg={theme.success} fg={theme.background} attributes={TextAttributes.BOLD}>
+                        {` ${plugin.name.toUpperCase()} `}
+                      </text>
+                    )}
+                  </For>
+                </box>
               </Show>
             </box>
           </Show>
