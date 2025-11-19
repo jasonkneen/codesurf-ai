@@ -1998,7 +1998,7 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
   })
 
   return (
-    <box paddingLeft={3} marginTop={1} marginBottom={0}>
+    <box paddingLeft={3} marginTop={0} marginBottom={0}>
       <box
         flexDirection="row"
         gap={1}
