@@ -299,76 +299,80 @@ export function DialogKanban() {
                   >
                     + Add
                   </text>
-                  <scrollbox height={scrollHeight()} scrollbarOptions={{ visible: false }}>
-                    <Show when={column.cards.length === 0}>
+                  <Show
+                    when={column.cards.length > 0}
+                    fallback={
                       <box padding={1} backgroundColor={theme.background}>
                         <text fg={theme.textMuted}>No work tracked</text>
                       </box>
-                    </Show>
-                    <For each={column.cards}>
-                      {(card, cardIdxAccessor) => {
-                        const cardIdx = cardIdxAccessor()
-                        const isCardActive = createMemo(() => isActive() && board.focus.card === cardIdx)
-                        return (
-                          <box
-                            flexDirection="column"
-                            gap={compact() ? 0 : 1}
-                            marginBottom={compact() ? 0 : 1}
-                            paddingLeft={1}
-                            paddingRight={1}
-                            paddingTop={compact() ? 0 : 1}
-                            paddingBottom={compact() ? 0 : 1}
-                            backgroundColor={
-                              isCardActive() ? (theme[column.accent] ?? theme.primary) : theme.background
-                            }
-                            onMouseUp={() => {
-                              actions.focusCard(idx, cardIdx)
-                            }}
-                          >
-                            <text
-                              fg={isCardActive() ? theme.background : theme.text}
-                              attributes={TextAttributes.BOLD}
-                              wrapMode="word"
+                    }
+                  >
+                    <scrollbox height={scrollHeight()} scrollbarOptions={{ visible: false }}>
+                      <For each={column.cards}>
+                        {(card, cardIdxAccessor) => {
+                          const cardIdx = cardIdxAccessor()
+                          const isCardActive = createMemo(() => isActive() && board.focus.card === cardIdx)
+                          return (
+                            <box
+                              flexDirection="column"
+                              gap={compact() ? 0 : 1}
+                              marginBottom={compact() ? 0 : 1}
+                              paddingLeft={1}
+                              paddingRight={1}
+                              paddingTop={compact() ? 0 : 1}
+                              paddingBottom={compact() ? 0 : 1}
+                              backgroundColor={
+                                isCardActive() ? (theme[column.accent] ?? theme.primary) : theme.background
+                              }
+                              onMouseUp={() => {
+                                actions.focusCard(idx, cardIdx)
+                              }}
                             >
-                              {card.title}
-                            </text>
-                            <Show when={!compact()}>
-                              <text fg={isCardActive() ? theme.background : theme.textMuted} wrapMode="word">
-                                {card.summary}
+                              <text
+                                fg={isCardActive() ? theme.background : theme.text}
+                                attributes={TextAttributes.BOLD}
+                                wrapMode="word"
+                              >
+                                {card.title}
                               </text>
-                            </Show>
-                            <Show when={!compact()}>
-                              <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
-                                <text fg={isCardActive() ? theme.background : theme.textMuted}>@{card.owner}</text>
-                                <text fg={isCardActive() ? theme.background : theme.textMuted}>{card.eta}</text>
-                                <text fg={riskColor(theme, card.risk, isCardActive())}>{card.points} pts</text>
-                                <Show when={card.blocked}>
-                                  <text fg={theme.error}>blocked</text>
-                                </Show>
-                              </box>
-                            </Show>
-                            <box flexDirection="row" gap={1} flexWrap="wrap">
-                              <For each={card.tags}>
-                                {(tag) => (
-                                  <box
-                                    backgroundColor={isCardActive() ? theme.background : theme.backgroundElement}
-                                    paddingLeft={1}
-                                    paddingRight={1}
-                                  >
-                                    <text
-                                      fg={isCardActive() ? (theme[column.accent] ?? theme.primary) : theme.textMuted}
+                              <Show when={!compact()}>
+                                <text fg={isCardActive() ? theme.background : theme.textMuted} wrapMode="word">
+                                  {card.summary}
+                                </text>
+                              </Show>
+                              <Show when={!compact()}>
+                                <box flexDirection="row" gap={1} alignItems="center" flexWrap="wrap">
+                                  <text fg={isCardActive() ? theme.background : theme.textMuted}>@{card.owner}</text>
+                                  <text fg={isCardActive() ? theme.background : theme.textMuted}>{card.eta}</text>
+                                  <text fg={riskColor(theme, card.risk, isCardActive())}>{card.points} pts</text>
+                                  <Show when={card.blocked}>
+                                    <text fg={theme.error}>blocked</text>
+                                  </Show>
+                                </box>
+                              </Show>
+                              <box flexDirection="row" gap={1} flexWrap="wrap">
+                                <For each={card.tags}>
+                                  {(tag) => (
+                                    <box
+                                      backgroundColor={isCardActive() ? theme.background : theme.backgroundElement}
+                                      paddingLeft={1}
+                                      paddingRight={1}
                                     >
-                                      #{tag}
-                                    </text>
-                                  </box>
-                                )}
-                              </For>
+                                      <text
+                                        fg={isCardActive() ? (theme[column.accent] ?? theme.primary) : theme.textMuted}
+                                      >
+                                        #{tag}
+                                      </text>
+                                    </box>
+                                  )}
+                                </For>
+                              </box>
                             </box>
-                          </box>
-                        )
-                      }}
-                    </For>
-                  </scrollbox>
+                          )
+                        }}
+                      </For>
+                    </scrollbox>
+                  </Show>
                   <Show when={column.cards.length > 0}>
                     <box flexDirection="row" gap={1} justifyContent="flex-end">
                       <Show when={idx > 0}>

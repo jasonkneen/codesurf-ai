@@ -1,6 +1,6 @@
 import { createSimpleContext } from "./helper"
 import { createStore, produce } from "solid-js/store"
-import { createEffect, createSignal, untrack } from "solid-js"
+import { createEffect, createSignal, untrack, batch } from "solid-js"
 import path from "path"
 import fs from "fs/promises"
 import { randomUUID } from "node:crypto"
@@ -24,7 +24,6 @@ export type KanbanColumn = {
   title: string
   subtitle: string
   accent: AccentKey
-  focus: string
   wip: {
     current: number
     limit: number
@@ -46,7 +45,6 @@ const DEFAULT_COLUMNS: KanbanColumn[] = [
     title: "Backlog",
     subtitle: "Signals + research",
     accent: "info",
-    focus: "Collect raw ideas",
     wip: { current: 0, limit: 6 },
     cards: [],
   },
@@ -55,7 +53,6 @@ const DEFAULT_COLUMNS: KanbanColumn[] = [
     title: "In Flight",
     subtitle: "Active focus streams",
     accent: "warning",
-    focus: "Protect cadence, unblock fast",
     wip: { current: 0, limit: 4 },
     cards: [],
   },
@@ -64,7 +61,6 @@ const DEFAULT_COLUMNS: KanbanColumn[] = [
     title: "Review",
     subtitle: "QA + polish",
     accent: "accent",
-    focus: "Guard rails + delight",
     wip: { current: 0, limit: 3 },
     cards: [],
   },
@@ -73,7 +69,6 @@ const DEFAULT_COLUMNS: KanbanColumn[] = [
     title: "Shipped",
     subtitle: "Celebrations + learnings",
     accent: "success",
-    focus: "Archive the work, capture lessons",
     wip: { current: 0, limit: 99 },
     cards: [],
   },
@@ -200,40 +195,34 @@ export const { use: useKanban, provider: KanbanProvider } = createSimpleContext(
       },
 
       shiftCard: (direction: number) => {
-        setBoard(
-          produce((draft) => {
-            const fromColumn = draft.columns[draft.focus.column]
-            if (!fromColumn) return
-            if (!fromColumn.cards.length) return
+        const state = untrack(() => board)
+        const fromIdx = state.focus.column
+        if (fromIdx < 0 || fromIdx >= state.columns.length) return
 
-            // Check bounds
-            const targetIndex = draft.focus.column + direction
-            if (targetIndex < 0) return
-            if (targetIndex >= draft.columns.length) return
+        const fromCol = state.columns[fromIdx]
+        const cardIdx = state.focus.card
+        if (cardIdx < 0 || cardIdx >= fromCol.cards.length) return
 
-            // Move card - use explicit array filtering to ensure reactivity triggers
-            const cardProxy = fromColumn.cards[draft.focus.card]
-            if (!cardProxy) return
+        const targetIdx = fromIdx + direction
+        if (targetIdx < 0 || targetIdx >= state.columns.length) return
 
-            // Clone to detach from proxy
-            const card = JSON.parse(JSON.stringify(cardProxy))
+        // 1. Get card data (cloned)
+        const cardProxy = fromCol.cards[cardIdx]
+        const card = JSON.parse(JSON.stringify(cardProxy))
 
-            // Remove from source by creating new array
-            fromColumn.cards = fromColumn.cards.filter((_, i) => i !== draft.focus.card)
+        batch(() => {
+          // 2. Remove from source
+          setBoard("columns", fromIdx, "cards", (cards) => cards.filter((_, i) => i !== cardIdx))
+          setBoard("columns", fromIdx, "wip", "current", (c) => c - 1)
 
-            const toColumn = draft.columns[targetIndex]
-            // Add to target
-            toColumn.cards.unshift(card)
+          // 3. Add to target
+          setBoard("columns", targetIdx, "cards", (cards) => [card, ...cards])
+          setBoard("columns", targetIdx, "wip", "current", (c) => c + 1)
 
-            // Update WIP
-            fromColumn.wip.current = fromColumn.cards.length
-            toColumn.wip.current = toColumn.cards.length
-
-            // Follow focus
-            draft.focus.column = targetIndex
-            draft.focus.card = 0
-          }),
-        )
+          // 4. Update focus
+          setBoard("focus", "column", targetIdx)
+          setBoard("focus", "card", 0)
+        })
       },
 
       createCard: (columnId: string, card: Partial<KanbanCard>) => {
