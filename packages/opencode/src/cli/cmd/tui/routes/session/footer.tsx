@@ -490,7 +490,7 @@ export function Footer() {
 
             return (
               <box flexDirection="row" gap={0}>
-                <text fg={local.agent.color(agentForColor)}></text>
+                <text fg={local.agent.color(agentForColor)}></text>
                 <text
                   bg={local.agent.color(agentForColor)}
                   fg={theme.background}
