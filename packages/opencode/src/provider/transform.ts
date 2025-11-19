@@ -141,9 +141,13 @@ export namespace ProviderTransform {
       result["promptCacheKey"] = sessionID
     }
 
-    const mid = modelID.toLowerCase()
-    const isOpenAIReasoningFamily = mid.includes("gpt-5.1") || mid.startsWith("o1") || mid.startsWith("o3")
-    if (isOpenAIReasoningFamily && !mid.includes("gpt-5.1-chat")) {
+    if (providerID === "google") {
+      result["thinkingConfig"] = {
+        includeThoughts: true,
+      }
+    }
+
+    if (modelID.includes("gpt-5") && !modelID.includes("gpt-5-chat")) {
       if (modelID.includes("codex")) {
         result["store"] = false
       }
@@ -181,6 +185,14 @@ export namespace ProviderTransform {
       case "@ai-sdk/anthropic":
         return {
           ["anthropic" as string]: options,
+        }
+      case "@ai-sdk/google":
+        return {
+          ["google" as string]: options,
+        }
+      case "@ai-sdk/gateway":
+        return {
+          ["gateway" as string]: options,
         }
       default:
         return {
