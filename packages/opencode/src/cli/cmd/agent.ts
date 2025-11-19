@@ -8,6 +8,7 @@ import matter from "gray-matter"
 import { Instance } from "../../project/instance"
 import { Flag } from "../../flag/flag"
 import { AVAILABLE_TOOLS } from "../../tool/constants"
+import { EOL } from "os"
 
 const AgentCreateCommand = cmd({
   command: "create",
@@ -125,9 +126,32 @@ const AgentCreateCommand = cmd({
   },
 })
 
+const AgentListCommand = cmd({
+  command: "list",
+  describe: "list all available agents",
+  async handler() {
+    await Instance.provide({
+      directory: process.cwd(),
+      async fn() {
+        const agents = await Agent.list()
+        const sortedAgents = agents.sort((a, b) => {
+          if (a.builtIn !== b.builtIn) {
+            return a.builtIn ? -1 : 1
+          }
+          return a.name.localeCompare(b.name)
+        })
+
+        for (const agent of sortedAgents) {
+          process.stdout.write(`${agent.name} (${agent.mode})${EOL}`)
+        }
+      },
+    })
+  },
+})
+
 export const AgentCommand = cmd({
   command: "agent",
   describe: "manage agents",
-  builder: (yargs) => yargs.command(AgentCreateCommand).demandCommand(),
+  builder: (yargs) => yargs.command(AgentCreateCommand).command(AgentListCommand).demandCommand(),
   async handler() {},
 })

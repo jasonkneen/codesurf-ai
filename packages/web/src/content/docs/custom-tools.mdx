@@ -7,6 +7,9 @@ Custom tools are functions you create that the LLM can call during conversations
 
 ---
 
+## Creating a tool
+
+Tools are defined as **TypeScript** or **JavaScript** files. However, the tool definition can invoke scripts written in **any language** — TypeScript or JavaScript is only used for the tool definition itself.
 ## Core Tools vs Custom Tools
 
 Understanding the distinction between core and custom tools is important for choosing the right approach:
@@ -96,6 +99,40 @@ The **filename** becomes the **tool name**. The above creates a `database` tool.
 
 ---
 
+#### Multiple tools per file
+
+You can also export multiple tools from a single file. Each export becomes **a separate tool** with the name **`<filename>_<exportname>`**:
+
+```ts title=".opencode/tool/math.ts"
+import { tool } from "@opencode-ai/plugin"
+
+export const add = tool({
+  description: "Add two numbers",
+  args: {
+    a: tool.schema.number().describe("First number"),
+    b: tool.schema.number().describe("Second number"),
+  },
+  async execute(args) {
+    return args.a + args.b
+  },
+})
+
+export const multiply = tool({
+  description: "Multiply two numbers",
+  args: {
+    a: tool.schema.number().describe("First number"),
+    b: tool.schema.number().describe("Second number"),
+  },
+  async execute(args) {
+    return args.a * args.b
+  },
+})
+```
+
+This creates two tools: `math_add` and `math_multiply`.
+
+---
+
 ### Arguments
 
 You can use `tool.schema`, which is just [Zod](https://zod.dev), to define argument types.
@@ -171,34 +208,38 @@ export default tool({
 
 ---
 
-## Multiple tools per file
+## Examples
 
-You can also export multiple tools from a single file. Each export becomes **a separate tool** with the name **`<filename>_<exportname>`**:
+### Write a tool in Python
 
-```ts title=".opencode/tool/math.ts"
+You can write your tools in any language you want. Here's an example that adds two numbers using Python.
+
+First, create the tool as a Python script:
+
+```python title=".opencode/tool/add.py"
+import sys
+
+a = int(sys.argv[1])
+b = int(sys.argv[2])
+print(a + b)
+```
+
+Then create the tool definition that invokes it:
+
+```ts title=".opencode/tool/python-add.ts" {10}
 import { tool } from "@opencode-ai/plugin"
 
-export const add = tool({
-  description: "Add two numbers",
+export default tool({
+  description: "Add two numbers using Python",
   args: {
     a: tool.schema.number().describe("First number"),
     b: tool.schema.number().describe("Second number"),
   },
   async execute(args) {
-    return args.a + args.b
-  },
-})
-
-export const multiply = tool({
-  description: "Multiply two numbers",
-  args: {
-    a: tool.schema.number().describe("First number"),
-    b: tool.schema.number().describe("Second number"),
-  },
-  async execute(args) {
-    return args.a * args.b
+    const result = await Bun.$`python3 .opencode/tool/add.py ${args.a} ${args.b}`.text()
+    return result.trim()
   },
 })
 ```
 
-This creates two tools: `math_add` and `math_multiply`.
+Here we are using the [`Bun.$`](https://bun.com/docs/runtime/shell) utility to run the Python script.

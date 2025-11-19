@@ -53,6 +53,17 @@ export const EditTool = Tool.define("edit", {
             parentDir,
           },
         })
+      } else if (agent.permission.external_directory === "deny") {
+        throw new Permission.RejectedError(
+          ctx.sessionID,
+          "external_directory",
+          ctx.callID,
+          {
+            filepath: filePath,
+            parentDir,
+          },
+          `File ${filePath} is not in the current working directory`,
+        )
       }
     }
 

@@ -145,6 +145,23 @@ export function resolveThemeColor(
 
 function resolveTheme(theme: ThemeJson, mode: "dark" | "light") {
   const defs = theme.defs ?? {}
+  function resolveColor(c: ColorValue): RGBA {
+    if (c instanceof RGBA) return c
+    if (typeof c === "string") {
+      if (c === "transparent" || c === "none") return RGBA.fromInts(0, 0, 0, 0)
+
+      if (c.startsWith("#")) return RGBA.fromHex(c)
+
+      if (defs[c]) {
+        return resolveColor(defs[c])
+      } else if (theme.theme[c as keyof Theme]) {
+        return resolveColor(theme.theme[c as keyof Theme])
+      } else {
+        throw new Error(`Color reference "${c}" not found in defs or theme`)
+      }
+    }
+    return resolveColor(c[mode])
+  }
   return Object.fromEntries(
     Object.entries(theme.theme).map(([key, value]) => {
       return [key, resolveThemeColor(value, defs, mode)]
