@@ -250,7 +250,69 @@ export function Footer() {
   }
 
   const showWorkerDialog = () => {
-    dialog.replace(() => <WorkerDialog onClose={() => dialog.clear()} />)
+    const workerConfig = BackgroundWorkers.getConfig()
+
+    let validationLogs = "No logs yet"
+    let prefetchLogs = "No logs yet"
+
+    try {
+      validationLogs = readFileSync("/tmp/opencode-validation-worker.log", "utf-8")
+        .split("\n")
+        .filter((line) => line.trim())
+        .slice(-15)
+        .join("\n")
+    } catch (e) {
+      //
+    }
+
+    try {
+      prefetchLogs = readFileSync("/tmp/opencode-prefetch-worker.log", "utf-8")
+        .split("\n")
+        .filter((line) => line.trim())
+        .slice(-15)
+        .join("\n")
+    } catch (e) {
+      //
+    }
+
+    const options: DialogSelectOption<string>[] = [
+      {
+        title: workerConfig?.validation.enabled ? "✓ Validation" : "  Validation",
+        value: "validation-status",
+        description: validationLogs,
+        onSelect: () => {},
+      },
+      {
+        title: "Toggle Validation",
+        value: "toggle-validation",
+        description: "Enable/disable background lint/typecheck/codereview",
+        onSelect: (ctx) => {
+          BackgroundWorkers.updateConfig({
+            validation: { enabled: !(workerConfig?.validation.enabled ?? false) },
+          })
+          ctx.clear()
+        },
+      },
+      {
+        title: workerConfig?.prefetch.enabled ? "✓ Prefetch" : "  Prefetch",
+        value: "prefetch-status",
+        description: prefetchLogs,
+        onSelect: () => {},
+      },
+      {
+        title: "Toggle Prefetch",
+        value: "toggle-prefetch",
+        description: "Enable/disable file prefetch caching",
+        onSelect: (ctx) => {
+          BackgroundWorkers.updateConfig({
+            prefetch: { enabled: !(workerConfig?.prefetch.enabled ?? false) },
+          })
+          ctx.clear()
+        },
+      },
+    ]
+
+    dialog.replace(() => <DialogSelect title="Background Workers" options={options} />)
   }
 
   return (
