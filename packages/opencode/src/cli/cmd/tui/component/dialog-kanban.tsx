@@ -6,6 +6,7 @@ import { useDialog } from "@tui/ui/dialog"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { DialogPrompt } from "../ui/dialog-prompt"
+import { DialogAlert } from "../ui/dialog-alert"
 
 const LINK_ATTRS = TextAttributes.UNDERLINE
 
@@ -70,7 +71,7 @@ export function DialogKanban() {
 
   const scrollHeight = createMemo(() => Math.max(8, layout.height - 11))
 
-  const [compact, setCompact] = createSignal(true)
+  const [compact, setCompact] = createSignal(false)
   const [dragDebug, setDragDebug] = createSignal("idle")
 
   createEffect(() => {
@@ -95,7 +96,6 @@ export function DialogKanban() {
     if (value) {
       actions.createCard(column.id, { title: value })
     }
-    // Restore kanban since prompt replaces it
     dialog.replace(() => <DialogKanban />)
   }
 
@@ -106,7 +106,20 @@ export function DialogKanban() {
     if (value) {
       actions.updateCard(card.id, { title: value })
     }
-    // Restore kanban since prompt replaces it
+    dialog.replace(() => <DialogKanban />)
+  }
+
+  const deleteCard = async () => {
+    const card = activeCard()
+    if (!card) return
+    const confirmed = await DialogAlert.show(
+      dialog,
+      "Confirm Delete",
+      `Are you sure you want to delete "${card.title}"?`,
+    )
+    if (confirmed) {
+      actions.deleteCard(card.id)
+    }
     dialog.replace(() => <DialogKanban />)
   }
 
@@ -150,6 +163,11 @@ export function DialogKanban() {
     if (evt.name === "return") {
       evt.preventDefault()
       await editCard()
+      return
+    }
+    if (evt.name === "d" && !evt.ctrl && !evt.meta) {
+      evt.preventDefault()
+      await deleteCard()
       return
     }
     if (evt.name === "c" && !evt.ctrl && !evt.meta) {
@@ -432,13 +450,23 @@ export function DialogKanban() {
                   )}
                 </For>
               </box>
+              <box flexDirection="row" gap={2} marginTop={1}>
+                <box backgroundColor={theme.accent} paddingLeft={1} paddingRight={1} onMouseUp={() => editCard()}>
+                  <text fg={theme.background} attributes={TextAttributes.BOLD}>
+                    Edit (enter)
+                  </text>
+                </box>
+                <box backgroundColor={theme.error} paddingLeft={1} paddingRight={1} onMouseUp={() => deleteCard()}>
+                  <text fg={theme.background} attributes={TextAttributes.BOLD}>
+                    Delete (d)
+                  </text>
+                </box>
+              </box>
             </box>
           )}
         </Show>
         <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1}>
-          <text fg={theme.textMuted}>
-            ctrl+←/→ move card · enter edit · c toggle compact · a add card · enter closes prompt
-          </text>
+          <text fg={theme.textMuted}>ctrl+←/→ move · enter edit · d delete · c compact · a add</text>
         </box>
       </box>
     </box>
