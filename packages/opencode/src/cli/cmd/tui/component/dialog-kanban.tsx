@@ -1,214 +1,23 @@
 import { For, Show, createMemo, createSignal, createEffect } from "solid-js"
-import { createStore, produce } from "solid-js/store"
+import { createStore } from "solid-js/store"
 import { useTheme } from "@tui/context/theme"
+import { useKanban, type KanbanCard } from "@tui/context/kanban"
 import { useDialog } from "@tui/ui/dialog"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { DialogPrompt } from "../ui/dialog-prompt"
-import { randomUUID } from "node:crypto"
-import path from "path"
-import { Global } from "@/global"
-
-type AccentKey = "primary" | "secondary" | "accent" | "warning" | "success" | "info" | "error"
-
-type KanbanCard = {
-  id: string
-  title: string
-  summary: string
-  owner: string
-  eta: string
-  tags: string[]
-  points: number
-  risk: "low" | "medium" | "high"
-  blocked?: boolean
-}
-
-type KanbanColumn = {
-  id: string
-  title: string
-  subtitle: string
-  accent: AccentKey
-  focus: string
-  wip: {
-    current: number
-    limit: number
-  }
-  cards: KanbanCard[]
-}
-
-type BoardState = {
-  columns: KanbanColumn[]
-  focus: {
-    column: number
-    card: number
-  }
-}
 
 const LINK_ATTRS = TextAttributes.UNDERLINE
 
 const INSTRUCTION_TEXT =
   "Navigate with ←/→, focus cards with ↑/↓, move cards with ctrl+←/→, press a to capture a new slice of work."
 
-const BOARD_SEED: KanbanColumn[] = [
-  {
-    id: "ideas",
-    title: "Backlog",
-    subtitle: "Signals + research",
-    accent: "info",
-    focus: "Collect raw ideas",
-    wip: { current: 3, limit: 6 },
-    cards: [
-      {
-        id: "kb-sync",
-        title: "Stream MCP events into Kanban",
-        summary: "Mirror MCP sync events so ops can triage tool drift",
-        owner: "Mia",
-        eta: "Nov 14",
-        tags: ["mcp", "sync"],
-        points: 3,
-        risk: "medium",
-      },
-      {
-        id: "insight",
-        title: "Insight heatmap",
-        summary: "Overlay reasoning confidence onto prompts in history",
-        owner: "Cal",
-        eta: "Nov 18",
-        tags: ["insight"],
-        points: 5,
-        risk: "high",
-        blocked: true,
-      },
-      {
-        id: "console-fold",
-        title: "Console folding",
-        summary: "Group identical log bursts in the HAL lens",
-        owner: "Ash",
-        eta: "Nov 20",
-        tags: ["ui"],
-        points: 2,
-        risk: "low",
-      },
-    ],
-  },
-  {
-    id: "doing",
-    title: "In Flight",
-    subtitle: "Active focus streams",
-    accent: "warning",
-    focus: "Protect cadence, unblock fast",
-    wip: { current: 2, limit: 4 },
-    cards: [
-      {
-        id: "kanban",
-        title: "TUI Kanban dialog",
-        summary: "Expose multi-column planning UI inside openTUI",
-        owner: "You",
-        eta: "Today",
-        tags: ["tui", "ux"],
-        points: 3,
-        risk: "medium",
-      },
-      {
-        id: "task-handoff",
-        title: "Subagent handoff view",
-        summary: "Visualize pending transfers + stuck assistants",
-        owner: "Ara",
-        eta: "Nov 16",
-        tags: ["agents"],
-        points: 4,
-        risk: "medium",
-      },
-    ],
-  },
-  {
-    id: "verify",
-    title: "Review",
-    subtitle: "QA + polish",
-    accent: "accent",
-    focus: "Guard rails + delight",
-    wip: { current: 1, limit: 3 },
-    cards: [
-      {
-        id: "palette",
-        title: "Theme stress test",
-        summary: "Review contrast + spacing for every built-in theme",
-        owner: "Jess",
-        eta: "Nov 15",
-        tags: ["theme"],
-        points: 2,
-        risk: "low",
-      },
-    ],
-  },
-  {
-    id: "done",
-    title: "Shipped",
-    subtitle: "Celebrations + learnings",
-    accent: "success",
-    focus: "Archive the work, capture lessons",
-    wip: { current: 4, limit: 99 },
-    cards: [
-      {
-        id: "drag",
-        title: "Mouse drag select",
-        summary: "Native region selection with OSC-52 copy",
-        owner: "Team",
-        eta: "Nov 10",
-        tags: ["experience"],
-        points: 2,
-        risk: "low",
-      },
-      {
-        id: "zen",
-        title: "Zen install hints",
-        summary: "Inline upgrade CTA in status dialog",
-        owner: "Ops",
-        eta: "Nov 09",
-        tags: ["growth"],
-        points: 1,
-        risk: "low",
-      },
-      {
-        id: "keybind",
-        title: "Keybind overlay",
-        summary: "Teach leader bindings with contextual overlay",
-        owner: "Ray",
-        eta: "Nov 11",
-        tags: ["edu"],
-        points: 2,
-        risk: "medium",
-      },
-      {
-        id: "trace",
-        title: "Trace inspector",
-        summary: "Scrollback aware reasoning inspector",
-        owner: "Iris",
-        eta: "Nov 12",
-        tags: ["debug"],
-        points: 3,
-        risk: "medium",
-      },
-    ],
-  },
-]
-
 export function DialogKanban() {
   const dialog = useDialog()
   const { theme } = useTheme()
   const term = useTerminalDimensions()
   const renderer = useRenderer()
-  const [board, setBoard] = createStore<BoardState>({
-    columns: BOARD_SEED.map((col) => ({
-      ...col,
-      cards: col.cards.map((card) => ({ ...card })),
-      wip: {
-        current: col.cards.length,
-        limit: col.wip.limit,
-      },
-    })),
-    focus: { column: 1, card: 0 },
-  })
+  const { board, actions, ready } = useKanban()
 
   const layoutBounds = {
     minWidth: 80,
@@ -278,122 +87,45 @@ export function DialogKanban() {
     return column.cards[board.focus.card]
   })
 
-  const moveColumn = (delta: number) => {
-    setBoard(
-      produce((draft) => {
-        if (draft.columns.length === 0) return
-        const max = draft.columns.length
-        const next = (draft.focus.column + delta + max) % max
-        draft.focus.column = next
-        const target = draft.columns[next]
-        if (!target) return
-        draft.focus.card = target.cards.length ? Math.min(Math.max(draft.focus.card, 0), target.cards.length - 1) : -1
-      }),
-    )
-  }
-
-  const moveCardSelection = (delta: number) => {
-    setBoard(
-      produce((draft) => {
-        const column = draft.columns[draft.focus.column]
-        if (!column) return
-        if (!column.cards.length) {
-          draft.focus.card = -1
-          return
-        }
-        const next = draft.focus.card + delta
-        if (next < 0) {
-          draft.focus.card = 0
-          return
-        }
-        if (next >= column.cards.length) {
-          draft.focus.card = column.cards.length - 1
-          return
-        }
-        draft.focus.card = next
-      }),
-    )
-  }
-
-  const shiftCard = (direction: number) => {
-    setBoard(
-      produce((draft) => {
-        const fromColumn = draft.columns[draft.focus.column]
-        if (!fromColumn) return
-        if (!fromColumn.cards.length) return
-        const targetIndex = draft.focus.column + direction
-        if (targetIndex < 0) return
-        if (targetIndex >= draft.columns.length) return
-        const [card] = fromColumn.cards.splice(draft.focus.card, 1)
-        if (!card) return
-        const toColumn = draft.columns[targetIndex]
-        toColumn.cards.unshift(card)
-        fromColumn.wip.current = fromColumn.cards.length
-        toColumn.wip.current = toColumn.cards.length
-        draft.focus.column = targetIndex
-        draft.focus.card = 0
-      }),
-    )
-  }
-
   const createCard = async (targetColumnIndex?: number) => {
     const column =
       typeof targetColumnIndex === "number" ? board.columns[targetColumnIndex] : board.columns[board.focus.column]
     if (!column) return
     const value = await DialogPrompt.show(dialog, `New card for ${column.title}`)
     if (!value) return
-    setBoard(
-      produce((draft) => {
-        const idx = typeof targetColumnIndex === "number" ? targetColumnIndex : draft.focus.column
-        const target = draft.columns[idx]
-        if (!target) return
-        target.cards.unshift({
-          id: randomUUID(),
-          title: value,
-          summary: "Outline next steps",
-          owner: "You",
-          eta: "Inbox",
-          tags: ["new"],
-          points: 1,
-          risk: "low",
-        })
-        target.wip.current = target.cards.length
-        draft.focus.column = idx
-        draft.focus.card = 0
-      }),
-    )
+    actions.createCard(column.id, { title: value })
   }
 
   useKeyboard(async (evt) => {
     if (evt.defaultPrevented) return
     if (evt.ctrl && evt.name === "left") {
       evt.preventDefault()
-      shiftCard(-1)
+      actions.shiftCard(-1)
       return
     }
     if (evt.ctrl && evt.name === "right") {
       evt.preventDefault()
-      shiftCard(1)
+      actions.shiftCard(1)
       return
     }
     if (evt.name === "left" && !evt.ctrl) {
       evt.preventDefault()
-      moveColumn(-1)
+      actions.moveColumn(-1)
       return
     }
     if (evt.name === "right" && !evt.ctrl) {
       evt.preventDefault()
-      moveColumn(1)
+      actions.moveColumn(1)
       return
     }
     if (evt.name === "up") {
       evt.preventDefault()
-      moveCardSelection(-1)
+      actions.moveCardSelection(-1)
       return
     }
     if (evt.name === "down") {
       evt.preventDefault()
-      moveCardSelection(1)
+      actions.moveCardSelection(1)
       return
     }
     if ((evt.name === "a" || evt.name === "n") && !evt.ctrl && !evt.meta) {
@@ -571,12 +303,7 @@ export function DialogKanban() {
                               isCardActive() ? (theme[column.accent] ?? theme.primary) : theme.background
                             }
                             onMouseUp={() => {
-                              setBoard(
-                                produce((draft) => {
-                                  draft.focus.column = idx
-                                  draft.focus.card = cardIdx
-                                }),
-                              )
+                              actions.focusCard(idx, cardIdx)
                             }}
                           >
                             <text
@@ -623,19 +350,28 @@ export function DialogKanban() {
                       }}
                     </For>
                   </scrollbox>
-                  <box flexDirection="row" gap={1} justifyContent="space-between" alignItems="center">
-                    <text fg={theme.textMuted} wrapMode="word">
-                      {column.focus}
-                    </text>
-                    <box flexDirection="row" gap={1} flexShrink={0}>
-                      <text fg={theme.textMuted} attributes={LINK_ATTRS} onMouseUp={() => shiftCard(-1)}>
-                        ←
-                      </text>
-                      <text fg={theme.textMuted} attributes={LINK_ATTRS} onMouseUp={() => shiftCard(1)}>
-                        →
-                      </text>
+                  <Show when={column.cards.length > 0}>
+                    <box flexDirection="row" gap={1} justifyContent="flex-end">
+                      <Show when={idx > 0}>
+                        <box backgroundColor={theme.backgroundElement} paddingLeft={1} paddingRight={1}>
+                          <text
+                            fg={theme.text}
+                            attributes={TextAttributes.BOLD}
+                            onMouseUp={() => actions.shiftCard(-1)}
+                          >
+                            ← move
+                          </text>
+                        </box>
+                      </Show>
+                      <Show when={idx < board.columns.length - 1}>
+                        <box backgroundColor={theme.backgroundElement} paddingLeft={1} paddingRight={1}>
+                          <text fg={theme.text} attributes={TextAttributes.BOLD} onMouseUp={() => actions.shiftCard(1)}>
+                            move →
+                          </text>
+                        </box>
+                      </Show>
                     </box>
-                  </box>
+                  </Show>
                 </box>
               )
             }}
@@ -678,7 +414,6 @@ export function DialogKanban() {
         </Show>
         <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1}>
           <text fg={theme.textMuted}>ctrl+←/→ move card · c toggle compact · a add card · enter closes prompt</text>
-          <text fg={theme.textMuted}>mock data only — persistence coming soon</text>
         </box>
       </box>
     </box>
