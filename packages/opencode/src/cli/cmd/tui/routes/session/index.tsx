@@ -2352,6 +2352,7 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
         paddingTop={1}
         paddingBottom={1}
         marginTop={isFirstInMessage() ? 0 : 1}
+        marginBottom={1}
         flexShrink={0}
         flexDirection="column"
       >
