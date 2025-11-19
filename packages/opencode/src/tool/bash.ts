@@ -13,6 +13,7 @@ import { Filesystem } from "@/util/filesystem"
 import { Wildcard } from "@/util/wildcard"
 import { Permission } from "@/permission"
 import { Session } from "@/session"
+import { fileURLToPath } from "url"
 
 const MAX_OUTPUT_LENGTH = 30_000
 const DEFAULT_TIMEOUT = 1 * 60 * 1000
@@ -142,20 +143,29 @@ function safeEnvironment(additionalAllowed?: string[]): NodeJS.ProcessEnv {
   return result
 }
 
+const resolveWasm = (asset: string) => {
+  if (asset.startsWith("file://")) return fileURLToPath(asset)
+  if (asset.startsWith("/") || /^[a-z]:/i.test(asset)) return asset
+  const url = new URL(asset, import.meta.url)
+  return fileURLToPath(url)
+}
+
 const parser = lazy(async () => {
   const { Parser } = await import("web-tree-sitter")
   const { default: treeWasm } = await import("web-tree-sitter/tree-sitter.wasm" as string, {
     with: { type: "wasm" },
   })
+  const treePath = resolveWasm(treeWasm)
   await Parser.init({
     locateFile() {
-      return treeWasm
+      return treePath
     },
   })
   const { default: bashWasm } = await import("tree-sitter-bash/tree-sitter-bash.wasm" as string, {
     with: { type: "wasm" },
   })
-  const bashLanguage = await Language.load(bashWasm)
+  const bashPath = resolveWasm(bashWasm)
+  const bashLanguage = await Language.load(bashPath)
   const p = new Parser()
   p.setLanguage(bashLanguage)
   return p

@@ -84,7 +84,7 @@ export namespace Server {
       })
       .route("/global/event", globalEventRoutes())
       .use(async (c, next) => {
-        const directory = c.req.query("directory") ?? process.cwd()
+        const directory = c.req.query("directory") ?? c.req.header("x-opencode-directory") ?? process.cwd()
         return Instance.provide({
           directory,
           init: InstanceBootstrap,
@@ -93,7 +93,6 @@ export namespace Server {
           },
         })
       })
-      .use(cors())
       .get(
         "/doc",
         openAPIRouteHandler(app, {
