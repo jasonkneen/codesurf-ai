@@ -53,6 +53,8 @@ import type { TaskTool } from "@/tool/task"
 import type { AddTaskTool } from "@/tool/add-task"
 import { useKeyboard, useRenderer, useTerminalDimensions, type BoxProps, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
+import { BackgroundWorkers } from "@/worker/background-workers"
+import { Instance } from "@/project/instance"
 
 import { useCommandDialog } from "@tui/component/dialog-command"
 import { Shimmer } from "@tui/ui/shimmer"
@@ -323,6 +325,16 @@ export function Session() {
   const kv = useKV()
   const { theme } = useTheme()
   const session = createMemo(() => sync.session.get(route.sessionID)!)
+
+  // Initialize background workers when entering a session
+  createEffect(() => {
+    BackgroundWorkers.init({
+      sessionID: route.sessionID,
+      workingDirectory: Instance.directory,
+      validation: { enabled: true },
+      prefetch: { enabled: false },
+    })
+  })
 
   // Track open session tabs
   const [openTabs, setOpenTabs] = createSignal<string[]>(kv.get("openTabs", []))
@@ -1998,7 +2010,7 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
   })
 
   return (
-    <box paddingLeft={3} marginTop={0} marginBottom={0}>
+    <box paddingLeft={3} marginTop={1} marginBottom={0}>
       <box
         flexDirection="row"
         gap={1}
@@ -2340,7 +2352,6 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
         paddingTop={1}
         paddingBottom={1}
         marginTop={isFirstInMessage() ? 0 : 1}
-        marginBottom={1}
         flexShrink={0}
         flexDirection="column"
       >

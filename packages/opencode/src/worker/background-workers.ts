@@ -29,7 +29,9 @@ export namespace BackgroundWorkers {
     validation?: Partial<WorkerConfig.BackgroundValidationInfo>
     prefetch?: Partial<WorkerConfig.PrefetchWorkerInfo>
   }) {
-    if (config) return
+    // Allow re-initialization when switching sessions
+    const isSameSession = config && sessionID === opts.sessionID
+    if (isSameSession) return
 
     sessionID = opts.sessionID
     workingDirectory = opts.workingDirectory
@@ -49,12 +51,17 @@ export namespace BackgroundWorkers {
       workingDirectory,
     })
 
+    // Start workers in background (don't await)
     if (config.validation.enabled) {
-      await startValidationWorker()
+      startValidationWorker().catch((error) => {
+        log.error("Failed to start validation worker in background", { error })
+      })
     }
 
     if (config.prefetch.enabled) {
-      await startPrefetchWorker()
+      startPrefetchWorker().catch((error) => {
+        log.error("Failed to start prefetch worker in background", { error })
+      })
     }
 
     // Subscribe to file watcher events (only if in Instance context)
