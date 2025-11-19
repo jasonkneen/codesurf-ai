@@ -160,6 +160,17 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   useKeyboard((evt) => {
     const name = evt.name?.toLowerCase()
+
+    // Refocus input for typing events (not navigation keys)
+    if (
+      evt.sequence &&
+      !["up", "down", "left", "right", "pageup", "pagedown", "return", "escape"].includes(name || "")
+    ) {
+      if (input && !evt.ctrl && !evt.meta) {
+        input.focus()
+      }
+    }
+
     if (name === "up" || (evt.ctrl && name === "k") || (evt.ctrl && name === "p")) {
       evt.preventDefault()
       move(-1)
@@ -312,7 +323,15 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                     <box
                       id={JSON.stringify(option.value)}
                       flexDirection="column"
-                      onMouseUp={() => {
+                      onMouseDown={(evt) => {
+                        evt.preventDefault()
+                        const index = flat().findIndex((x) => isDeepEqual(x.value, option.value))
+                        if (index !== -1) {
+                          moveTo(index)
+                        }
+                      }}
+                      onMouseUp={(evt) => {
+                        evt.preventDefault()
                         if (props.collapsibleDescriptions && option.description) {
                           setStore("expandedValue", (prev) => (isDeepEqual(prev, option.value) ? null : option.value))
                         } else {
@@ -320,10 +339,12 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                           props.onSelect?.(option)
                         }
                       }}
-                      onMouseOver={() => {
+                      onMouseOver={(evt) => {
                         const index = flat().findIndex((x) => isDeepEqual(x.value, option.value))
                         if (index === -1) return
                         moveTo(index)
+                        // Blur input to hide cursor when using mouse
+                        if (input) input.blur()
                       }}
                       backgroundColor={active() ? (option.bg ?? theme.primary) : RGBA.fromInts(0, 0, 0, 0)}
                       paddingLeft={1}

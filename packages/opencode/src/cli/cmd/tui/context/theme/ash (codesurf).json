@@ -1,0 +1,221 @@
+{
+  "$schema": "https://opencode.ai/theme.json",
+  "defs": {
+    "background": "#1a1a1e",
+    "backgroundPanel": "#202026",
+    "backgroundElement": "#27272f",
+    "foreground": "#d8d8dc",
+    "foregroundMuted": "#98989f",
+    "ash1": "#2e2e36",
+    "ash2": "#39393f",
+    "ash3": "#474750",
+    "ash4": "#5a5a64",
+    "ash5": "#72727d",
+    "ash6": "#9292a0",
+    "ash7": "#b8b8c2",
+    "ash8": "#dbdbe0",
+    "ashWhite": "#eaeaed"
+  },
+  "theme": {
+    "primary": {
+      "dark": "ash7",
+      "light": "#65657d"
+    },
+    "secondary": {
+      "dark": "ash6",
+      "light": "#47475d"
+    },
+    "accent": {
+      "dark": "ashWhite",
+      "light": "#35354d"
+    },
+    "error": {
+      "dark": "ash8",
+      "light": "#47475d"
+    },
+    "warning": {
+      "dark": "ash7",
+      "light": "#65657d"
+    },
+    "success": {
+      "dark": "ash6",
+      "light": "#47475d"
+    },
+    "info": {
+      "dark": "ash7",
+      "light": "#65657d"
+    },
+    "text": {
+      "dark": "foreground",
+      "light": "#1a1a1e"
+    },
+    "textMuted": {
+      "dark": "foregroundMuted",
+      "light": "#47475d"
+    },
+    "background": {
+      "dark": "background",
+      "light": "#fafafa"
+    },
+    "backgroundPanel": {
+      "dark": "backgroundPanel",
+      "light": "#f5f5f7"
+    },
+    "backgroundElement": {
+      "dark": "backgroundElement",
+      "light": "#efefef"
+    },
+    "border": {
+      "dark": "ash3",
+      "light": "#cfcfd9"
+    },
+    "borderActive": {
+      "dark": "ash7",
+      "light": "#65657d"
+    },
+    "borderSubtle": {
+      "dark": "ash2",
+      "light": "#e6e6e9"
+    },
+    "diffAdded": {
+      "dark": "ash7",
+      "light": "#65657d"
+    },
+    "diffRemoved": {
+      "dark": "ash4",
+      "light": "#9f9faa"
+    },
+    "diffContext": {
+      "dark": "foregroundMuted",
+      "light": "#47475d"
+    },
+    "diffHunkHeader": {
+      "dark": "ash6",
+      "light": "#65657d"
+    },
+    "diffHighlightAdded": {
+      "dark": "ash8",
+      "light": "#9f9faa"
+    },
+    "diffHighlightRemoved": {
+      "dark": "ash5",
+      "light": "#cfcfd9"
+    },
+    "diffAddedBg": {
+      "dark": "#1f1f26",
+      "light": "#efefef"
+    },
+    "diffRemovedBg": {
+      "dark": "#1b1b22",
+      "light": "#f5f5f7"
+    },
+    "diffContextBg": {
+      "dark": "backgroundPanel",
+      "light": "#f5f5f7"
+    },
+    "diffLineNumber": {
+      "dark": "ash3",
+      "light": "#b5b5bd"
+    },
+    "diffAddedLineNumberBg": {
+      "dark": "#1f1f26",
+      "light": "#efefef"
+    },
+    "diffRemovedLineNumberBg": {
+      "dark": "#1b1b22",
+      "light": "#f5f5f7"
+    },
+    "markdownText": {
+      "dark": "foreground",
+      "light": "#1a1a1e"
+    },
+    "markdownHeading": {
+      "dark": "ashWhite",
+      "light": "#35354d"
+    },
+    "markdownLink": {
+      "dark": "ash7",
+      "light": "#47475d"
+    },
+    "markdownLinkText": {
+      "dark": "ash6",
+      "light": "#65657d"
+    },
+    "markdownCode": {
+      "dark": "ash8",
+      "light": "#65657d"
+    },
+    "markdownBlockQuote": {
+      "dark": "foregroundMuted",
+      "light": "#47475d"
+    },
+    "markdownEmph": {
+      "dark": "ash7",
+      "light": "#65657d"
+    },
+    "markdownStrong": {
+      "dark": "ashWhite",
+      "light": "#35354d"
+    },
+    "markdownHorizontalRule": {
+      "dark": "ash3",
+      "light": "#cfcfd9"
+    },
+    "markdownListItem": {
+      "dark": "ash7",
+      "light": "#47475d"
+    },
+    "markdownListEnumeration": {
+      "dark": "ash6",
+      "light": "#65657d"
+    },
+    "markdownImage": {
+      "dark": "ash7",
+      "light": "#47475d"
+    },
+    "markdownImageText": {
+      "dark": "ash6",
+      "light": "#65657d"
+    },
+    "markdownCodeBlock": {
+      "dark": "foreground",
+      "light": "#1a1a1e"
+    },
+    "syntaxComment": {
+      "dark": "ash5",
+      "light": "#9f9faa"
+    },
+    "syntaxKeyword": {
+      "dark": "ash7",
+      "light": "#47475d"
+    },
+    "syntaxFunction": {
+      "dark": "ash8",
+      "light": "#65657d"
+    },
+    "syntaxVariable": {
+      "dark": "foreground",
+      "light": "#1a1a1e"
+    },
+    "syntaxString": {
+      "dark": "ash6",
+      "light": "#65657d"
+    },
+    "syntaxNumber": {
+      "dark": "ash7",
+      "light": "#65657d"
+    },
+    "syntaxType": {
+      "dark": "ash8",
+      "light": "#47475d"
+    },
+    "syntaxOperator": {
+      "dark": "ash7",
+      "light": "#65657d"
+    },
+    "syntaxPunctuation": {
+      "dark": "foreground",
+      "light": "#1a1a1e"
+    }
+  }
+}

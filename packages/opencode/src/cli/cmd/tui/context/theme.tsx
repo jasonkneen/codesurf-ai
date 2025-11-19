@@ -45,6 +45,11 @@ import phantomCode from "./theme/phantom-code (codesurf).json" with { type: "jso
 import amberGlow from "./theme/amber-glow (codesurf).json" with { type: "json" }
 import galacticPurple from "./theme/galactic-purple (codesurf).json" with { type: "json" }
 import carbonSteel from "./theme/carbon-steel (codesurf).json" with { type: "json" }
+import monolith from "./theme/monolith (codesurf).json" with { type: "json" }
+import slateNoir from "./theme/slate-noir (codesurf).json" with { type: "json" }
+import graphite from "./theme/graphite (codesurf).json" with { type: "json" }
+import charcoal from "./theme/charcoal (codesurf).json" with { type: "json" }
+import ash from "./theme/ash (codesurf).json" with { type: "json" }
 import { useKV } from "./kv"
 import { useRenderer } from "@opentui/solid"
 import { createStore, produce } from "solid-js/store"
@@ -120,10 +125,12 @@ type ThemeJson = {
 export const DEFAULT_THEMES: Record<string, ThemeJson> = {
   "amber-glow (codesurf)": amberGlow,
   "arctic-night (codesurf)": arcticNight,
+  "ash (codesurf)": ash,
   aura,
   ayu,
   "carbon-steel (codesurf)": carbonSteel,
   catppuccin,
+  "charcoal (codesurf)": charcoal,
   cobalt2,
   codesurf,
   "codesurf-blue": codesurfBlue,
@@ -137,12 +144,14 @@ export const DEFAULT_THEMES: Record<string, ThemeJson> = {
   everforest,
   "galactic-purple (codesurf)": galacticPurple,
   github,
+  "graphite (codesurf)": graphite,
   gruvbox,
   kanagawa,
   material,
   matrix,
   "midnight-forge (codesurf)": midnightForge,
   monokai,
+  "monolith (codesurf)": monolith,
   "neon-wave (codesurf)": neonWave,
   nightowl,
   nord,
@@ -153,6 +162,7 @@ export const DEFAULT_THEMES: Record<string, ThemeJson> = {
   "phantom-code (codesurf)": phantomCode,
   "quantum-shift (codesurf)": quantumShift,
   rosepine,
+  "slate-noir (codesurf)": slateNoir,
   solarized,
   "sunset-code (codesurf)": sunsetCode,
   synthwave84,

@@ -2684,10 +2684,12 @@ function ToolPart(props: {
     if (container === "block" || permission()) {
       const basePaddingLeft = 0
       const paddingLeft = isTaskTool ? 0 : basePaddingLeft
+      // When noBorder is true (grouped tools), don't add bottom padding
+      const paddingBottom = showBorder ? (collapsedState ? 0 : BLOCK_CONTAINER_PADDING) : 0
       return {
         border: showBorder ? (["left"] as const) : undefined,
         paddingTop: 0,
-        paddingBottom: collapsedState ? 0 : BLOCK_CONTAINER_PADDING,
+        paddingBottom,
         paddingLeft,
         gap: collapsedState ? 0 : 1,
         minHeight: 1,
@@ -2978,14 +2980,16 @@ toolRegistry.register<typeof BashTool>({
           <text fg={theme.text}>{props.input.description || "Shell"}</text>
         </ToolTitle>
         <Show when={!props.collapsed}>
-          <Show when={props.input.command}>
-            <text fg={theme.text}>$ {props.input.command}</text>
-          </Show>
-          <Show when={output()}>
-            <box>
-              <text fg={theme.text}>{output()}</text>
-            </box>
-          </Show>
+          <box paddingLeft={3}>
+            <Show when={props.input.command}>
+              <text fg={theme.text}>$ {props.input.command}</text>
+            </Show>
+            <Show when={output()}>
+              <box>
+                <text fg={theme.text}>{output()}</text>
+              </box>
+            </Show>
+          </box>
         </Show>
       </>
     )
