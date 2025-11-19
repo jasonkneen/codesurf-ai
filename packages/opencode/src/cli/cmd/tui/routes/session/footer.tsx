@@ -429,13 +429,14 @@ export function Footer() {
             attributes={validationStatus().status === "running" ? TextAttributes.BOLD : undefined}
           >
             {validationStatus().status === "running"
-              ? "Val●"
+              ? "Val● "
               : validationStatus().lastResult === "error"
-                ? "Val✗"
+                ? "Val✗ "
                 : validationStatus().status === "queued"
-                  ? `Val(${validationStatus().queueLength})`
-                  : "Val○"}
+                  ? `Val(${validationStatus().queueLength}) `
+                  : "Val○ "}
           </text>
+          <text> </text>
           <text
             fg={
               prefetchStatus().status === "loading"
