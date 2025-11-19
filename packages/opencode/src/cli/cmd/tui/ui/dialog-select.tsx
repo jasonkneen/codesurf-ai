@@ -343,12 +343,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                   return (
                     <box
                       id={JSON.stringify(option.value)}
-/*                       flexDirection="column"
-                      onMouseDown={(evt) => {
-                        evt.preventDefault()
-                        const index = flat().findIndex((x) => isDeepEqual(x.value, option.value))
-                        if (index !== -1) {
-                          moveTo(index) */
+                        
                       flexDirection="row"
                       onMouseUp={() => {
                         if (!option.disabled) {
@@ -379,7 +374,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                       paddingRight={1}
                       gap={0}
                     >
- /*                      <box flexDirection="row" gap={1} alignItems="center">
+ {/*                      <box flexDirection="row" gap={1} alignItems="center">
                         <Show when={props.collapsibleDescriptions && option.description}>
                           <text fg={active() ? theme.background : theme.textMuted}>{expanded() ? "▼" : "▶"}</text>
                         </Show>
@@ -401,7 +396,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                         <box paddingLeft={2} paddingTop={1}>
                           <text fg={active() ? theme.background : theme.textMuted}>{option.description}</text>
                         </box>
-                      </Show> */
+                      </Show> */}
                       <Option
                         title={option.title}
                         footer={option.footer}
