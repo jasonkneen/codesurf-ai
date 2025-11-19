@@ -23,6 +23,7 @@ function WorkerDialog(props: { onClose: () => void }) {
   const [validationLogs, setValidationLogs] = createSignal<string[]>([])
   const [prefetchLogs, setPrefetchLogs] = createSignal<string[]>([])
   const [activeTab, setActiveTab] = createSignal<"validation" | "prefetch">("validation")
+  const [scrollOffset, setScrollOffset] = createSignal(0)
 
   // Load logs on mount
   createEffect(() => {
@@ -31,7 +32,7 @@ function WorkerDialog(props: { onClose: () => void }) {
       const lines = content
         .split("\n")
         .filter((line) => line.trim())
-        .slice(-50) // Last 50 lines
+        .slice(-100) // Last 100 lines
       setValidationLogs(lines)
     } catch (e) {
       setValidationLogs(["No validation logs yet"])
@@ -42,7 +43,7 @@ function WorkerDialog(props: { onClose: () => void }) {
       const lines = content
         .split("\n")
         .filter((line) => line.trim())
-        .slice(-50) // Last 50 lines
+        .slice(-100) // Last 100 lines
       setPrefetchLogs(lines)
     } catch (e) {
       setPrefetchLogs(["No prefetch logs yet"])
@@ -55,13 +56,24 @@ function WorkerDialog(props: { onClose: () => void }) {
     activeTab() === "validation" ? workerConfig?.validation.enabled : workerConfig?.prefetch.enabled,
   )
 
+  // Visible logs with scrolling
+  const logHeight = 12 // Fixed height for log area
+  const visibleLogs = createMemo(() => {
+    const allLogs = logs()
+    const offset = scrollOffset()
+    return allLogs.slice(Math.max(0, allLogs.length - logHeight - offset), allLogs.length - offset)
+  })
+
   return (
-    <box flexDirection="column" flexGrow={1} gap={1}>
+    <box flexDirection="column" width="80%" height={16} backgroundColor={theme.background} borderStyle="rounded">
       {/* Header with tabs */}
-      <box flexDirection="row" gap={2} paddingLeft={1} paddingRight={1} paddingTop={1}>
+      <box flexDirection="row" gap={3} paddingLeft={2} paddingRight={2} paddingTop={1}>
         <text
           fg={activeTab() === "validation" ? theme.accent : theme.textMuted}
-          onMouseUp={() => setActiveTab("validation")}
+          onMouseUp={() => {
+            setActiveTab("validation")
+            setScrollOffset(0)
+          }}
           attributes={activeTab() === "validation" ? TextAttributes.BOLD : undefined}
         >
           Validation{" "}
@@ -75,7 +87,10 @@ function WorkerDialog(props: { onClose: () => void }) {
         </text>
         <text
           fg={activeTab() === "prefetch" ? theme.accent : theme.textMuted}
-          onMouseUp={() => setActiveTab("prefetch")}
+          onMouseUp={() => {
+            setActiveTab("prefetch")
+            setScrollOffset(0)
+          }}
           attributes={activeTab() === "prefetch" ? TextAttributes.BOLD : undefined}
         >
           Prefetch{" "}
@@ -89,23 +104,42 @@ function WorkerDialog(props: { onClose: () => void }) {
         </text>
       </box>
 
-      {/* Log area */}
+      {/* Log area - fixed height with scrolling */}
       <box
         flexDirection="column"
-        flexGrow={1}
+        height={logHeight}
         backgroundColor={theme.backgroundElement}
         paddingLeft={2}
         paddingRight={2}
         paddingTop={1}
         paddingBottom={1}
       >
-        <For each={logs()}>
+        <For each={visibleLogs()}>
           {(line) => (
             <text fg={theme.textMuted} wrapMode="none">
-              {line.substring(0, 200)}
+              {line.length > 75 ? line.substring(0, 75) + "…" : line}
             </text>
           )}
         </For>
+      </box>
+
+      {/* Scroll indicators */}
+      <box flexDirection="row" gap={1} paddingLeft={2} paddingRight={2} height={1}>
+        <text
+          fg={scrollOffset() < logs().length - logHeight ? theme.accent : theme.textMuted}
+          onMouseUp={() => setScrollOffset(Math.min(scrollOffset() + 1, logs().length - logHeight))}
+        >
+          [↓]
+        </text>
+        <text
+          fg={scrollOffset() > 0 ? theme.accent : theme.textMuted}
+          onMouseUp={() => setScrollOffset(Math.max(scrollOffset() - 1, 0))}
+        >
+          [↑]
+        </text>
+        <text fg={theme.textMuted}>
+          {scrollOffset() + logHeight}/{logs().length}
+        </text>
       </box>
 
       {/* Controls */}
@@ -116,6 +150,7 @@ function WorkerDialog(props: { onClose: () => void }) {
         paddingLeft={2}
         paddingRight={2}
         paddingBottom={1}
+        height={1}
       >
         <box flexDirection="row" gap={2}>
           <text

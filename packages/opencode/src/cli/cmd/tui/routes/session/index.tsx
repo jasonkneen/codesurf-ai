@@ -2341,7 +2341,10 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
   const isFirstInMessage = createMemo(() => {
     const parts = ((props.message as any).parts as Part[] | undefined) ?? []
     const index = parts.findIndex((part) => part.id === props.part.id)
-    return index <= 0
+    if (index <= 0) return true
+    // Even if not first, don't add margin if previous part is also text
+    const prevPart = parts[index - 1]
+    return prevPart?.type === "text"
   })
 
   return (
