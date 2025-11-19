@@ -1,7 +1,7 @@
 import { DialogSelect, type DialogSelectRef } from "../ui/dialog-select"
 import { useTheme } from "../context/theme"
 import { useDialog } from "../ui/dialog"
-import { onCleanup, onMount } from "solid-js"
+import { onCleanup, createEffect } from "solid-js"
 
 export function DialogThemeList() {
   const theme = useTheme()
@@ -14,10 +14,6 @@ export function DialogThemeList() {
   let ref: DialogSelectRef<string>
   const initial = theme.selected
 
-  onMount(() => {
-    theme.set(Object.keys(theme.all())[0])
-  })
-
   onCleanup(() => {
     if (!confirmed) theme.set(initial)
   })
@@ -25,6 +21,7 @@ export function DialogThemeList() {
   return (
     <DialogSelect
       title="Themes"
+      current={initial}
       options={options}
       onMove={(opt) => {
         theme.set(opt.value)

@@ -142,7 +142,7 @@ export const rpc = {
     config = cfg
     await logWorker(`Left sidebar worker initialized`)
     await logWorker(`Server URL: ${cfg.serverUrl}`)
-    fetchSessions()
+    await fetchSessions()
     return { ready: true, state }
   },
 

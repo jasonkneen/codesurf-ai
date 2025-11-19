@@ -18,7 +18,7 @@ import { Binary } from "@/util/binary"
 import { createSimpleContext } from "./helper"
 import type { Snapshot } from "@/snapshot"
 import { useExit } from "./exit"
-import { batch, onMount } from "solid-js"
+import { batch, createEffect } from "solid-js"
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -117,9 +117,14 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
 
-        case "todo.updated":
-          setStore("todo", event.properties.sessionID, event.properties.todos)
+        case "todo.updated": {
+          const validTodos = (event.properties.todos || []).map((todo) => ({
+            ...todo,
+            content: String(todo.content || ""),
+          }))
+          setStore("todo", event.properties.sessionID, validTodos)
           break
+        }
 
         case "session.diff":
           setStore("session_diff", event.properties.sessionID, event.properties.diff)
@@ -229,7 +234,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     const exit = useExit()
 
-    onMount(() => {
+    createEffect(() => {
       Promise.all([
         sdk.client.config.providers({ throwOnError: true }).then((x) => {
           batch(() => {

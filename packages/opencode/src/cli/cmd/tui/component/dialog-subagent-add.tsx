@@ -1,6 +1,6 @@
 import { TextAttributes, TextareaRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/solid"
-import { For, Show, createMemo, createSignal, onMount } from "solid-js"
+import { For, Show, createMemo, createSignal, createEffect } from "solid-js"
 import { useDialog } from "@tui/ui/dialog"
 import { useSDK } from "@tui/context/sdk"
 import { useToast } from "@tui/ui/toast"
@@ -126,7 +126,7 @@ export function DialogSubagentAdd(props: { sessionID: string }) {
     }
   })
 
-  onMount(() => {
+  createEffect(() => {
     dialog.setSize("large")
     setTimeout(() => focusField(0), 1)
     const defaultAgent = sync.data.agent.find((agent) => agent.name === "general")

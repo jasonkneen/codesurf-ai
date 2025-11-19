@@ -340,9 +340,10 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
       const textParts = msg.parts.filter((p) => p.type === "text")
 
       // Empty row above message (only for user messages - tools handle their own spacing)
-      if (isUser) {
-        currentRow++
-      }
+      // Removed to fix double spacing - relies on the loop-end currentRow++
+      // if (isUser) {
+      //   currentRow++
+      // }
 
       // USER MESSAGES
       if (isUser) {
@@ -359,7 +360,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
               top: `${currentRow * 1.2}em`,
               width: bgWidth,
               height: "1.2em",
-              background: "#1a1a1a",
+              background: "var(--bg-panel)",
               "will-change": "auto",
               "backface-visibility": "hidden",
             }}
@@ -382,7 +383,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                 top: `${currentRow * 1.2}em`,
                 width: bgWidth,
                 height: "1.2em",
-                background: "#1a1a1a",
+                background: "var(--bg-panel)",
               }}
             />,
           )
@@ -440,7 +441,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                       top: `${(currentRow + i) * 1.2}em`,
                       width: bgWidth,
                       height: "1.2em",
-                      background: "#1a1a1a",
+                      background: "var(--bg-panel)",
                     }}
                   />,
                 )
@@ -466,13 +467,13 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                 top: `${currentRow * 1.2}em`,
                 width: bgWidth,
                 height: "1.2em",
-                background: "#1a1a1a",
+                background: "var(--bg-panel)",
               }}
             />,
           )
           elements.push(
             <>
-              <GridText col={4} row={currentRow} text="jkneen" fg="#ffffff" />
+              <GridText col={4} row={currentRow} text="jkneen" fg="var(--text-main)" />
               <GridText col={11} row={currentRow} text={` (${time})`} fg="#6a6a6a" />
             </>,
           )
@@ -489,7 +490,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
               top: `${currentRow * 1.2}em`,
               width: bgWidth,
               height: "1.2em",
-              background: "#1a1a1a",
+              background: "var(--bg-panel)",
             }}
           />,
         )
@@ -498,7 +499,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
 
         // BLUE bar spanning ALL rows (blank + content + username + blank)
         for (let row = textStartRow; row < currentRow; row++) {
-          elements.push(<GridText col={0} row={row} text="▌" fg="#61afef" />)
+          elements.push(<GridText col={0} row={row} text="▌" fg="var(--color-user)" />)
         }
       }
 
@@ -544,7 +545,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                 top: `${currentRow * 1.2}em`,
                 width: bgWidth,
                 height: "1.2em",
-                background: "#1a1a1a",
+                background: "var(--bg-panel)",
               }}
             />,
           )
@@ -556,7 +557,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
               col={4}
               row={currentRow}
               text={arrow}
-              fg="#6a6a6a"
+              fg="var(--text-muted)"
               onClick={() => toggleTool(toolId)}
               style={{
                 "z-index": "20",
@@ -630,7 +631,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                   col={colAfterBadge}
                   row={currentRow}
                   text={summary}
-                  fg="#6a6a6a"
+                  fg="var(--text-muted)"
                   style={{ "z-index": "20" }}
                 />,
               )
@@ -654,7 +655,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                     top: `${currentRow * 1.2}em`,
                     width: bgWidth,
                     height: "1.2em",
-                    background: "#1a1a1a",
+                    background: "var(--bg-panel)",
                   }}
                 />,
               )
@@ -673,7 +674,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                       top: `${currentRow * 1.2}em`,
                       width: bgWidth,
                       height: "1.2em",
-                      background: "#1a1a1a",
+                      background: "var(--bg-panel)",
                     }}
                   />,
                 )
@@ -689,7 +690,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                     top: `${currentRow * 1.2}em`,
                     width: bgWidth,
                     height: "1.2em",
-                    background: "#1a1a1a",
+                    background: "var(--bg-panel)",
                   }}
                 />,
               )
@@ -707,7 +708,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                     top: `${currentRow * 1.2}em`,
                     width: bgWidth,
                     height: "1.2em",
-                    background: "#1a1a1a",
+                    background: "var(--bg-panel)",
                   }}
                 />,
               )
@@ -726,7 +727,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                       top: `${currentRow * 1.2}em`,
                       width: bgWidth,
                       height: "1.2em",
-                      background: "#1a1a1a",
+                      background: "var(--bg-panel)",
                     }}
                   />,
                 )
@@ -743,7 +744,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                     top: `${currentRow * 1.2}em`,
                     width: bgWidth,
                     height: "1.2em",
-                    background: "#1a1a1a",
+                    background: "var(--bg-panel)",
                   }}
                 />,
               )
@@ -760,7 +761,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                   top: `${currentRow * 1.2}em`,
                   width: bgWidth,
                   height: "1.2em",
-                  background: "#1a1a1a",
+                  background: "var(--bg-panel)",
                 }}
               />,
             )
@@ -778,7 +779,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
                 top: `${toolBlockStartRow * 1.2}em`,
                 width: "3px",
                 height: `${(toolBlockEndRow - toolBlockStartRow) * 1.2}em`,
-                background: "#0a0a0a",
+                background: "var(--bg-main)",
                 "z-index": "10",
               }}
             />,
@@ -790,8 +791,11 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
 
       // ASSISTANT TEXT RESPONSES - Show text whether there are tools or not
       if (!isUser && textParts.length > 0) {
-        // Always add 1 blank line before text (whether tools exist or not)
-        currentRow++
+        // Only add blank line if we have tools (to separate tools from text)
+        // Otherwise text starts immediately (after the loop-end spacing from previous message)
+        if (toolParts.length > 0) {
+          currentRow++
+        }
 
         const responseStartRow = currentRow
 
@@ -911,7 +915,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
               col={4 + agent.length + 1}
               row={currentRow}
               text={model}
-              fg="#d19a66"
+              fg="var(--color-assistant)"
               style={{ "text-decoration": "underline" }}
             />,
           )
@@ -932,7 +936,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
       row={0}
       width={panelWidth()}
       height="100%"
-      bg="#0a0a0a"
+      bg="var(--bg-main)"
       style={{
         overflow: "visible",
         "border-radius": "0",
@@ -979,7 +983,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
             style={{
               position: "sticky",
               top: "0",
-              background: "#0a0a0a",
+              background: "var(--bg-main)",
               color: "#666666",
               padding: "0 1ch",
               height: "1.2em",
@@ -1013,7 +1017,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
         <div
           style={{
             height: "1.2em",
-            background: "#0a0a0a",
+            background: "var(--bg-main)",
           }}
         />
 
@@ -1022,7 +1026,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
           ref={inputContainerRef}
           style={{
             height: "3.6em",
-            background: "#1a1a1a",
+            background: "var(--bg-panel)",
             padding: "0 1ch",
             display: "flex",
             "align-items": "center",
@@ -1054,7 +1058,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
               top: "0",
               bottom: "0",
               width: "3px",
-              background: "#0a0a0a",
+              background: "var(--bg-main)",
               "z-index": "10",
             }}
           />
@@ -1079,7 +1083,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
               top: "0",
               bottom: "0",
               width: "3px",
-              background: "#0a0a0a",
+              background: "var(--bg-main)",
               "z-index": "10",
             }}
           />
@@ -1184,7 +1188,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
         <div
           style={{
             height: "1.2em",
-            background: "#0a0a0a",
+            background: "var(--bg-main)",
             padding: "0",
             "padding-left": "1ch",
             "padding-right": "1ch",
@@ -1238,7 +1242,7 @@ export const MessagesPanel: Component<MessagesPanelProps> = (props) => {
         <div
           style={{
             height: "1.2em",
-            background: "#0a0a0a",
+            background: "var(--bg-main)",
           }}
         />
       </div>

@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onMount } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js"
 import { RGBA, TextAttributes } from "@opentui/core"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"

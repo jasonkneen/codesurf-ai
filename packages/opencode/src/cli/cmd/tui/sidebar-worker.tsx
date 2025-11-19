@@ -1,7 +1,8 @@
-import { createSignal, onMount, onCleanup, createEffect } from "solid-js"
+import { createSignal, createEffect, onCleanup } from "solid-js"
 import { Sidebar } from "./routes/session/sidebar"
 import { Rpc } from "@/util/rpc"
 import { useSDK } from "./context/sdk"
+import { useSync } from "./context/sync"
 import type { rpc as SidebarRpc } from "./workers/sidebar.worker"
 
 interface WorkerState {
@@ -25,6 +26,19 @@ interface WorkerState {
     active: boolean
   }>
   systemPromptTokens: number
+  messageStats: {
+    totalCost: number
+    savedCost: number
+    toolCounts: Record<string, number>
+    lastTokenUsage: number
+    lastTokenLimit: number
+  }
+  diffStats: {
+    totalFiles: number
+    additions: number
+    deletions: number
+    modified: number
+  }
   lastUpdated: number
 }
 
@@ -35,6 +49,7 @@ export default function SidebarWorker(props: {
   onResize: (delta: number) => void
 }) {
   const sdk = useSDK()
+  const sync = useSync()
   const [workerReady, setWorkerReady] = createSignal(false)
   const [workerState, setWorkerState] = createSignal<WorkerState | null>(null)
   const [useWorker] = createSignal(true) // Enable worker mode
@@ -42,7 +57,7 @@ export default function SidebarWorker(props: {
   let worker: Worker | null = null
   let client: ReturnType<typeof Rpc.client<typeof SidebarRpc>> | null = null
 
-  onMount(async () => {
+  createEffect(async () => {
     if (!useWorker()) return
 
     try {
@@ -111,6 +126,32 @@ export default function SidebarWorker(props: {
     onCleanup(() => clearInterval(interval))
   })
 
+  // Push messages to worker for stats computation
+  createEffect(() => {
+    if (!workerReady() || !client) return
+    const messages = sync.data.message[props.sessionID] || []
+    const providers = sync.data.provider || []
+
+    // Debounce to avoid spamming worker
+    const timer = setTimeout(() => {
+      client!.call("computeMessageStats", { messages, providers })
+    }, 500)
+
+    onCleanup(() => clearTimeout(timer))
+  })
+
+  // Push diffs to worker
+  createEffect(() => {
+    if (!workerReady() || !client) return
+    const diffs = sync.data.session_diff[props.sessionID] || []
+
+    const timer = setTimeout(() => {
+      client!.call("computeDiffStats", diffs)
+    }, 500)
+
+    onCleanup(() => clearTimeout(timer))
+  })
+
   // Always render sidebar - worker enhances but doesn't block
   return (
     <Sidebar
@@ -121,13 +162,7 @@ export default function SidebarWorker(props: {
       maxWidth={60}
       widthStep={2}
       onResize={props.onResize}
-      workerState={
-        workerReady() && workerState()
-          ? {
-              gitStatus: workerState()!.gitStatus,
-            }
-          : undefined
-      }
+      workerState={workerReady() ? workerState() : undefined}
     />
   )
 }

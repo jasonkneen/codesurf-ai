@@ -90,6 +90,40 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   const selected = createMemo(() => flat()[store.selected])
 
+  // Initialize selection to current item if provided
+  createEffect(() => {
+    if (props.current && !store.filter) {
+      const index = flat().findIndex((x) => isDeepEqual(x.value, props.current))
+      if (index !== -1 && index !== store.selected) {
+        // Use batch to avoid triggering multiple updates
+        batch(() => {
+          setStore("selected", index)
+          // Scroll to ensure visible
+          // We need to wait for render? scroll.scrollTo depends on scroll ref
+          // But moveTo uses scroll ref.
+          // We can't use moveTo because it triggers onMove which might not be desired (or is harmless)
+          // But we want to scroll.
+        })
+        // Defer scroll until after render
+        setTimeout(() => {
+          if (scroll) {
+            // Calculate scroll position manually or reuse logic
+            const target = scroll.getChildren().find((child) => {
+              return child.id === JSON.stringify(props.current)
+            })
+            if (target) {
+              const y = target.y
+              // Center it or scroll to it
+              if (y >= scroll.height) {
+                scroll.scrollBy(y - scroll.height + 1)
+              }
+            }
+          }
+        }, 10)
+      }
+    }
+  })
+
   createEffect(() => {
     store.filter
     setStore("selected", 0)
@@ -125,34 +159,35 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   const keybind = useKeybind()
 
   useKeyboard((evt) => {
-    if (evt.name === "up" || (evt.ctrl && evt.name === "k") || (evt.ctrl && evt.name === "p")) {
+    const name = evt.name?.toLowerCase()
+    if (name === "up" || (evt.ctrl && name === "k") || (evt.ctrl && name === "p")) {
       evt.preventDefault()
       move(-1)
     }
-    if (evt.name === "down" || (evt.ctrl && evt.name === "j") || (evt.ctrl && evt.name === "n")) {
+    if (name === "down" || (evt.ctrl && name === "j") || (evt.ctrl && name === "n")) {
       evt.preventDefault()
       move(1)
     }
-    if (evt.name === "pageup" || (evt.ctrl && evt.name === "u")) {
+    if (name === "pageup" || (evt.ctrl && name === "u")) {
       evt.preventDefault()
       move(-10)
     }
-    if (evt.name === "pagedown" || (evt.ctrl && evt.name === "d")) {
+    if (name === "pagedown" || (evt.ctrl && name === "d")) {
       evt.preventDefault()
       move(10)
     }
-    if (props.collapsibleDescriptions && (evt.name === "right" || evt.name === "space")) {
+    if (props.collapsibleDescriptions && (name === "right" || name === "space")) {
       evt.preventDefault()
       const option = selected()
       if (option) {
         setStore("expandedValue", (prev) => (isDeepEqual(prev, option.value) ? null : option.value))
       }
     }
-    if (props.collapsibleDescriptions && evt.name === "left") {
+    if (props.collapsibleDescriptions && name === "left") {
       evt.preventDefault()
       setStore("expandedValue", null)
     }
-    if (evt.name === "return" || (evt.ctrl && evt.name === "return")) {
+    if (name === "return" || (evt.ctrl && name === "return")) {
       const option = selected()
       if (option) {
         // evt.preventDefault()
@@ -203,23 +238,24 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
               })
             }}
             onKeyDown={(evt) => {
-              if (evt.name === "up" || (evt.ctrl && evt.name === "p")) {
+              const name = evt.name?.toLowerCase()
+              if (name === "up" || (evt.ctrl && name === "p")) {
                 evt.preventDefault()
                 move(-1)
               }
-              if (evt.name === "down" || (evt.ctrl && evt.name === "n")) {
+              if (name === "down" || (evt.ctrl && name === "n")) {
                 evt.preventDefault()
                 move(1)
               }
-              if (evt.name === "pageup") {
+              if (name === "pageup") {
                 evt.preventDefault()
                 move(-10)
               }
-              if (evt.name === "pagedown") {
+              if (name === "pagedown") {
                 evt.preventDefault()
                 move(10)
               }
-              if (evt.name === "return") {
+              if (name === "return") {
                 const option = selected()
                 if (option) {
                   evt.preventDefault()

@@ -1,6 +1,6 @@
 import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect } from "@tui/ui/dialog-select"
-import { createMemo, createSignal, onMount } from "solid-js"
+import { createMemo, createSignal, createEffect } from "solid-js"
 import { Keybind } from "@/util/keybind"
 import { useTheme } from "../context/theme"
 import { DialogMemoryAdd } from "./dialog-memory-add"
@@ -72,7 +72,7 @@ export function DialogMemoryList() {
   const [toDelete, setToDelete] = createSignal<string>()
   const [filter, setFilter] = createSignal<string>("all")
 
-  onMount(async () => {
+  createEffect(async () => {
     dialog.setSize("large")
     const loaded = await loadMemories()
     setMemories(loaded)

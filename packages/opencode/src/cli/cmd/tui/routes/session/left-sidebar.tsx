@@ -60,6 +60,25 @@ function getDateCategory(
   return "Older"
 }
 
+interface WorkerState {
+  sessions: Array<{
+    id: string
+    title: string
+    createdAt: number
+    updatedAt: number
+    parentID?: string
+  }>
+  categorized: {
+    today: any[]
+    yesterday: any[]
+    thisWeek: any[]
+    lastWeek: any[]
+    older: any[]
+  }
+  searchResults: any[]
+  lastUpdated: number
+}
+
 export function LeftSidebar(props: {
   sessionID: string
   onToggle: () => void
@@ -72,6 +91,8 @@ export function LeftSidebar(props: {
   maxWidth: number
   widthStep: number
   onResize: (delta: number) => void
+  workerState?: WorkerState | null
+  onSearch?: (query: string) => void
 }) {
   const sync = useSync()
   const { theme } = useTheme()
@@ -119,13 +140,18 @@ export function LeftSidebar(props: {
     onCleanup(() => clearInterval(interval))
   })
 
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    props.onSearch?.(query)
+  }
+
   const openSearchDialog = () => {
     dialog.replace(() => (
       <DialogPrompt
         title="Search Sessions"
         value={searchQuery()}
         onConfirm={(value: string) => {
-          setSearchQuery(value)
+          handleSearch(value)
           dialog.clear()
         }}
         onCancel={() => dialog.clear()}
@@ -134,6 +160,11 @@ export function LeftSidebar(props: {
   }
 
   const allSessions = createMemo(() => {
+    // Use worker results for search if available
+    if (props.workerState && isSearching()) {
+      return props.workerState.searchResults
+    }
+
     const query = searchQuery().toLowerCase().trim()
 
     return sync.data.session
@@ -167,6 +198,22 @@ export function LeftSidebar(props: {
   })
 
   const sessionsByCategory = createMemo(() => {
+    // Use worker results for categorization if available and not searching
+    if (props.workerState && !isSearching()) {
+      const grouped = new Map<string, any[]>()
+      const cat = props.workerState.categorized
+
+      // Helper to filter hidden sessions from worker data
+      const filterVisible = (sessions: any[]) => sessions.filter((s) => !isSessionHidden(s.id))
+
+      grouped.set("Today", filterVisible(cat.today))
+      grouped.set("Yesterday", filterVisible(cat.yesterday))
+      grouped.set("This week", filterVisible(cat.thisWeek))
+      grouped.set("Last week", filterVisible(cat.lastWeek))
+      grouped.set("Older", filterVisible(cat.older))
+      return grouped
+    }
+
     const grouped = new Map<string, any[]>()
     DATE_CATEGORY_ORDER.forEach((category) => grouped.set(category, []))
 
@@ -341,7 +388,7 @@ export function LeftSidebar(props: {
               fg={theme.textMuted}
               onMouseUp={(e) => {
                 e.stopPropagation?.()
-                setSearchQuery("")
+                handleSearch("")
               }}
             >
               ×

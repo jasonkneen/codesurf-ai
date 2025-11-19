@@ -1,4 +1,4 @@
-import { createSignal, createEffect, Show, For, onMount, createMemo } from "solid-js"
+import { createSignal, createEffect, Show, For, createMemo } from "solid-js"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { useTheme } from "../context/theme"
 import { useSDK } from "../context/sdk"
@@ -43,7 +43,7 @@ export function FileBrowser(props: FileBrowserProps) {
   })
 
   // Load files
-  onMount(async () => {
+  createEffect(async () => {
     try {
       const result = await sdk.client.file.list({
         query: {

@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onMount } from "solid-js"
+import { createMemo, createSignal, createEffect } from "solid-js"
 import { useLocal } from "@tui/context/local"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
@@ -14,7 +14,7 @@ export function DialogAgentManager() {
 
   const [agents, setAgents] = createSignal(local.agent.list())
 
-  onMount(() => {
+  createEffect(() => {
     dialog.setSize("large")
   })
 

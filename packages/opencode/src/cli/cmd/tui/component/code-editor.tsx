@@ -1,4 +1,4 @@
-import { createSignal, createEffect, Show, For, onMount, createMemo, batch } from "solid-js"
+import { createSignal, createEffect, Show, For, createMemo, batch } from "solid-js"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { useTheme } from "../context/theme"
 import { useSDK } from "../context/sdk"
@@ -55,7 +55,7 @@ export function CodeEditor(props: CodeEditorProps) {
   }
 
   // Load file content
-  onMount(async () => {
+  createEffect(async () => {
     try {
       const result = await sdk.client.file.read({ query: { path: props.filePath } })
       if (result.data && result.data.type === "text") {

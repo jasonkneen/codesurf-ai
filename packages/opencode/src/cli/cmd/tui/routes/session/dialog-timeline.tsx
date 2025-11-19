@@ -1,4 +1,4 @@
-import { createMemo, onMount } from "solid-js"
+import { createMemo, createEffect } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import type { TextPart } from "@opencode-ai/sdk"
@@ -10,7 +10,8 @@ export function DialogTimeline(props: { sessionID: string; onMove: (messageID: s
   const sync = useSync()
   const dialog = useDialog()
 
-  onMount(() => {
+  // Set dialog size immediately (no dependencies, runs once)
+  createEffect(() => {
     dialog.setSize("large")
   })
 

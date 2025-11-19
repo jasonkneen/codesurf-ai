@@ -1,5 +1,5 @@
 import { TextAttributes, TextareaRenderable } from "@opentui/core"
-import { createSignal, onMount } from "solid-js"
+import { createSignal, createEffect } from "solid-js"
 import { useDialog } from "@tui/ui/dialog"
 import { useToast } from "@tui/ui/toast"
 import { useTheme } from "@tui/context/theme"
@@ -11,7 +11,7 @@ export function DialogContextEdit(props: { name: string; content: string; onConf
   const [value, setValue] = createSignal(props.content)
   let textarea: TextareaRenderable | undefined
 
-  onMount(() => {
+  createEffect(() => {
     textarea?.focus()
     textarea?.gotoLineEnd()
   })

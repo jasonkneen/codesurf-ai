@@ -102,7 +102,7 @@ export function Sidebar(props: { sessionID: string; onToggle: () => void }) {
 
   // Poll for child sessions every 2 seconds
   let childSessionInterval: NodeJS.Timeout
-  onMount(() => {
+  createEffect(() => {
     loadChildSessions()
     childSessionInterval = setInterval(loadChildSessions, 2000)
   })

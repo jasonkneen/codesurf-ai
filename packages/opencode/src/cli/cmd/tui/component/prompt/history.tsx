@@ -1,6 +1,6 @@
 import path from "path"
 import { Global } from "@/global"
-import { onMount } from "solid-js"
+import { createEffect } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { clone } from "remeda"
 import { createSimpleContext } from "../../context/helper"
@@ -28,7 +28,7 @@ export const { use: usePromptHistory, provider: PromptHistoryProvider } = create
   name: "PromptHistory",
   init: () => {
     const historyFile = Bun.file(path.join(Global.Path.state, "prompt-history.jsonl"))
-    onMount(async () => {
+    createEffect(async () => {
       const text = await historyFile.text().catch(() => "")
       const lines = text
         .split("\n")

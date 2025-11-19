@@ -9,7 +9,7 @@ import {
   fg,
   type KeyBinding,
 } from "@opentui/core"
-import { createEffect, createMemo, Match, Switch, Show, type JSX, onMount, batch } from "solid-js"
+import { createEffect, createMemo, Match, Switch, Show, type JSX, batch } from "solid-js"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
 import { SplitBorder } from "@tui/component/border"
@@ -153,7 +153,7 @@ export function Prompt(props: PromptProps) {
     input.focus()
   })
 
-  onMount(() => {
+  createEffect(() => {
     promptPartTypeId = input.extmarks.registerType("prompt-part")
   })
 

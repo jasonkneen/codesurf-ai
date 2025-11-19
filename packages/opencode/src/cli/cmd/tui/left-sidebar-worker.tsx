@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, createEffect } from "solid-js"
+import { createSignal, createEffect, onCleanup } from "solid-js"
 import { LeftSidebar } from "./routes/session/left-sidebar"
 import { Rpc } from "@/util/rpc"
 import { useSDK } from "./context/sdk"
@@ -44,7 +44,7 @@ export default function LeftSidebarWorker(props: {
   let worker: Worker | null = null
   let client: ReturnType<typeof Rpc.client<typeof LeftSidebarRpc>> | null = null
 
-  onMount(async () => {
+  createEffect(async () => {
     if (!useWorker()) return
 
     try {
@@ -122,6 +122,12 @@ export default function LeftSidebarWorker(props: {
       maxWidth={props.maxWidth}
       widthStep={props.widthStep}
       onResize={props.onResize}
+      workerState={workerReady() ? workerState() : undefined}
+      onSearch={(query) => {
+        if (workerReady() && client) {
+          client.call("search", query)
+        }
+      }}
     />
   )
 }

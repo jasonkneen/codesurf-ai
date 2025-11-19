@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, onMount } from "solid-js"
+import { createSignal, onCleanup, createEffect } from "solid-js"
 import { createSimpleContext } from "./helper"
 import { useSDK } from "./sdk"
 import { Clipboard } from "../util/clipboard"
@@ -32,7 +32,7 @@ export const { use: useServerStatus, provider: ServerStatusProvider } = createSi
       }
     }
 
-    onMount(() => {
+    createEffect(() => {
       checkStatus()
       interval = setInterval(checkStatus, HEALTH_INTERVAL_MS)
     })

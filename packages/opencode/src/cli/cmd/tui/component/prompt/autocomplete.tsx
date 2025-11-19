@@ -1,7 +1,7 @@
 import type { BoxRenderable, TextareaRenderable, KeyEvent } from "@opentui/core"
 import fuzzysort from "fuzzysort"
 import { firstBy } from "remeda"
-import { createMemo, createResource, createEffect, onMount, For, Show } from "solid-js"
+import { createMemo, createResource, createEffect, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
 import { useSync } from "@tui/context/sync"
@@ -378,7 +378,7 @@ export function Autocomplete(props: {
     setStore("visible", false)
   }
 
-  onMount(() => {
+  createEffect(() => {
     props.ref({
       get visible() {
         return store.visible

@@ -1,7 +1,7 @@
 import { TextareaRenderable, TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "./dialog"
-import { onMount } from "solid-js"
+import { createEffect } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 
 export type DialogPromptProps = {
@@ -23,7 +23,8 @@ export function DialogPrompt(props: DialogPromptProps) {
     }
   })
 
-  onMount(() => {
+  // Initialize dialog and textarea (runs once, no dependencies)
+  createEffect(() => {
     dialog.setSize("large")
     setTimeout(() => {
       textarea.focus()

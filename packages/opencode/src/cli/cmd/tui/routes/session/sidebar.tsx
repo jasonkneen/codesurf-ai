@@ -1,16 +1,5 @@
 import { useSync } from "@tui/context/sync"
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  Switch,
-  Match,
-  onMount,
-  createEffect,
-  onCleanup,
-  type JSX,
-} from "solid-js"
+import { createMemo, createSignal, For, Show, Switch, Match, createEffect, onCleanup, type JSX } from "solid-js"
 import { useTheme } from "../../context/theme"
 import { useUIExtensions } from "../../context/ui-extensions"
 import { PluginComponent } from "../../component/plugin-component"
@@ -146,6 +135,80 @@ function formatTimestamp(timestamp: number) {
   return Locale.time(timestamp)
 }
 
+interface WorkerState {
+  todos: Array<{
+    id: string
+    content: string
+    status: "pending" | "in_progress" | "completed"
+  }>
+  gitStatus: {
+    branch: string
+    ahead: number
+    behind: number
+    modified: number
+    staged: number
+    untracked: number
+  }
+  context: Array<{
+    id: string
+    name: string
+    type: string
+    active: boolean
+  }>
+  systemPromptTokens: number
+  messageStats: {
+    totalCost: number
+    savedCost: number
+    toolCounts: Record<string, number>
+    lastTokenUsage: number
+    lastTokenLimit: number
+  }
+  diffStats: {
+    totalFiles: number
+    additions: number
+    deletions: number
+    modified: number
+  }
+  lastUpdated: number
+}
+
+interface WorkerState {
+  todos: Array<{
+    id: string
+    content: string
+    status: "pending" | "in_progress" | "completed"
+  }>
+  gitStatus: {
+    branch: string
+    ahead: number
+    behind: number
+    modified: number
+    staged: number
+    untracked: number
+  }
+  context: Array<{
+    id: string
+    name: string
+    type: string
+    active: boolean
+  }>
+  systemPromptTokens: number
+  messageStats: {
+    totalCost: number
+    savedCost: number
+    toolCounts: Record<string, number>
+    lastTokenUsage: number
+    lastTokenLimit: number
+  }
+  diffStats: {
+    totalFiles: number
+    additions: number
+    deletions: number
+    modified: number
+  }
+  lastUpdated: number
+}
+
 export function Sidebar(props: {
   sessionID: string
   onToggle: () => void
@@ -154,23 +217,7 @@ export function Sidebar(props: {
   maxWidth: number
   widthStep: number
   onResize: (delta: number) => void
-  workerState?: {
-    gitStatus?: {
-      branch: string
-      ahead: number
-      behind: number
-      modified: number
-      staged: number
-      untracked: number
-    }
-    messageStats?: {
-      totalCost: number
-      savedCost: number
-      toolCounts: Record<string, number>
-      lastTokenUsage: number
-      lastTokenLimit: number
-    }
-  }
+  workerState?: WorkerState | null
 }) {
   const sync = useSync()
   const { theme } = useTheme()
@@ -444,7 +491,7 @@ export function Sidebar(props: {
   }
 
   // Load favorites once on mount (no polling needed)
-  onMount(() => {
+  createEffect(() => {
     loadFavorites()
   })
 
@@ -1287,7 +1334,7 @@ export function Sidebar(props: {
                         }}
                       >
                         <text fg={color} wrapMode="word">
-                          {`${"  ".repeat(depth)}${prefix} ${task.content}`}
+                          {`${"  ".repeat(depth)}${prefix} ${String(task.content || "")}`}
                         </text>
                       </box>
                       <Show when={hasKids && expandedTodos().has(task.id)}>
@@ -1420,11 +1467,6 @@ export function Sidebar(props: {
                           }}
                         >
                           {` ${ctx.name.toUpperCase()}${usageCount() > 0 ? ` (${usageCount()})` : ""}${hasContent() ? "*" : ""} `}
-                          <Show when={isConditional()}>
-                            <span style={{ fg: wasUsed() ? theme.text : theme.textMuted }}>
-                              {wasUsed() ? "●" : "○"}
-                            </span>
-                          </Show>
                         </text>
                       )
                     }}

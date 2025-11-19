@@ -1,7 +1,7 @@
 import { TextareaRenderable, TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog } from "./dialog"
-import { onMount, createSignal, For } from "solid-js"
+import { createEffect, createSignal, For } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 
 export type DialogMultiFieldProps = {
@@ -66,7 +66,7 @@ export function DialogMultiField(props: DialogMultiFieldProps) {
     }
   })
 
-  onMount(() => {
+  createEffect(() => {
     dialog.setSize("large")
     setTimeout(() => {
       const firstField = props.fields[0]

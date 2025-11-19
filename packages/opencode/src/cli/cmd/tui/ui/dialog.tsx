@@ -106,6 +106,13 @@ function init() {
     if (evt.name === "backspace") return
     if (evt.sequence && evt.sequence.length === 1) return
 
+    // Allow navigation keys to pass through to dialog content
+    const navKeys = ["up", "down", "left", "right", "pageup", "pagedown", "home", "end", "tab"]
+    if (navKeys.includes(evt.name?.toLowerCase() ?? "")) return
+
+    // Allow Ctrl+key combinations for navigation (used in dialog-select)
+    if (evt.ctrl && ["k", "j", "p", "n", "u", "d"].includes(evt.name?.toLowerCase() ?? "")) return
+
     // Block other special keys from propagating
     evt.preventDefault()
 

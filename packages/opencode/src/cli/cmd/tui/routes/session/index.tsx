@@ -7,6 +7,7 @@ import {
   For,
   Match,
   on,
+  onCleanup,
   Show,
   Switch,
   useContext,
@@ -86,6 +87,7 @@ import { Perf } from "@/util/perf"
 import { FileBrowser } from "@tui/component/file-browser"
 import { CodeEditor } from "@tui/component/code-editor"
 import { FileViewer } from "@tui/component/file-viewer"
+import { SessionStatus } from "@/session/status"
 
 addDefaultParsers(parsers.parsers)
 
@@ -2009,6 +2011,16 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
     }
   })
 
+  // Get the arrow icon based on tool type
+  const arrow = createMemo(() => {
+    const firstTool = props.parts[0]?.tool.toLowerCase() || ""
+    if (firstTool.includes("read")) return "→"
+    if (firstTool.includes("write") || firstTool.includes("edit") || firstTool.includes("patch")) return "←"
+    if (firstTool.includes("glob") || firstTool.includes("grep") || firstTool.includes("ls")) return "*"
+    if (firstTool.includes("bash")) return ">"
+    return "•"
+  })
+
   return (
     <box paddingLeft={3} marginTop={0} marginBottom={0}>
       <box
@@ -2019,19 +2031,20 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
           setCollapsed(!collapsed())
         }}
       >
-        <text>{collapsed() ? "▶" : "▼"}</text>
-        <For each={Array.from(toolCounts().entries())}>
-          {([name, count]) => (
-            <text>
-              <span style={{ bg: theme.textMuted, fg: theme.background, bold: true }}>
-                {" "}
+        <text fg={theme.textMuted}>{collapsed() ? "▶" : "▼"}</text>
+        <text fg={theme.textMuted}>
+          {arrow()}{" "}
+          <For each={Array.from(toolCounts().entries())}>
+            {([name, count], index) => (
+              <>
+                {index() > 0 ? ", " : ""}
                 {name}
-                {count > 1 ? `(${count})` : ""}{" "}
-              </span>
-            </text>
-          )}
-        </For>
-        <text fg={theme.textMuted}>{lastDescription()}</text>
+                {count > 1 ? `(${count})` : ""}
+              </>
+            )}
+          </For>
+          {lastDescription() ? " " + lastDescription() : ""}
+        </text>
       </box>
 
       <Show when={!collapsed()}>
@@ -2046,6 +2059,10 @@ function GroupedToolParts(props: { parts: ToolPart[]; message: AssistantMessage 
 function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
   const local = useLocal()
   const { theme } = useTheme()
+  const route = useRouteData("session")
+
+  // Get session status from SessionStatus module
+  const status = createMemo(() => SessionStatus.get(route.sessionID))
 
   // Group consecutive identical tools
   const partGroups = createMemo(() => {
@@ -2154,14 +2171,14 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
             })
             const message = createMemo(() => {
               const r = retry()
-              if (!r) return
+              if (!r) return ""
               if (r.message.includes("exceeded your current quota") && r.message.includes("gemini"))
                 return "gemini 3 way too hot right now"
               if (r.message.length > 50) return r.message.slice(0, 50) + "..."
               return r.message
             })
             const [seconds, setSeconds] = createSignal(0)
-            onMount(() => {
+            createEffect(() => {
               const timer = setInterval(() => {
                 const next = retry()?.next
                 if (next) setSeconds(Math.round((next - Date.now()) / 1000))
@@ -2209,12 +2226,26 @@ const PART_MAPPING = {
 function ReasoningPart(props: { part: ReasoningPart; message: AssistantMessage; trailing?: JSX.Element }) {
   const { theme, syntax } = useTheme()
   const text = createMemo(() => props.part.text.trim())
-  const previousIsReasoning = createMemo(() => {
+  const marginTop = createMemo(() => {
     const parts = ((props.message as any).parts as Part[] | undefined) ?? []
     const index = parts.findIndex((part) => part.id === props.part.id)
-    if (index <= 0) return false
-    return parts[index - 1]?.type === "reasoning"
+
+    if (index <= 0) return 1
+
+    const prevPart = parts[index - 1]
+
+    if (prevPart?.type === "reasoning") return 0
+
+    if (prevPart?.type === "tool") {
+      const prevToolPart = prevPart as ToolPart
+      const prevPrevPart = parts[index - 2]
+      const wasGrouped = prevPrevPart?.type === "tool" && (prevPrevPart as ToolPart).tool === prevToolPart.tool
+      if (!wasGrouped) return 2
+    }
+
+    return 1
   })
+
   const summary = createMemo(() => {
     const firstLine = text()
       .split("\n")
@@ -2239,7 +2270,7 @@ function ReasoningPart(props: { part: ReasoningPart; message: AssistantMessage; 
   const showBody = createMemo(() => body().length > 0)
   return (
     <Show when={text()}>
-      <box id={"reasoning-" + props.part.id} marginTop={previousIsReasoning() ? 0 : 1} flexShrink={0}>
+      <box id={"reasoning-" + props.part.id} marginTop={marginTop()} flexShrink={0}>
         <box
           border={["left"]}
           customBorderChars={SplitBorder.customBorderChars}
@@ -2372,13 +2403,31 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
     ),
   )
 
-  const isFirstInMessage = createMemo(() => {
+  const marginTop = createMemo(() => {
     const parts = ((props.message as any).parts as Part[] | undefined) ?? []
     const index = parts.findIndex((part) => part.id === props.part.id)
-    if (index <= 0) return true
-    // Even if not first, don't add margin if previous part is also text
+
+    // If first part, no margin
+    if (index <= 0) return 0
+
     const prevPart = parts[index - 1]
-    return prevPart?.type === "text"
+
+    // If previous part is text, merge (no margin)
+    if (prevPart?.type === "text") return 0
+
+    // If previous part is tool, check if it was grouped
+    if (prevPart?.type === "tool") {
+      const prevToolPart = prevPart as ToolPart
+      const prevPrevPart = parts[index - 2]
+
+      // Grouping logic: consecutive identical tools
+      const wasGrouped = prevPrevPart?.type === "tool" && (prevPrevPart as ToolPart).tool === prevToolPart.tool
+
+      // Single tool parts have marginBottom={-1}, so we need 2 to get 1 line of visual space
+      if (!wasGrouped) return 2
+    }
+
+    return 1
   })
 
   return (
@@ -2388,7 +2437,7 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
         paddingLeft={3}
         paddingTop={1}
         paddingBottom={1}
-        marginTop={isFirstInMessage() ? 0 : 1}
+        marginTop={marginTop()}
         marginBottom={1}
         flexShrink={0}
         flexDirection="column"

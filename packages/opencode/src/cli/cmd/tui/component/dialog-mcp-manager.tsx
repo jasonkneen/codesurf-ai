@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onMount, Show } from "solid-js"
+import { createMemo, createSignal, createEffect, Show } from "solid-js"
 import { useDialog } from "@tui/ui/dialog"
 import { useTheme } from "../context/theme"
 import { useSync } from "@tui/context/sync"
@@ -31,7 +31,7 @@ export function DialogMCPManager() {
   const [serverTools, setServerTools] = createSignal<Record<string, any>>({})
   const [discoveredServers, setDiscoveredServers] = createSignal<any[]>([])
 
-  onMount(() => {
+  createEffect(() => {
     dialog.setSize("large")
   })
 

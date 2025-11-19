@@ -1,4 +1,4 @@
-import { createSignal, Show, onMount, type Component, For, createMemo } from "solid-js"
+import { createSignal, Show, createEffect, type Component, For, createMemo } from "solid-js"
 import { useTheme } from "../context/theme"
 import { useSDK } from "../context/sdk"
 import { TextAttributes } from "@opentui/core"
@@ -521,8 +521,7 @@ export function PluginComponent(props: PluginComponentProps) {
         }
       }
 
-      console.error("[PluginComponent] ✗ No plugin or core renderer found for:", props.componentId)
-      setError(`No plugin can render component: ${props.componentId}`)
+      console.log("[PluginComponent] No plugin or core renderer found for:", props.componentId)
     } catch (err) {
       console.error("[PluginComponent] Error loading plugin:", err)
       setError(err instanceof Error ? err.message : String(err))
@@ -531,7 +530,7 @@ export function PluginComponent(props: PluginComponentProps) {
     }
   }
 
-  onMount(() => {
+  createEffect(() => {
     loadComponent()
   })
 

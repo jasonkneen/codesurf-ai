@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onMount } from "solid-js"
+import { For, Show, createMemo, createSignal, createEffect } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { useTheme } from "@tui/context/theme"
 import { useDialog } from "@tui/ui/dialog"
@@ -264,7 +264,7 @@ export function DialogKanban() {
   const [compact, setCompact] = createSignal(true)
   const [dragDebug, setDragDebug] = createSignal("idle")
 
-  onMount(() => {
+  createEffect(() => {
     dialog.setSize("large")
     applyFrame(layout.width, layout.height)
   })
