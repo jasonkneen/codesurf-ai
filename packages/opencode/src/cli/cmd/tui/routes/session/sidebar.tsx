@@ -898,7 +898,7 @@ export function Sidebar(props: {
           <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
             CODESURF
           </text>
-          <box flexDirection="row" gap={1} alignItems="center">
+          <box flexDirection="row" gap={0} alignItems="center">
             <box flexDirection="row" gap={0} alignItems="center">
               <text
                 fg={canShrink() ? theme.textMuted : theme.border}
