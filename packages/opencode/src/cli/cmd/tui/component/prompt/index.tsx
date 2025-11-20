@@ -658,8 +658,9 @@ export function Prompt(props: PromptProps) {
         }
       }
 
+      // Update store with the current input state after all processing
       setStore("prompt", "input", input.plainText)
-      autocomplete.onInput(input.plainText)
+      // Don't trigger autocomplete after processing drop tokens - already have the file attached
       syncExtmarksDebounced()
     } finally {
       dropProcessing = false
@@ -721,7 +722,16 @@ export function Prompt(props: PromptProps) {
                   return
                 }
                 setStore("prompt", "input", value)
-                autocomplete.onInput(value)
+
+                // Check if this input contains drop file tokens to avoid showing autocomplete during file drops
+                const dropPattern = /(^|\s)((?:file:\/\/|[~.]?\/|[A-Za-z]:[\\\/])[^\s[]*)\[(?:Image|File) \d+\]/g
+                const hasDropTokens = dropPattern.test(value)
+
+                // Only show autocomplete if not processing drop tokens
+                if (!hasDropTokens && !dropProcessing) {
+                  autocomplete.onInput(value)
+                }
+
                 syncExtmarksDebounced() // Use debounced version during typing
                 void handleDropFileTokens(value)
               }}

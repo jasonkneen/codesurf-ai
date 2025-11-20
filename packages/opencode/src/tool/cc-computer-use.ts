@@ -5,8 +5,21 @@ import { $ } from "bun"
 import { Log } from "../util/log"
 import path from "path"
 import os from "os"
+import { displayImageWithCursor, supportsKittyGraphics } from "../util/kitty-graphics"
 
 const log = Log.create({ service: "computer-use-tool" })
+
+// Check if terminal supports graphics once
+let graphicsSupported: boolean | null = null
+async function checkGraphicsSupport() {
+  if (graphicsSupported === null) {
+    graphicsSupported = await supportsKittyGraphics()
+    if (graphicsSupported) {
+      log.info("Kitty graphics protocol supported")
+    }
+  }
+  return graphicsSupported
+}
 
 /**
  * cc_computer_use - Anthropic-native computer use tool
@@ -57,21 +70,9 @@ export const ClaudeCodeComputerUseTool = Tool.define("cc_computer_use", {
   description: DESCRIPTION,
   parameters: z.object({
     action: z
-      .enum([
-        "screenshot",
-        "mouse_move",
-        "left_click",
-        "right_click",
-        "double_click",
-        "type",
-        "key",
-        "cursor_position",
-      ])
+      .enum(["screenshot", "mouse_move", "left_click", "right_click", "double_click", "type", "key", "cursor_position"])
       .describe("The action to perform"),
-    coordinate: z
-      .tuple([z.number(), z.number()])
-      .optional()
-      .describe("Screen coordinates [x, y] for mouse_move"),
+    coordinate: z.tuple([z.number(), z.number()]).optional().describe("Screen coordinates [x, y] for mouse_move"),
     text: z.string().optional().describe("Text to type or key to press"),
   }),
   async execute(params, ctx) {
@@ -105,13 +106,33 @@ export const ClaudeCodeComputerUseTool = Tool.define("cc_computer_use", {
 
           const imageBuffer = await Bun.file(tempFile).arrayBuffer()
           const base64 = Buffer.from(imageBuffer).toString("base64")
+
+          // Try to display using Kitty graphics protocol
+          const hasGraphics = await checkGraphicsSupport()
+          let displayOutput = ""
+
+          if (hasGraphics) {
+            try {
+              // Display at reasonable size (60 columns wide)
+              // displayImageWithCursor handles cursor movement automatically
+              const kittyEscape = displayImageWithCursor(Buffer.from(imageBuffer), {
+                width: 60,
+                quiet: true,
+              })
+              displayOutput = kittyEscape
+              log.info("Screenshot displayed via Kitty graphics protocol")
+            } catch (error) {
+              log.warn("Failed to display via Kitty graphics", { error })
+            }
+          }
+
           await Bun.file(tempFile)
             .unlink()
             .catch(() => {})
 
           return {
             title: "Screenshot captured",
-            output: `Screenshot: data:image/png;base64,${base64.substring(0, 100)}... (${Math.round(base64.length / 1024)}KB)`,
+            output: `${displayOutput}Screenshot captured (${Math.round(base64.length / 1024)}KB)`,
             metadata: {},
           }
         }
