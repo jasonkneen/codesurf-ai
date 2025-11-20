@@ -83,9 +83,15 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       const event = e.details
       switch (event.type) {
         case "permission.updated": {
+          // Sanitize permission to ensure title is a string
+          const sanitizedPermission = {
+            ...event.properties,
+            title: String(event.properties.title || ""),
+          }
+
           const permissions = store.permission[event.properties.sessionID]
           if (!permissions) {
-            setStore("permission", event.properties.sessionID, [event.properties])
+            setStore("permission", event.properties.sessionID, [sanitizedPermission])
             break
           }
           const match = Binary.search(permissions, event.properties.id, (p) => p.id)
@@ -94,10 +100,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             event.properties.sessionID,
             produce((draft) => {
               if (match.found) {
-                draft[match.index] = event.properties
+                draft[match.index] = sanitizedPermission
                 return
               }
-              draft.push(event.properties)
+              draft.push(sanitizedPermission)
             }),
           )
           break

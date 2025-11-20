@@ -250,9 +250,9 @@ function ToolChipBar(props: { chips: ToolChip[]; selected?: string; onSelect: (c
   const renderer = useRenderer()
 
   return (
-    <box flexDirection="column" gap={1} paddingBottom={1} paddingLeft={1} paddingRight={1} flexShrink={0}>
+    <box flexDirection="column" gap={1} paddingBottom={0} paddingLeft={1} paddingRight={1} flexShrink={0}>
       <text fg={theme.textMuted}>Tool calls</text>
-      <box flexDirection="row" gap={1} flexWrap="wrap">
+      <box flexDirection="row" gap={0} flexWrap="wrap">
         <For each={props.chips}>
           {(chip) => {
             const active = () => props.selected === chip.id
@@ -2543,10 +2543,10 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
       <box
         id={partId()}
         paddingLeft={3}
-        paddingTop={1}
-        paddingBottom={1}
+        paddingTop={0}
+        paddingBottom={0}
         marginTop={marginTop()}
-        marginBottom={1}
+        marginBottom={0}
         flexShrink={0}
         flexDirection="column"
       >
@@ -2690,18 +2690,50 @@ function ToolPart(props: {
     const parts = sync.data.part[props.message.id] ?? []
     const index = parts.findIndex((part) => part.id === props.part.id)
 
-    if (index === -1) return 0
+    if (index === -1) {
+      console.log(`[ToolPart margin] id=${props.part.id} tool=${props.part.tool} - NOT FOUND in parts, returning 0`)
+      return 0
+    }
 
-    // If it's the first part, we want a margin to separate from the previous message (e.g. UserMessage)
-    if (index === 0) return 1
+    // Find the meaningful previous part
+    let prevIndex = index - 1
+    while (prevIndex >= 0) {
+      const p = parts[prevIndex]
+      // Skip step-finish parts
+      if (p.type === "step-finish") {
+        console.log(
+          `[ToolPart margin] id=${props.part.id} tool=${props.part.tool} - skipping step-finish at index ${prevIndex}`,
+        )
+        prevIndex--
+        continue
+      }
+      // Skip empty text parts
+      if (p.type === "text" && !p.text?.trim()) {
+        console.log(
+          `[ToolPart margin] id=${props.part.id} tool=${props.part.tool} - skipping empty text at index ${prevIndex}`,
+        )
+        prevIndex--
+        continue
+      }
+      break
+    }
 
-    const prevPart = parts[index - 1]
+    if (prevIndex < 0) {
+      console.log(`[ToolPart margin] id=${props.part.id} tool=${props.part.tool} - FIRST, returning 1`)
+      return 1
+    }
+
+    const prevPart = parts[prevIndex]
+    const margin = prevPart.type === "tool" ? 0 : prevPart.type === "text" ? 0 : 1
+    console.log(
+      `[ToolPart margin] id=${props.part.id} tool=${props.part.tool} - prev type=${prevPart.type} tool=${prevPart.type === "tool" ? (prevPart as any).tool : "N/A"}, MARGIN=${margin}`,
+    )
 
     // If previous part is tool, no margin (keep them tight)
-    if (prevPart?.type === "tool") return 0
+    if (prevPart.type === "tool") return 0
 
     // If previous part is text, it has marginBottom=1, so we don't need extra margin
-    if (prevPart?.type === "text") return 0
+    if (prevPart.type === "text") return 0
 
     return 1
   })
@@ -2714,29 +2746,35 @@ function ToolPart(props: {
       const paddingLeft = isTaskTool ? 0 : basePaddingLeft
       // When noBorder is true (grouped tools), don't add bottom padding
       const paddingBottom = showBorder ? (collapsedState ? 0 : BLOCK_CONTAINER_PADDING) : 0
-      return {
+      const styleObj = {
         border: showBorder ? (["left"] as const) : undefined,
         paddingTop: 0,
         paddingBottom,
         paddingLeft,
         gap: collapsedState ? 0 : 1,
-        minHeight: 1,
         backgroundColor: collapsedState && !permission() ? undefined : theme.backgroundPanel,
         customBorderChars: showBorder ? SplitBorder.customBorderChars : undefined,
         borderColor: showBorder ? theme.background : undefined,
       } as BoxProps
+      console.log(
+        `[ToolPart style] id=${props.part.id} tool=${props.part.tool} BLOCK - paddingTop=${styleObj.paddingTop} paddingBottom=${paddingBottom} gap=${styleObj.gap}`,
+      )
+      return styleObj
     }
-    return {
+    const styleObj = {
       border: showBorder ? (["left"] as const) : undefined,
       customBorderChars: showBorder ? SplitBorder.customBorderChars : undefined,
       borderColor: showBorder ? theme.background : undefined,
       paddingLeft: inlineIndent,
       paddingTop: 0,
       paddingBottom: 0,
-      minHeight: 1,
       gap: collapsedState ? 0 : 1,
       backgroundColor: undefined,
     } as BoxProps
+    console.log(
+      `[ToolPart style] id=${props.part.id} tool=${props.part.tool} INLINE - paddingTop=${styleObj.paddingTop} paddingBottom=${styleObj.paddingBottom} gap=${styleObj.gap}`,
+    )
+    return styleObj
   })
 
   return (
@@ -3213,7 +3251,7 @@ toolRegistry.register<typeof TaskTool>({
     const summarySignature = createMemo(() => {
       const items = props.metadata.summary ?? []
       return items
-        .map((task) => {
+        .map((task: any) => {
           const title = "title" in task.state ? (task.state.title ?? "") : ""
           return `${task.tool}:${task.state.status}:${title}`
         })

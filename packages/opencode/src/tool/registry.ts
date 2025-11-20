@@ -38,6 +38,7 @@ import { Log } from "../util/log"
 import { WebSearchTool } from "./websearch"
 import { CodeSearchTool } from "./codesearch"
 import { Flag } from "@/flag/flag"
+import { ChangeModelTool } from "./change-model"
 
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool-registry" })
@@ -184,6 +185,7 @@ export namespace ToolRegistry {
       CompleteTaskTool,
       AddDirTool,
       RunCompactTool,
+      ChangeModelTool,
       LspDiagnosticTool,
       LspHoverTool,
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),

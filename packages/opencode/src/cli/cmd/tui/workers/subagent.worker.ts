@@ -37,6 +37,7 @@ let config: {
   prompt: string
   description: string
   parallel: boolean
+  model?: string
 }
 
 async function logWorker(msg: string) {
@@ -81,12 +82,21 @@ async function executeSubagent(): Promise<void> {
     broadcastState()
 
     // Send prompt to child session
+    const promptBody: any = {
+      parts: [{ type: "text", text: config.prompt }],
+    }
+
+    if (config.model) {
+      const [providerID, modelID] = config.model.split("/")
+      if (providerID && modelID) {
+        promptBody.model = { providerID, modelID }
+      }
+    }
+
     const promptResponse = await fetch(`${config.serverUrl}session/${session.id}/prompt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        parts: [{ type: "text", text: config.prompt }],
-      }),
+      body: JSON.stringify(promptBody),
     })
 
     if (!promptResponse.ok) {

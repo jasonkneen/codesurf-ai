@@ -7,6 +7,7 @@ import { SessionPrompt } from "../session/prompt"
 import { Identifier } from "../id/id"
 import { Log } from "../util/log"
 import { Session } from "../session"
+import { Provider } from "../provider/provider"
 
 export const AddTaskTool = Tool.define("add_task", async () => {
   const log = Log.create({ service: "add-task-tool" })
@@ -23,6 +24,10 @@ export const AddTaskTool = Tool.define("add_task", async () => {
       description: z.string().describe("A short (3-5 words) description of the task"),
       prompt: z.string().describe("The task for the agent to perform"),
       subagent_type: z.string().describe("The type of specialized agent to use for this task"),
+      model: z
+        .string()
+        .optional()
+        .describe("The model to use for this task (e.g. 'anthropic/claude-3-5-sonnet-20241022')"),
     }),
     async execute(params, ctx) {
       try {
@@ -46,10 +51,12 @@ export const AddTaskTool = Tool.define("add_task", async () => {
         if (!msg) throw new Error("Message not found")
         if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
 
-        const model = agent.model ?? {
-          modelID: msg.info.modelID,
-          providerID: msg.info.providerID,
-        }
+        const model = params.model
+          ? await Provider.parseModel(params.model)
+          : (agent.model ?? {
+              modelID: msg.info.modelID,
+              providerID: msg.info.providerID,
+            })
 
         // Send prompt to subagent
         ctx.abort.addEventListener("abort", () => {

@@ -13,13 +13,14 @@ import { Parallel } from "../parallel"
 import { Log } from "../util/log"
 import { Rpc } from "../util/rpc"
 import { appendFile } from "fs/promises"
+import { Provider } from "../provider/provider"
 
 // Worker-based subagent execution
 async function spawnThreadedSubagent(options: {
   sessionID: string
   messageID: string
   agent: Agent.Info
-  params: { description: string; prompt: string; subagent_type: string; parallel?: boolean }
+  params: { description: string; prompt: string; subagent_type: string; parallel?: boolean; model?: string }
   ctx: any
   log: ReturnType<typeof Log.create>
 }) {
@@ -92,6 +93,7 @@ async function spawnThreadedSubagent(options: {
     prompt: params.prompt,
     description: params.description,
     parallel: params.parallel ?? false,
+    model: params.model,
   })
 
   await logMsg("Worker initialized, executing subagent...")
@@ -168,12 +170,16 @@ export const TaskTool = Tool.define("task", async () => {
         .boolean()
         .optional()
         .describe("Run subtask in isolated worker thread for true CPU parallelism (experimental)"),
+      model: z
+        .string()
+        .optional()
+        .describe("The model to use for this task (e.g. 'anthropic/claude-3-5-sonnet-20241022')"),
     }),
     async execute(params, ctx) {
       try {
         const agent = await Agent.get(params.subagent_type)
         if (!agent) throw new Error(`Unknown agent type: ${params.subagent_type} is not a valid agent type`)
-    /*   session_id: z.string().describe("Existing Task session to continue").optional(),
+        /*   session_id: z.string().describe("Existing Task session to continue").optional(),
     }),
     async execute(params, ctx) {
       const agent = await Agent.get(params.subagent_type)
@@ -284,10 +290,12 @@ export const TaskTool = Tool.define("task", async () => {
             })
           })
 
-          const model = agent.model ?? {
-            modelID: msg.info.modelID,
-            providerID: msg.info.providerID,
-          }
+          const model = params.model
+            ? await Provider.parseModel(params.model)
+            : (agent.model ?? {
+                modelID: msg.info.modelID,
+                providerID: msg.info.providerID,
+              })
 
           ctx.abort.addEventListener("abort", () => {
             SessionLock.abort(session.id)
@@ -359,13 +367,14 @@ export const TaskTool = Tool.define("task", async () => {
           stack: errorStack,
           params,
         })
-
       }
 
-      const model = agent.model ?? {
-        modelID: msg.info.modelID,
-        providerID: msg.info.providerID,
-      }
+      const model = params.model
+        ? await Provider.parseModel(params.model)
+        : (agent.model ?? {
+            modelID: msg.info.modelID,
+            providerID: msg.info.providerID,
+          })
 
       function cancel() {
         SessionPrompt.cancel(session.id)
@@ -405,7 +414,6 @@ export const TaskTool = Tool.define("task", async () => {
           sessionId: session.id,
         },
         output,
-
       }
     },
   }

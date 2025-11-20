@@ -16,29 +16,33 @@ export type DialogKanbanCardEditorProps = {
 export function DialogKanbanCardEditor(props: DialogKanbanCardEditorProps) {
   const dialog = useDialog()
   const { theme } = useTheme()
-  const [form, setForm] = createStore({
-    title: props.card?.title ?? "",
-    summary: props.card?.summary ?? " ",
-    tags: props.card?.tags?.join(", ") ?? "",
-    points: props.card?.points?.toString() ?? "1",
-  })
 
-  const fields: { label: string; ref: TextareaRenderable }[] = []
+  let titleRef!: TextareaRenderable
+  let summaryRef!: TextareaRenderable
+  let tagsRef!: TextareaRenderable
+  let pointsRef!: TextareaRenderable
+
+  const fields: TextareaRenderable[] = []
   const [focusedIndex, setFocusedIndex] = createSignal(0)
 
   onMount(() => {
     dialog.setSize("large")
     setTimeout(() => {
-      fields[focusedIndex()]?.ref.focus()
+      fields[focusedIndex()]?.focus()
     }, 1)
   })
 
   const handleConfirm = () => {
-    const points = parseInt(form.points, 10)
+    const title = titleRef?.plainText || ""
+    const summary = summaryRef?.plainText || ""
+    const tags = tagsRef?.plainText || ""
+    const pointsText = pointsRef?.plainText || "1"
+    const points = parseInt(pointsText, 10)
+
     props.onConfirm({
-      title: form.title,
-      summary: form.summary,
-      tags: form.tags
+      title,
+      summary,
+      tags: tags
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
@@ -51,14 +55,14 @@ export function DialogKanbanCardEditor(props: DialogKanbanCardEditorProps) {
       evt.preventDefault()
       const next = (focusedIndex() + 1) % fields.length
       setFocusedIndex(next)
-      fields[next]?.ref.focus()
+      fields[next]?.focus()
       return
     }
     if (evt.name === "up") {
       evt.preventDefault()
       const next = (focusedIndex() - 1 + fields.length) % fields.length
       setFocusedIndex(next)
-      fields[next]?.ref.focus()
+      fields[next]?.focus()
       return
     }
     if (evt.name === "return" && evt.ctrl) {
@@ -78,36 +82,44 @@ export function DialogKanbanCardEditor(props: DialogKanbanCardEditorProps) {
         <box flexDirection="row" gap={2} alignItems="center">
           <text width={8}>Title</text>
           <textarea
-            ref={(r: TextareaRenderable) => (fields[0] = { label: "Title", ref: r })}
-            initialValue={form.title}
-            onTextChange={(text) => setForm("title", text)}
+            ref={(r: TextareaRenderable) => {
+              titleRef = r
+              fields[0] = r
+            }}
+            initialValue={props.card?.title ?? ""}
             placeholder="Card title"
           />
         </box>
         <box flexDirection="row" gap={2} alignItems="center">
           <text width={8}>Summary</text>
           <textarea
-            ref={(r: TextareaRenderable) => (fields[1] = { label: "Summary", ref: r })}
-            initialValue={form.summary}
-            onTextChange={(text) => setForm("summary", text)}
+            ref={(r: TextareaRenderable) => {
+              summaryRef = r
+              fields[1] = r
+            }}
+            initialValue={props.card?.summary ?? ""}
             placeholder="Card summary"
           />
         </box>
         <box flexDirection="row" gap={2} alignItems="center">
           <text width={8}>Tags</text>
           <textarea
-            ref={(r: TextareaRenderable) => (fields[2] = { label: "Tags", ref: r })}
-            initialValue={form.tags}
-            onTextChange={(text) => setForm("tags", text)}
+            ref={(r: TextareaRenderable) => {
+              tagsRef = r
+              fields[2] = r
+            }}
+            initialValue={props.card?.tags?.join(", ") ?? ""}
             placeholder="comma, separated, tags"
           />
         </box>
         <box flexDirection="row" gap={2} alignItems="center">
           <text width={8}>Points</text>
           <textarea
-            ref={(r: TextareaRenderable) => (fields[3] = { label: "Points", ref: r })}
-            initialValue={form.points}
-            onTextChange={(text) => setForm("points", text)}
+            ref={(r: TextareaRenderable) => {
+              pointsRef = r
+              fields[3] = r
+            }}
+            initialValue={props.card?.points?.toString() ?? "1"}
             placeholder="1"
           />
         </box>
@@ -143,11 +155,9 @@ DialogKanbanCardEditor.show = (dialog: DialogContext, title: string, card?: Part
           title={title}
           card={card}
           onConfirm={(data) => {
-            dialog.clear()
             resolve(data)
           }}
           onCancel={() => {
-            dialog.clear()
             resolve(null)
           }}
         />
