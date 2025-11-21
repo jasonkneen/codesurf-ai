@@ -1456,7 +1456,8 @@ export namespace SessionPrompt {
                   tokens: usage.tokens,
                   cost: usage.cost,
                 })
-                await Session.updateMessage(assistantMsg)
+                // Skip updateMessage during streaming - will be updated on finish
+                // await Session.updateMessage(assistantMsg)
                 if (snapshot) {
                   const patch = await Snapshot.patch(snapshot)
                   if (patch.files.length) {

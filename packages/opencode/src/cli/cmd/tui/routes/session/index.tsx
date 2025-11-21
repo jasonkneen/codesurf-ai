@@ -728,18 +728,15 @@ export function Session() {
       const atBottom = y + height >= scrollHeight - 5
 
       const contentGrew = scrollHeight > lastScrollHeight
-      const scrolledUp = y < lastScrollY
+      const userScrolledUpManually = y < lastScrollY && !contentGrew
 
       if (atBottom) {
+        // User scrolled to bottom or is at bottom - clear the flag
         if (userScrolledUp()) setUserScrolledUp(false)
       } else {
         // Not at bottom
-        // If user explicitly scrolled up
-        if (scrolledUp) {
-          setUserScrolledUp(true)
-        }
-        // OR if we are just hanging out up there and content is stable
-        else if (!contentGrew && !userScrolledUp()) {
+        // ONLY mark as scrolled up if user actually scrolled up (not content growth)
+        if (userScrolledUpManually) {
           setUserScrolledUp(true)
         }
       }
@@ -788,35 +785,8 @@ export function Session() {
   // snap to bottom when session changes
   createEffect(on(() => route.sessionID, toBottom))
 
-  // Auto-scroll during streaming when new content arrives
-  // Use throttled approach to avoid 60 FPS flickering
-  let scrollTimeout: NodeJS.Timeout | null = null
-  createEffect(() => {
-    const msgs = messages()
-    const lastMsg = msgs[msgs.length - 1]
-    if (lastMsg && lastMsg.role === "assistant" && !lastMsg.time.completed) {
-      // Throttle to max once per 200ms to avoid flickering
-      if (!scrollTimeout) {
-        scrollTimeout = setTimeout(() => {
-          if (scroll && !userScrolledUp()) toBottom()
-          scrollTimeout = null
-        }, 200)
-      }
-    }
-  })
-
-  // Ensure we snap to the latest assistant message once streaming completes,
-  // as long as the user has not intentionally scrolled up.
-  createEffect(() => {
-    const list = messages()
-    const last = list[list.length - 1]
-    if (!last) return
-    if (last.role !== "assistant") return
-    if (!last.time?.completed) return
-    if (userScrolledUp()) return
-    if (!scroll) return
-    toBottom()
-  })
+  // stickyScroll handles auto-scrolling when enabled
+  // No need for manual scroll logic
 
   const local = useLocal()
 
@@ -1371,7 +1341,7 @@ export function Session() {
                   // Keep feed width fixed so completed messages don't re-wrap mid-stream
                   visible: false,
                 }}
-                stickyScroll={!isStreaming()}
+                stickyScroll={!userScrolledUp()}
                 stickyStart="bottom"
                 height="100%"
               >

@@ -130,23 +130,6 @@ export namespace ACP {
                 const props = event.properties
                 const { part } = props
 
-                const message = await this.config.sdk.session
-                  .message({
-                    throwOnError: true,
-                    path: {
-                      id: part.sessionID,
-                      messageID: part.messageID,
-                    },
-                    query: { directory },
-                  })
-                  .then((x) => x.data)
-                  .catch((err) => {
-                    log.error("unexpected error when fetching message", { error: err })
-                    return undefined
-                  })
-
-                if (!message || message.info.role !== "assistant") return
-
                 if (part.type === "tool") {
                   switch (part.state.status) {
                     case "pending":

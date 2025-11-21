@@ -50,15 +50,15 @@ export async function setWallpaper(options: WallpaperOptions): Promise<void> {
       moveCursor: false,
     })
 
-    // Write to terminal
-    if (typeof process !== "undefined" && process.stdout) {
+    // Write to terminal via stderr (TUI intercepts stdout)
+    if (typeof process !== "undefined" && process.stderr) {
       // Move cursor to top-left first
-      process.stdout.write("\x1b[H") // Move to 0,0
-      process.stdout.write(escapeCode)
-      process.stdout.write("\x1b[H") // Move back to 0,0
+      process.stderr.write("\x1b[H") // Move to 0,0
+      process.stderr.write(escapeCode)
+      process.stderr.write("\x1b[H") // Move back to 0,0
     }
 
-    log.info("Wallpaper set", { width, height, imageId, mode })
+    log.info("Wallpaper set via stderr", { width, height, imageId, mode })
   } catch (error) {
     log.error("Failed to set wallpaper", { error })
   }
@@ -71,8 +71,8 @@ export function clearWallpaper(imageId: number = 1): void {
   // Send delete command for the image
   const deleteCode = `\x1b_Ga=d,d=i,i=${imageId}\x1b\\`
 
-  if (typeof process !== "undefined" && process.stdout) {
-    process.stdout.write(deleteCode)
+  if (typeof process !== "undefined" && process.stderr) {
+    process.stderr.write(deleteCode)
   }
 
   log.info("Wallpaper cleared", { imageId })

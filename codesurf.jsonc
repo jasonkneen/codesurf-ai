@@ -9,10 +9,7 @@
     "glob",
     "todowrite",
     "cc_write",
-    "cc_glob",
-    "edit",
-    "read",
-    "bash"
+    "cc_glob"
   ],
   "$schema": "https://opencode.ai/config.json"
 }

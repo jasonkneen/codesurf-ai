@@ -37,6 +37,8 @@ import { UIExtensionsProvider, useUIExtensions } from "./context/ui-extensions"
 import { ArgsProvider } from "./context/args"
 import { TransitionAnimation } from "./component/transition-animation"
 import { ContextProvider } from "./context/context"
+// Wallpaper removed - z-index not supported in Ghostty yet
+// import { setWallpaper, clearWallpaper, generateGradientWallpaper } from "@/util/kitty-wallpaper"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -195,6 +197,10 @@ function App() {
   const toast = useToast()
   const { theme, mode, setMode } = useTheme()
   const exit = useExit()
+
+  // Background wallpaper removed - Kitty z-index not supported in Ghostty yet
+  // Use box backgroundColor or terminal background color instead
+  // See WALLPAPER_TROUBLESHOOTING.md for details
 
   // Transition animation state
   const [isTransitioning, setIsTransitioning] = createSignal(false)

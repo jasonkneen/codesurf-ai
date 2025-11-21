@@ -264,58 +264,113 @@ export const WebFetchTool = Tool.define("webfetch", {
 
     // SSRF Protection: Manual redirect handling to validate each redirect
     let currentUrl = params.url
-    let response: Response
+    let response: Response | undefined
     const maxRedirects = 10
     let redirectCount = 0
 
-    while (true) {
-      response = await fetch(currentUrl, {
-        signal: AbortSignal.any([controller.signal, ctx.abort]),
-        redirect: "manual", // Don't follow redirects automatically
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept: acceptHeader,
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-      })
+    try {
+      while (true) {
+        console.log("[webfetch] Fetching:", currentUrl)
+        response = await fetch(currentUrl, {
+          signal: AbortSignal.any([controller.signal, ctx.abort]),
+          redirect: "manual", // Don't follow redirects automatically
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: acceptHeader,
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+        })
 
-      // Check if this is a redirect
-      if (response.status >= 300 && response.status < 400) {
-        const location = response.headers.get("location")
-        if (!location) {
-          throw new Error(`Redirect response (${response.status}) missing Location header`)
+        console.log("[webfetch] Response received:", response ? "yes" : "NO - UNDEFINED!")
+        console.log("[webfetch] Response type:", typeof response)
+        console.log("[webfetch] Has status?", "status" in (response || {}))
+        console.log("[webfetch] Has headers?", "headers" in (response || {}))
+        if (response) {
+          console.log("[webfetch] Response.status:", response.status)
+          console.log("[webfetch] Response.headers type:", typeof response.headers)
         }
 
-        redirectCount++
-        if (redirectCount > maxRedirects) {
-          throw new Error(`Too many redirects (max ${maxRedirects})`)
+        // Safety check - should never happen but protects against undefined response
+        if (!response) {
+          throw new Error("Fetch returned undefined response")
         }
 
-        // Resolve relative URLs
-        const redirectUrl = new URL(location, currentUrl).toString()
+        // Check if this is a redirect
+        if (response.status >= 300 && response.status < 400) {
+          if (!response.headers) {
+            throw new Error(`Response object missing headers property (status: ${response.status})`)
+          }
+          const location = response.headers.get("location")
+          if (!location) {
+            throw new Error(`Redirect response (${response.status}) missing Location header`)
+          }
 
-        // SSRF Protection: Validate redirect URL
-        const redirectValidation = await validateRedirectUrl(currentUrl, redirectUrl)
-        if (!redirectValidation.valid) {
-          throw new Error(`SSRF protection: ${redirectValidation.reason}`)
+          redirectCount++
+          if (redirectCount > maxRedirects) {
+            throw new Error(`Too many redirects (max ${maxRedirects})`)
+          }
+
+          // Resolve relative URLs
+          const redirectUrl = new URL(location, currentUrl).toString()
+
+          // SSRF Protection: Validate redirect URL
+          const redirectValidation = await validateRedirectUrl(currentUrl, redirectUrl)
+          if (!redirectValidation.valid) {
+            throw new Error(`SSRF protection: ${redirectValidation.reason}`)
+          }
+
+          currentUrl = redirectUrl
+          continue
         }
 
-        currentUrl = redirectUrl
-        continue
+        // Not a redirect, break out of the loop
+        break
       }
-
-      // Not a redirect, break out of the loop
-      break
+    } catch (error) {
+      clearTimeout(timeoutId)
+      throw error
     }
 
     clearTimeout(timeoutId)
 
+    if (!response) {
+      throw new Error("No response received from server")
+    }
+
     if (!response.ok) {
-      throw new Error(`Request failed with status code: ${response.status}`)
+      const statusText = response.statusText || "Unknown Error"
+      let errorMessage = `Request failed with status ${response.status} (${statusText})`
+
+      // Add helpful message for common errors
+      if (response.status === 401) {
+        errorMessage += " - Unauthorized: Check your API credentials"
+      } else if (response.status === 403) {
+        errorMessage += " - Forbidden: Access denied"
+      } else if (response.status === 404) {
+        errorMessage += " - Not Found"
+      } else if (response.status >= 500) {
+        errorMessage += " - Server Error"
+      }
+
+      // Try to get response body for more details (but don't let this fail)
+      try {
+        const text = await response.text()
+        if (text && text.length < 200) {
+          errorMessage += `\nDetails: ${text}`
+        }
+      } catch {
+        // Ignore errors reading body
+      }
+
+      throw new Error(errorMessage)
     }
 
     // Check content length
+    if (!response.headers) {
+      throw new Error("Response object missing headers property")
+    }
+
     const contentLength = response.headers.get("content-length")
     if (contentLength && parseInt(contentLength) > MAX_RESPONSE_SIZE) {
       throw new Error("Response too large (exceeds 5MB limit)")

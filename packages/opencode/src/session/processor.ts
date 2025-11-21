@@ -258,7 +258,8 @@ export namespace SessionProcessor {
                     tokens: usage.tokens,
                     cost: usage.cost,
                   })
-                  await Session.updateMessage(input.assistantMessage)
+                  // Skip updateMessage during streaming - will be updated on finish
+                  // await Session.updateMessage(input.assistantMessage)
                   if (snapshot) {
                     const patch = await Snapshot.patch(snapshot)
                     if (patch.files.length) {
