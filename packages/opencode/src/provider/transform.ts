@@ -24,7 +24,6 @@ export namespace ProviderTransform {
       const result: ModelMessage[] = []
       for (let i = 0; i < msgs.length; i++) {
         const msg = msgs[i]
-        const prevMsg = msgs[i - 1]
         const nextMsg = msgs[i + 1]
 
         if ((msg.role === "assistant" || msg.role === "tool") && Array.isArray(msg.content)) {
@@ -137,11 +136,18 @@ export namespace ProviderTransform {
   ): Record<string, any> | undefined {
     const result: Record<string, any> = {}
 
+    // switch to providerID later, for now use this
+    if (npm === "@openrouter/ai-sdk-provider") {
+      result["usage"] = {
+        include: true,
+      }
+    }
+
     if (providerID === "openai") {
       result["promptCacheKey"] = sessionID
     }
 
-    if (providerID === "google") {
+    if (providerID === "google" || (providerID === "opencode" && modelID.includes("gemini-3"))) {
       result["thinkingConfig"] = {
         includeThoughts: true,
       }
@@ -191,6 +197,10 @@ export namespace ProviderTransform {
       case "@ai-sdk/gateway":
         return {
           ["gateway" as string]: options,
+        }
+      case "@openrouter/ai-sdk-provider":
+        return {
+          ["openrouter" as string]: options,
         }
       default:
         return {
