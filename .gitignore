@@ -33,3 +33,8 @@ packages/opencode/.screenshots/test.txt
 packages/opencode/.screenshots/watch.sh
 packages/opencode/src/cli/cmd/tui/routes/session/footer.tsx.backup
 packages/opencode/src/util/test-worker-proof.ts
+packages/opencode/test-wallpaper-tty.ts
+packages/opencode/test-wallpaper-simple.ts
+packages/opencode/test-kitty-simple.ts
+packages/opencode/test-kitty-red-pixel.ts
+packages/opencode/test-kitty-graphics.ts
