@@ -692,7 +692,8 @@ export function Prompt(props: PromptProps) {
       <box ref={(r) => (anchor = r)}>
         <box
           flexDirection="row"
-          {...SplitBorder}
+          border={["right"]}
+          customBorderChars={SplitBorder.customBorderChars}
           borderColor={keybind.leader ? theme.accent : store.mode === "shell" ? theme.secondary : theme.border}
           justifyContent="space-evenly"
         >
