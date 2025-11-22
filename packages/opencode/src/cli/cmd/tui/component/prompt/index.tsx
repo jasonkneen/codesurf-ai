@@ -696,6 +696,14 @@ export function Prompt(props: PromptProps) {
           borderColor={keybind.leader ? theme.accent : store.mode === "shell" ? theme.secondary : theme.border}
           justifyContent="space-evenly"
         >
+          <box
+            backgroundColor={(() => {
+              const agent = local.agent.current()
+              return local.agent.color(agent?.name ?? "")
+            })()}
+            width={1}
+            height="100%"
+          />
           <box backgroundColor={theme.backgroundElement} width={3} height="100%" alignItems="center" paddingTop={1}>
             <text attributes={TextAttributes.BOLD} fg={theme.primary}>
               {store.mode === "normal" ? ">" : "!"}
