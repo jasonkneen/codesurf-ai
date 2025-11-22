@@ -709,7 +709,47 @@ export function Prompt(props: PromptProps) {
               {store.mode === "normal" ? ">" : "!"}
             </text>
           </box>
-          <box paddingTop={1} paddingBottom={1} backgroundColor={theme.backgroundElement} flexGrow={1}>
+          <box
+            paddingTop={1}
+            paddingBottom={1}
+            backgroundColor={theme.backgroundElement}
+            flexGrow={1}
+            flexDirection="column"
+          >
+            {/* Agent and Model info inside prompt box */}
+            <box height={1} marginBottom={1} paddingLeft={1}>
+              <text
+                fg={(() => {
+                  const agent = local.agent.current()
+                  return local.agent.color(agent?.name ?? "")
+                })()}
+              >
+                {(() => {
+                  const agent = local.agent.current()
+                  return agent?.name ?? "Agent"
+                })()}
+              </text>
+              <text fg={theme.textMuted}> </text>
+              <text fg={theme.textMuted}>
+                {(() => {
+                  const parsed = local.model.parsed()
+                  return parsed?.provider ?? "Provider"
+                })()}
+              </text>
+              <text fg={theme.textMuted}> </text>
+              <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+                {(() => {
+                  const parsed = local.model.parsed()
+                  return parsed?.model ?? "Model"
+                })()}
+              </text>
+              <text fg={theme.textMuted}>
+                {(() => {
+                  const parsed = local.model.parsed()
+                  return parsed?.model ? " (latest)" : ""
+                })()}
+              </text>
+            </box>
             <textarea
               placeholder={
                 props.showPlaceholder
