@@ -945,6 +945,9 @@ export function Prompt(props: PromptProps) {
             </Match>
 
             <Match when={props.hint}>{props.hint!}</Match>
+            <Match when={true}>
+              <text />
+            </Match>
           </Switch>
           <box flexDirection="row" gap={2}>
             <text fg={theme.text}>
