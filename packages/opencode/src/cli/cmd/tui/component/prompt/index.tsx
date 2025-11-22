@@ -716,8 +716,8 @@ export function Prompt(props: PromptProps) {
               }
               textColor={theme.text}
               focusedTextColor={theme.text}
-              minHeight={1}
-              maxHeight={6}
+              minHeight={6}
+              maxHeight={12}
               onContentChange={() => {
                 let value = input.plainText
                 // Filter out mouse wheel escape sequences
