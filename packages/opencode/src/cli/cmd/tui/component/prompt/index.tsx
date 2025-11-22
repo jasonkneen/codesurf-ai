@@ -21,6 +21,7 @@ import { createStore, produce } from "solid-js/store"
 import { useKeybind } from "@tui/context/keybind"
 import { usePromptHistory, type PromptInfo } from "./history"
 import { type AutocompleteRef, Autocomplete } from "./autocomplete"
+import { LoadingBar } from "./loading-bar"
 import { useCommandDialog } from "../dialog-command"
 import { useRenderer } from "@opentui/solid"
 import { Editor } from "@tui/util/editor"
@@ -914,6 +915,7 @@ export function Prompt(props: PromptProps) {
               </text>
             </box>
           </box>
+          <box backgroundColor={theme.backgroundElement} width={1} justifyContent="center" alignItems="center"></box>
         </box>
         <box flexDirection="row" justifyContent="space-between">
           <box flexDirection="row" alignItems="center" gap={1} flexShrink={0} flexWrap="no-wrap">
@@ -925,6 +927,7 @@ export function Prompt(props: PromptProps) {
             </Match>
             <Match when={status() === "working"}>
               <box flexDirection="row" gap={2} alignItems="center">
+                <LoadingBar />
                 <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
                   esc{" "}
                   <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
