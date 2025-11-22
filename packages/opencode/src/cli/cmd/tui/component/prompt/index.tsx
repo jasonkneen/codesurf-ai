@@ -12,7 +12,7 @@ import {
 import { createEffect, createMemo, Match, Switch, Show, type JSX, batch } from "solid-js"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
-import { SplitBorder } from "@tui/component/border"
+import { SplitBorder, EmptyBorder } from "@tui/component/border"
 import { useSDK } from "@tui/context/sdk"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
@@ -890,7 +890,7 @@ export function Prompt(props: PromptProps) {
               cursorColor={theme.primary}
               syntaxStyle={syntax()}
             />
-            <box marginTop={1} height={1} flexDirection="row" alignItems="center">
+            <box paddingTop={2} height={1} flexDirection="row" alignItems="center">
               <text>
                 {(() => {
                   const agent = local.agent.current()
@@ -914,7 +914,6 @@ export function Prompt(props: PromptProps) {
               </text>
             </box>
           </box>
-          <box backgroundColor={theme.backgroundElement} width={1} justifyContent="center" alignItems="center"></box>
         </box>
         <box flexDirection="row" justifyContent="space-between">
           <box flexDirection="row" alignItems="center" gap={1} flexShrink={0} flexWrap="no-wrap">
