@@ -17,6 +17,8 @@ export namespace Flag {
   export const OPENCODE_ENABLE_AUTOCOMPACT = truthy("OPENCODE_ENABLE_AUTOCOMPACT")
   export const OPENCODE_ENABLE_PRUNE = truthy("OPENCODE_ENABLE_PRUNE")
   export const OPENCODE_FAKE_VCS = process.env["OPENCODE_FAKE_VCS"]
+  export const OPENCODE_EXPERIMENTAL_BASH_MAX_OUTPUT_LENGTH =
+    process.env["OPENCODE_EXPERIMENTAL_BASH_MAX_OUTPUT_LENGTH"]
 
   // Experimental
   export const OPENCODE_EXPERIMENTAL = truthy("OPENCODE_EXPERIMENTAL")

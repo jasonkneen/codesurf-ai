@@ -1,5 +1,5 @@
 import { createStore, produce } from "solid-js/store"
-import { createSimpleContext } from "./helper"
+import { createSimpleContext } from "@opencode-ai/ui/context"
 import { batch, createEffect, createMemo } from "solid-js"
 import { useSync } from "./sync"
 import { makePersisted } from "@solid-primitives/storage"
@@ -55,6 +55,7 @@ export const { use: useSession, provider: SessionProvider } = createSimpleContex
       if (!store.messageId) return lastUserMessage()
       return userMessages()?.find((m) => m.id === store.messageId)
     })
+<<<<<<< HEAD
     const working = createMemo(() => {
       if (!props.sessionId) return false
       const last = lastUserMessage()
@@ -65,6 +66,15 @@ export const { use: useSession, provider: SessionProvider } = createSimpleContex
       const error = assistantMessages?.find((m) => m?.error)?.error
       return !last?.summary?.body && !error
     })
+=======
+    const status = createMemo(
+      () =>
+        sync.data.session_status[params.id ?? ""] ?? {
+          type: "idle",
+        },
+    )
+    const working = createMemo(() => status()?.type !== "idle")
+>>>>>>> dev
 
     const cost = createMemo(() => {
       const total = pipe(

@@ -320,8 +320,6 @@ export namespace SessionProcessor {
                   break
 
                 case "finish":
-                  input.assistantMessage.time.completed = Date.now()
-                  await Session.updateMessage(input.assistantMessage)
                   break
 
                 default:

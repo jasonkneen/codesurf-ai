@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import {
   SelectDialog,
   IconButton,
@@ -29,11 +30,25 @@ import {
   createMemo,
   createResource,
 } from "solid-js"
+=======
+import { For, onCleanup, onMount, Show, Match, Switch, createResource } from "solid-js"
+>>>>>>> dev
 import { useLocal, type LocalFile } from "@/context/local"
 import { createStore } from "solid-js/store"
 import { getDirectory, getFilename } from "@/utils"
 import { PromptInput } from "@/components/prompt-input"
 import { DateTime } from "luxon"
+import { FileIcon } from "@opencode-ai/ui/file-icon"
+import { IconButton } from "@opencode-ai/ui/icon-button"
+import { Icon } from "@opencode-ai/ui/icon"
+import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { DiffChanges } from "@opencode-ai/ui/diff-changes"
+import { ProgressCircle } from "@opencode-ai/ui/progress-circle"
+import { Tabs } from "@opencode-ai/ui/tabs"
+import { Code } from "@opencode-ai/ui/code"
+import { SessionTimeline } from "@opencode-ai/ui/session-timeline"
+import { SessionReview } from "@opencode-ai/ui/session-review"
+import { SelectDialog } from "@opencode-ai/ui/select-dialog"
 import {
   DragDropProvider,
   DragDropSensors,
@@ -46,15 +61,15 @@ import {
 import type { DragEvent, Transformer } from "@thisbeyond/solid-dnd"
 import type { JSX } from "solid-js"
 import { useSync } from "@/context/sync"
+<<<<<<< HEAD
 import { type AssistantMessage as AssistantMessageType } from "@opencode-ai/sdk"
 import { Markdown } from "@opencode-ai/ui"
 import { Spinner } from "@/components/spinner"
 import { PermissionQueue } from "@/components/permission-queue"
+=======
+>>>>>>> dev
 import { useSession } from "@/context/session"
-import { StickyAccordionHeader } from "@/components/sticky-accordion-header"
-import { SessionReview } from "@/components/session-review"
 import { useLayout } from "@/context/layout"
-import { createSessionSeen } from "@/hooks/create-session-seen"
 
 export default function Page() {
   const local = useLocal()
@@ -66,7 +81,6 @@ export default function Page() {
     activeDraggable: undefined as string | undefined,
   })
   let inputRef!: HTMLDivElement
-  let messageScrollElement!: HTMLDivElement
 
   const MOD = typeof navigator === "object" && /(Mac|iPod|iPhone|iPad)/.test(navigator.platform) ? "Meta" : "Control"
 
@@ -354,6 +368,7 @@ export default function Page() {
               <div class="relative shrink-0 px-6 py-3 flex flex-col gap-6 flex-1 min-h-0 w-full max-w-xl mx-auto">
                 <Switch>
                   <Match when={session.id}>
+<<<<<<< HEAD
                     <div
                       classList={{
                         "flex-1 min-h-0 pb-20": true,
@@ -630,6 +645,13 @@ export default function Page() {
                         </For>
                       </div>
                     </div>
+=======
+                    <SessionTimeline
+                      sessionID={session.id!}
+                      expanded={layout.review.state() === "tab" || !session.diffs().length}
+                      classes={{ root: "pb-20", container: "pb-20" }}
+                    />
+>>>>>>> dev
                   </Match>
                   <Match when={true}>
                     <div class="size-full flex flex-col pb-45 justify-end items-start gap-4 flex-[1_0_0] self-stretch">
@@ -667,7 +689,21 @@ export default function Page() {
                     "relative grow px-6 py-3 flex-1 min-h-0 border-l border-border-weak-base": true,
                   }}
                 >
-                  <SessionReview />
+                  <SessionReview
+                    diffs={session.diffs()}
+                    actions={
+                      <Tooltip value="Open in tab">
+                        <IconButton
+                          icon="expand"
+                          variant="ghost"
+                          onClick={() => {
+                            layout.review.tab()
+                            session.layout.setActiveTab("review")
+                          }}
+                        />
+                      </Tooltip>
+                    }
+                  />
                 </div>
               </Show>
             </div>
@@ -679,7 +715,7 @@ export default function Page() {
                   "relative px-6 py-3 flex-1 min-h-0 overflow-hidden": true,
                 }}
               >
-                <SessionReview split hideExpand class="pb-40" />
+                <SessionReview diffs={session.diffs()} split class="pb-40" />
               </div>
             </Tabs.Content>
           </Show>
