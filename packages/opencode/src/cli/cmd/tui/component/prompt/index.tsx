@@ -912,29 +912,6 @@ export function Prompt(props: PromptProps) {
                 })()}
               </text>
             </box>
-            <box height={1} flexDirection="row" alignItems="center">
-              <text>
-                {(() => {
-                  const agent = local.agent.current()
-                  const rawName = agent?.name ?? "Agent"
-                  const agentName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
-                  const agentColor = local.agent.color(rawName)
-                  const parsed = local.model.parsed()
-                  const provider = parsed?.provider ?? "Provider"
-                  const model = parsed?.model ?? "Model"
-                  const latest = parsed?.model ? " (latest)" : ""
-
-                  return (
-                    <>
-                      <span style={{ fg: agentColor }}>{agentName}</span>
-                      <span style={{ fg: theme.textMuted }}> {provider} </span>
-                      <span style={{ fg: theme.text, bold: true }}>{model}</span>
-                      <span style={{ fg: theme.textMuted }}>{latest}</span>
-                    </>
-                  )
-                })()}
-              </text>
-            </box>
           </box>
           <box backgroundColor={theme.backgroundElement} width={1} justifyContent="center" alignItems="center"></box>
         </box>
