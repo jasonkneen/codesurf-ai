@@ -707,7 +707,7 @@ export function Prompt(props: PromptProps) {
               {Array(20).fill("┃").join("\n")}
             </text>
           </box>
-          <box paddingLeft={1} backgroundColor={theme.backgroundElement} flexGrow={1} flexDirection="column">
+          <box paddingLeft={1} backgroundColor={theme.backgroundElement} flexDirection="column" width="100%">
             <textarea
               placeholder={
                 props.showPlaceholder
