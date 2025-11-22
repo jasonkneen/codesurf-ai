@@ -697,22 +697,20 @@ export function Prompt(props: PromptProps) {
           borderColor={keybind.leader ? theme.accent : store.mode === "shell" ? theme.secondary : theme.border}
           justifyContent="space-evenly"
         >
-          <box
-            backgroundColor={(() => {
-              const agent = local.agent.current()
-              return local.agent.color(agent?.name ?? "")
-            })()}
-            width={1}
-            height="100%"
-          />
-          <box backgroundColor={theme.backgroundElement} width={3} height="100%" alignItems="center" paddingTop={1}>
-            <text attributes={TextAttributes.BOLD} fg={theme.primary}>
-              {store.mode === "normal" ? ">" : "!"}
+          <box width={1} height="100%">
+            <text
+              fg={(() => {
+                const agent = local.agent.current()
+                return local.agent.color(agent?.name ?? "")
+              })()}
+            >
+              {Array(20).fill("┃").join("\n")}
             </text>
           </box>
           <box
             paddingTop={1}
             paddingBottom={1}
+            paddingLeft={1}
             backgroundColor={theme.backgroundElement}
             flexGrow={1}
             flexDirection="column"
@@ -725,7 +723,7 @@ export function Prompt(props: PromptProps) {
               }
               textColor={theme.text}
               focusedTextColor={theme.text}
-              minHeight={1}
+              minHeight={2}
               maxHeight={6}
               onContentChange={() => {
                 let value = input.plainText
