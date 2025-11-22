@@ -1,13 +1,10 @@
-import { createMemo, createSignal, onMount, Show } from "solid-js"
+import { createMemo } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { map, pipe, sortBy } from "remeda"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
-import { useSDK } from "../context/sdk"
-import { DialogPrompt } from "../ui/dialog-prompt"
 import { useTheme } from "../context/theme"
 import { TextAttributes } from "@opentui/core"
-import type { ProviderAuthAuthorization } from "@opencode-ai/sdk"
 import { DialogModel } from "./dialog-model"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
@@ -22,10 +19,9 @@ const PROVIDER_PRIORITY: Record<string, number> = {
 export function createDialogProviderOptions() {
   const sync = useSync()
   const dialog = useDialog()
-  const sdk = useSDK()
   const options = createMemo(() => {
     return pipe(
-      sync.data.provider_next.all,
+      sync.data.provider,
       map((provider) => ({
         title: provider.name,
         value: provider.id,
@@ -33,56 +29,8 @@ export function createDialogProviderOptions() {
           opencode: "Recommended",
           anthropic: "Claude Max or API key",
         }[provider.id],
-        async onSelect() {
-          const methods = sync.data.provider_auth[provider.id] ?? [
-            {
-              type: "api",
-              label: "API key",
-            },
-          ]
-          let index: number | null = 0
-          if (methods.length > 1) {
-            index = await new Promise<number | null>((resolve) => {
-              dialog.replace(
-                () => (
-                  <DialogSelect
-                    title="Select auth method"
-                    options={methods.map((x, index) => ({
-                      title: x.label,
-                      value: index,
-                    }))}
-                    onSelect={(option) => resolve(option.value)}
-                  />
-                ),
-                () => resolve(null),
-              )
-            })
-          }
-          if (index == null) return
-          const method = methods[index]
-          if (method.type === "oauth") {
-            const result = await sdk.client.provider.oauth.authorize({
-              path: {
-                id: provider.id,
-              },
-              body: {
-                method: index,
-              },
-            })
-            if (result.data?.method === "code") {
-              dialog.replace(() => (
-                <CodeMethod providerID={provider.id} title={method.label} index={index} authorization={result.data!} />
-              ))
-            }
-            if (result.data?.method === "auto") {
-              dialog.replace(() => (
-                <AutoMethod providerID={provider.id} title={method.label} index={index} authorization={result.data!} />
-              ))
-            }
-          }
-          if (method.type === "api") {
-            return dialog.replace(() => <ApiMethod providerID={provider.id} title={method.label} />)
-          }
+        onSelect() {
+          dialog.replace(() => <ApiMethodInfo title={provider.name} />)
         },
       })),
       sortBy((x) => PROVIDER_PRIORITY[x.value] ?? 99),
@@ -96,35 +44,11 @@ export function DialogProvider() {
   return <DialogSelect title="Connect a provider" options={options()} />
 }
 
-interface AutoMethodProps {
-  index: number
-  providerID: string
+interface ApiMethodInfoProps {
   title: string
-  authorization: ProviderAuthAuthorization
 }
-function AutoMethod(props: AutoMethodProps) {
+function ApiMethodInfo(props: ApiMethodInfoProps) {
   const { theme } = useTheme()
-  const sdk = useSDK()
-  const dialog = useDialog()
-  const sync = useSync()
-
-  onMount(async () => {
-    const result = await sdk.client.provider.oauth.callback({
-      path: {
-        id: props.providerID,
-      },
-      body: {
-        method: props.index,
-      },
-    })
-    if (result.error) {
-      dialog.clear()
-      return
-    }
-    await sdk.client.instance.dispose()
-    await sync.bootstrap()
-    dialog.replace(() => <DialogModel />)
-  })
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
@@ -133,90 +57,10 @@ function AutoMethod(props: AutoMethodProps) {
         <text fg={theme.textMuted}>esc</text>
       </box>
       <box gap={1}>
-        <text fg={theme.primary}>{props.authorization.url}</text>
-        <text fg={theme.textMuted}>{props.authorization.instructions}</text>
+        <text fg={theme.textMuted}>Provider setup is handled through configuration files.</text>
+        <text fg={theme.primary}>Please configure your API key in ~/.opencode/config.json</text>
+        <text fg={theme.textMuted}>Then restart the application.</text>
       </box>
-      <text fg={theme.textMuted}>Waiting for authorization...</text>
     </box>
-  )
-}
-
-interface CodeMethodProps {
-  index: number
-  title: string
-  providerID: string
-  authorization: ProviderAuthAuthorization
-}
-function CodeMethod(props: CodeMethodProps) {
-  const { theme } = useTheme()
-  const sdk = useSDK()
-  const sync = useSync()
-  const dialog = useDialog()
-  const [error, setError] = createSignal(false)
-
-  return (
-    <DialogPrompt
-      title={props.title}
-      placeholder="Authorization code"
-      onConfirm={async (value) => {
-        const { error } = await sdk.client.provider.oauth.callback({
-          path: {
-            id: props.providerID,
-          },
-          body: {
-            method: props.index,
-            code: value,
-          },
-        })
-        if (!error) {
-          await sdk.client.instance.dispose()
-          await sync.bootstrap()
-          dialog.replace(() => <DialogModel />)
-          return
-        }
-        setError(true)
-      }}
-      description={() => (
-        <box gap={1}>
-          <text fg={theme.textMuted}>{props.authorization.instructions}</text>
-          <text fg={theme.primary}>{props.authorization.url}</text>
-          <Show when={error()}>
-            <text fg={theme.error}>Invalid code</text>
-          </Show>
-        </box>
-      )}
-    />
-  )
-}
-
-interface ApiMethodProps {
-  providerID: string
-  title: string
-}
-function ApiMethod(props: ApiMethodProps) {
-  const dialog = useDialog()
-  const sdk = useSDK()
-  const sync = useSync()
-
-  return (
-    <DialogPrompt
-      title={props.title}
-      placeholder="API key"
-      onConfirm={async (value) => {
-        if (!value) return
-        sdk.client.auth.set({
-          path: {
-            id: props.providerID,
-          },
-          body: {
-            type: "api",
-            key: value,
-          },
-        })
-        await sdk.client.instance.dispose()
-        await sync.bootstrap()
-        dialog.replace(() => <DialogModel />)
-      }}
-    />
   )
 }

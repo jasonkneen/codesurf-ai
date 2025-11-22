@@ -704,10 +704,17 @@ export function Prompt(props: PromptProps) {
                 return local.agent.color(agent?.name ?? "")
               })()}
             >
-              {Array(20).fill("┃").join("\n")}
+              {Array(5).fill("┃").join("\n")}
             </text>
           </box>
-          <box paddingLeft={1} backgroundColor={theme.backgroundElement} flexDirection="column" width="100%">
+          <box
+            paddingLeft={1}
+            paddingTop={1}
+            paddingBottom={1}
+            backgroundColor={theme.backgroundElement}
+            flexDirection="column"
+            width="100%"
+          >
             <textarea
               placeholder={
                 props.showPlaceholder
@@ -716,7 +723,7 @@ export function Prompt(props: PromptProps) {
               }
               textColor={theme.text}
               focusedTextColor={theme.text}
-              minHeight={5}
+              minHeight={1}
               maxHeight={10}
               onContentChange={() => {
                 let value = input.plainText
@@ -883,7 +890,7 @@ export function Prompt(props: PromptProps) {
               cursorColor={theme.primary}
               syntaxStyle={syntax()}
             />
-            <box height={1} flexDirection="row" alignItems="center">
+            <box marginTop={1} height={1} flexDirection="row" alignItems="center">
               <text>
                 {(() => {
                   const agent = local.agent.current()

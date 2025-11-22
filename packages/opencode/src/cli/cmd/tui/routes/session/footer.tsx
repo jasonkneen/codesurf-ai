@@ -462,62 +462,6 @@ export function Footer() {
                   : "Pre○"}
           </text>
         </box>
-        <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>tab</text>
-
-          {(() => {
-            const currentRoute = route.data
-            const session =
-              currentRoute?.type === "session"
-                ? sync.data.session.find((s: any) => s.id === (currentRoute as SessionRoute).sessionID)
-                : undefined
-            const rootAgent = (session as any)?.orchestration?.rootAgent
-            const currentAgent = (session as any)?.orchestration?.currentAgent
-
-            // Determine which agent to use for color
-            const agentForColor =
-              currentAgent && rootAgent && currentAgent !== rootAgent
-                ? currentAgent
-                : (local.agent.current()?.name ?? "")
-
-            const agentName = (() => {
-              if (currentAgent && rootAgent && currentAgent !== rootAgent) {
-                return `${rootAgent.toUpperCase()} > ${currentAgent.toUpperCase()}`
-              }
-              const agent = local.agent.current()
-              return agent?.name.toUpperCase() ?? "LOADING"
-            })()
-
-            return (
-              <box flexDirection="row" gap={0}>
-                <text fg={local.agent.color(agentForColor)}></text>
-                <text
-                  bg={local.agent.color(agentForColor)}
-                  fg={theme.background}
-                  wrapMode="none"
-                  attributes={TextAttributes.BOLD}
-                  onMouseUp={() => {
-                    if (renderer.getSelection()?.getSelectedText()) return
-                    dialog.replace(() => <DialogAgent />)
-                  }}
-                >
-                  {` ${agentName} `}
-                </text>
-                <text
-                  bg={local.agent.color(agentForColor)}
-                  fg={theme.background}
-                  wrapMode="none"
-                  onMouseUp={() => {
-                    if (renderer.getSelection()?.getSelectedText()) return
-                    dialog.replace(() => <DialogAgent />)
-                  }}
-                >
-                  AGENT{" "}
-                </text>
-              </box>
-            )
-          })()}
-        </box>
       </box>
     </box>
   )

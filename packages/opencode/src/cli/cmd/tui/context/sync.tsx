@@ -28,6 +28,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       status: "loading" | "partial" | "complete"
       provider: Provider[]
       provider_default: Record<string, string>
+      provider_next: { all: Provider[] }
+      provider_auth: Record<string, Array<{ type: string; label: string }>>
       agent: Agent[]
       command: Command[]
       permission: {
@@ -66,6 +68,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       command: [],
       provider: [],
       provider_default: {},
+      provider_next: { all: [] },
+      provider_auth: {},
       session: [],
       session_diff: {},
       todo: {},
@@ -246,6 +250,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           batch(() => {
             setStore("provider", x.data!.providers)
             setStore("provider_default", x.data!.default)
+            setStore("provider_next", { all: x.data!.providers })
           })
         }),
         sdk.client.app.agents({ throwOnError: true }).then((x) => setStore("agent", x.data ?? [])),

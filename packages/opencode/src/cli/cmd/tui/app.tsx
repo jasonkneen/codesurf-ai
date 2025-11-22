@@ -1,13 +1,8 @@
 import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { TextAttributes } from "@opentui/core"
-<<<<<<< HEAD
 import { RouteProvider, useRoute, type Route, type SessionRoute } from "@tui/context/route"
-import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show } from "solid-js"
-=======
-import { RouteProvider, useRoute } from "@tui/context/route"
-import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show } from "solid-js"
->>>>>>> dev
+import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on } from "solid-js"
 import { Installation } from "@/installation"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderList } from "@tui/component/dialog-provider"
@@ -543,42 +538,7 @@ function App() {
         </Switch>
         <TransitionAnimation active={isTransitioning()} onComplete={handleTransitionComplete} />
       </box>
-<<<<<<< HEAD
       <Footer />
-=======
-      <box
-        height={1}
-        backgroundColor={theme.backgroundPanel}
-        flexDirection="row"
-        justifyContent="space-between"
-        flexShrink={0}
-      >
-        <box flexDirection="row">
-          <box flexDirection="row" backgroundColor={theme.backgroundElement} paddingLeft={1} paddingRight={1}>
-            <text fg={theme.textMuted}>open</text>
-            <text fg={theme.text} attributes={TextAttributes.BOLD}>
-              code{" "}
-            </text>
-            <text fg={theme.textMuted}>v{Installation.VERSION}</text>
-          </box>
-          <box paddingLeft={1} paddingRight={1}>
-            <text fg={theme.textMuted}>{process.cwd().replace(Global.Path.home, "~")}</text>
-          </box>
-        </box>
-        <Show when={false}>
-          <box flexDirection="row" flexShrink={0}>
-            <text fg={theme.textMuted} paddingRight={1}>
-              tab
-            </text>
-            <text fg={local.agent.color(local.agent.current().name)}>{""}</text>
-            <text bg={local.agent.color(local.agent.current().name)} fg={theme.background} wrapMode={undefined}>
-              <span style={{ bold: true }}> {local.agent.current().name.toUpperCase()}</span>
-              <span> AGENT </span>
-            </text>
-          </box>
-        </Show>
-      </box>
->>>>>>> dev
     </box>
   )
 }
