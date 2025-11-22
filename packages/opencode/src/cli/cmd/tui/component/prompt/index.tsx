@@ -707,7 +707,7 @@ export function Prompt(props: PromptProps) {
               {Array(20).fill("┃").join("\n")}
             </text>
           </box>
-          <box paddingLeft={1} backgroundColor={theme.backgroundElement} flexDirection="column">
+          <box paddingLeft={1} backgroundColor={theme.backgroundElement} flexGrow={1} flexDirection="column">
             <textarea
               placeholder={
                 props.showPlaceholder
@@ -716,8 +716,8 @@ export function Prompt(props: PromptProps) {
               }
               textColor={theme.text}
               focusedTextColor={theme.text}
-              minHeight={6}
-              maxHeight={12}
+              minHeight={5}
+              maxHeight={10}
               onContentChange={() => {
                 let value = input.plainText
                 // Filter out mouse wheel escape sequences
