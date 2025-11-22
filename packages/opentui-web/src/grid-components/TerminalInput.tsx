@@ -16,6 +16,10 @@ interface TerminalInputProps {
   showOptions?: boolean
   onToggleOptions?: (expanded: boolean) => void
   attachments?: Attachment[]
+  agentName?: string
+  modelProvider?: string
+  modelName?: string
+  accentColor?: string
 }
 
 export const TerminalInput: Component<TerminalInputProps> = (props) => {
@@ -77,9 +81,19 @@ export const TerminalInput: Component<TerminalInputProps> = (props) => {
   }
 
   const containerHeight = () => {
-    if (optionsExpanded()) return "15em"
-    // 1.5em per line + 3em for help text
-    return `${inputHeight() * 1.5 + 3}em`
+    if (optionsExpanded()) return "16.5em"
+    // 1.5em per line + 1.5em header + 3em for help text
+    return `${inputHeight() * 1.5 + 4.5}em`
+  }
+
+  const getAccentColor = () => {
+    const color = props.accentColor
+    if (color) return color
+    const agent = props.agentName?.toLowerCase() ?? ""
+    if (agent.includes("build")) return "#e5c07b" // amber
+    if (agent.includes("plan")) return "#98c379" // green
+    if (agent.includes("docs")) return "#61afef" // blue
+    return "#61afef" // default blue
   }
 
   return (
@@ -91,22 +105,53 @@ export const TerminalInput: Component<TerminalInputProps> = (props) => {
         right: "0",
         height: containerHeight(),
         background: "#0a0a0a",
-        "border-top": "1px solid #2a2a2a",
+        "border-top": "4px solid #2a2a2a",
+        "border-left": `4px solid ${getAccentColor()}`,
         "margin-bottom": "5px",
       }}
     >
+      {/* Header with Agent and Model info */}
+      <div
+        style={{
+          position: "absolute",
+          top: "0",
+          left: "0",
+          right: "0",
+          height: "1.5em",
+          "border-bottom": "1px solid #2a2a2a",
+          "padding-left": "1ch",
+          display: "flex",
+          "align-items": "center",
+        }}
+      >
+        <GridText col={0} row={0} text={props.agentName ?? "Agent"} fg="#6a6a6a" />
+        <GridText
+          col={props.agentName?.length ?? 5 + 2}
+          row={0}
+          text={props.modelProvider ?? "Provider"}
+          fg="#858585"
+        />
+        <GridText
+          col={(props.agentName?.length ?? 5) + (props.modelProvider?.length ?? 8) + 4}
+          row={0}
+          text={props.modelName ?? "Select model"}
+          fg="#d4d4d4"
+          bold
+        />
+      </div>
+
       {/* Options row (only show when expanded) */}
       {optionsExpanded() && (
         <>
-          <GridText col={0} row={0} text="Options:" fg="#6a6a6a" />
-          <GridText col={10} row={0} text="[a] Agent" fg="#d4d4d4" />
-          <GridText col={22} row={0} text="[m] Model" fg="#d4d4d4" />
-          <GridText col={34} row={0} text="[i] Image" fg="#d4d4d4" />
-          <GridText col={46} row={0} text="[f] File" fg="#d4d4d4" />
+          <GridText col={0} row={1} text="Options:" fg="#6a6a6a" />
+          <GridText col={10} row={1} text="[a] Agent" fg="#d4d4d4" />
+          <GridText col={22} row={1} text="[m] Model" fg="#d4d4d4" />
+          <GridText col={34} row={1} text="[i] Image" fg="#d4d4d4" />
+          <GridText col={46} row={1} text="[f] File" fg="#d4d4d4" />
 
-          <GridText col={10} row={1} text="[c] Context" fg="#d4d4d4" />
-          <GridText col={24} row={1} text="[t] Tools" fg="#d4d4d4" />
-          <GridText col={36} row={1} text="[p] Plugins" fg="#d4d4d4" />
+          <GridText col={10} row={2} text="[c] Context" fg="#d4d4d4" />
+          <GridText col={24} row={2} text="[t] Tools" fg="#d4d4d4" />
+          <GridText col={36} row={2} text="[p] Plugins" fg="#d4d4d4" />
         </>
       )}
 
@@ -117,6 +162,7 @@ export const TerminalInput: Component<TerminalInputProps> = (props) => {
           bottom: "3em",
           left: "0",
           right: "0",
+          top: optionsExpanded() ? "10.5em" : "1.5em",
           height: `${inputHeight() * 1.5}em`,
           background: "#2a2a2a",
         }}
@@ -174,25 +220,25 @@ export const TerminalInput: Component<TerminalInputProps> = (props) => {
       <div
         style={{
           position: "absolute",
-          bottom: "1.5em",
+          bottom: "0",
           left: "0",
           right: "0",
           height: "1.5em",
+          "border-top": "1px solid #2a2a2a",
         }}
       >
         <GridText
           col={0}
           row={0}
-          text={optionsExpanded() ? "esc close options" : "tab options"}
-          fg="#6a6a6a"
+          text="▰"
+          fg={getAccentColor()}
           onClick={() => {
             const newExpanded = !optionsExpanded()
             setOptionsExpanded(newExpanded)
             props.onToggleOptions?.(newExpanded)
           }}
         />
-        <GridText col={20} row={0} text="enter send" fg="#6a6a6a" />
-        <GridText col={32} row={0} text="shift+enter newline" fg="#6a6a6a" />
+        <GridText col={Math.max(2, panelWidth - 20)} row={0} text="esc interrupt" fg="#6a6a6a" />
       </div>
     </div>
   )
