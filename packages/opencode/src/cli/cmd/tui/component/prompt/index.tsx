@@ -9,7 +9,18 @@ import {
   fg,
   type KeyBinding,
 } from "@opentui/core"
-import { createEffect, createMemo, Match, Switch, Show, type JSX, batch } from "solid-js"
+import {
+  createEffect,
+  createMemo,
+  Match,
+  Switch,
+  Show,
+  type JSX,
+  batch,
+  onMount,
+  createSignal,
+  onCleanup,
+} from "solid-js"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
 import { SplitBorder } from "@tui/component/border"
@@ -892,10 +903,20 @@ export function Prompt(props: PromptProps) {
               }}
             >
               {(() => {
+                const agent = local.agent.current()
                 const parsed = local.model.parsed()
-                if (!parsed) return <span style={{ fg: theme.textMuted }}>Loading...</span>
+                const agentName = agent?.name ?? "Agent"
+                if (!parsed) {
+                  return (
+                    <>
+                      <span style={{ fg: local.agent.color(agentName) }}>{agentName}</span>{" "}
+                      <span style={{ fg: theme.textMuted }}>Loading...</span>
+                    </>
+                  )
+                }
                 return (
                   <>
+                    <span style={{ fg: local.agent.color(agentName) }}>{agentName}</span>{" "}
                     <span style={{ fg: theme.textMuted }}>{parsed.provider}</span>{" "}
                     <span style={{ bold: true, fg: theme.primary, underline: true }}>{parsed.model}</span>
                   </>
@@ -908,7 +929,8 @@ export function Prompt(props: PromptProps) {
               <text fg={theme.textMuted}>compacting...</text>
             </Match>
             <Match when={status() === "working"}>
-              <box flexDirection="row" gap={2} alignItems="center">
+              <box flexDirection="row" gap={1} alignItems="center">
+                <Loader />
                 <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
                   esc{" "}
                   <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
@@ -931,7 +953,7 @@ export function Prompt(props: PromptProps) {
             <Match when={props.hint}>{props.hint!}</Match>
             <Match when={true}>
               <box flexDirection="row" gap={2}>
-                <text fg={theme.text}>
+                <text fg={theme.textMuted}>
                   {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
                 </text>
                 {props.onScrollToBottom && props.showLatestIndicator && (
@@ -952,4 +974,39 @@ export function Prompt(props: PromptProps) {
       </box>
     </>
   )
+}
+
+function Loader() {
+  const FRAMES = [
+    "▱▱▱▱▱▱▱",
+    "▱▱▱▱▱▱▱",
+    "▱▱▱▱▱▱▱",
+    "▱▱▱▱▱▱▱",
+    "▰▱▱▱▱▱▱",
+    "▰▰▱▱▱▱▱",
+    "▰▰▰▱▱▱▱",
+    "▱▰▰▰▱▱▱",
+    "▱▱▰▰▰▱▱",
+    "▱▱▱▰▰▰▱",
+    "▱▱▱▱▰▰▰",
+    "▱▱▱▱▱▰▰",
+    "▱▱▱▱▱▱▰",
+    "▱▱▱▱▱▱▱",
+    "▱▱▱▱▱▱▱",
+    "▱▱▱▱▱▱▱",
+    "▱▱▱▱▱▱▱",
+  ]
+  const [frame, setFrame] = createSignal(0)
+  const { theme } = useTheme()
+
+  onMount(() => {
+    const timer = setInterval(() => {
+      setFrame((frame() + 1) % FRAMES.length)
+    }, 100)
+    onCleanup(() => {
+      clearInterval(timer)
+    })
+  })
+
+  return <text fg={theme.diffAdded}>{FRAMES[frame()]}</text>
 }
