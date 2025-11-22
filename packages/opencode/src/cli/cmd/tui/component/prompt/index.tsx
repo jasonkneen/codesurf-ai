@@ -709,12 +709,34 @@ export function Prompt(props: PromptProps) {
           </box>
           <box
             paddingTop={1}
-            paddingBottom={1}
             paddingLeft={1}
             backgroundColor={theme.backgroundElement}
             flexGrow={1}
             flexDirection="column"
           >
+            <box height={1} flexDirection="row" alignItems="center">
+              <text>
+                {(() => {
+                  const agent = local.agent.current()
+                  const rawName = agent?.name ?? "Agent"
+                  const agentName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
+                  const agentColor = local.agent.color(rawName)
+                  const parsed = local.model.parsed()
+                  const provider = parsed?.provider ?? "Provider"
+                  const model = parsed?.model ?? "Model"
+                  const latest = parsed?.model ? " (latest)" : ""
+
+                  return (
+                    <>
+                      <span style={{ fg: agentColor }}>{agentName}</span>
+                      <span style={{ fg: theme.textMuted }}> {provider} </span>
+                      <span style={{ fg: theme.text, bold: true }}>{model}</span>
+                      <span style={{ fg: theme.textMuted }}>{latest}</span>
+                    </>
+                  )
+                })()}
+              </text>
+            </box>
             <textarea
               placeholder={
                 props.showPlaceholder
@@ -723,7 +745,7 @@ export function Prompt(props: PromptProps) {
               }
               textColor={theme.text}
               focusedTextColor={theme.text}
-              minHeight={2}
+              minHeight={1}
               maxHeight={6}
               onContentChange={() => {
                 let value = input.plainText
@@ -890,29 +912,6 @@ export function Prompt(props: PromptProps) {
               cursorColor={theme.primary}
               syntaxStyle={syntax()}
             />
-            <box height={1} marginTop={0} flexDirection="row" alignItems="center">
-              <text>
-                {(() => {
-                  const agent = local.agent.current()
-                  const rawName = agent?.name ?? "Agent"
-                  const agentName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
-                  const agentColor = local.agent.color(rawName)
-                  const parsed = local.model.parsed()
-                  const provider = parsed?.provider ?? "Provider"
-                  const model = parsed?.model ?? "Model"
-                  const latest = parsed?.model ? " (latest)" : ""
-
-                  return (
-                    <>
-                      <span style={{ fg: agentColor }}>{agentName}</span>
-                      <span style={{ fg: theme.textMuted }}> {provider} </span>
-                      <span style={{ fg: theme.text, bold: true }}>{model}</span>
-                      <span style={{ fg: theme.textMuted }}>{latest}</span>
-                    </>
-                  )
-                })()}
-              </text>
-            </box>
           </box>
           <box backgroundColor={theme.backgroundElement} width={1} justifyContent="center" alignItems="center"></box>
         </box>
