@@ -716,40 +716,6 @@ export function Prompt(props: PromptProps) {
             flexGrow={1}
             flexDirection="column"
           >
-            {/* Agent and Model info inside prompt box */}
-            <box height={1} marginBottom={1} paddingLeft={1}>
-              <text
-                fg={(() => {
-                  const agent = local.agent.current()
-                  return local.agent.color(agent?.name ?? "")
-                })()}
-              >
-                {(() => {
-                  const agent = local.agent.current()
-                  return agent?.name ?? "Agent"
-                })()}
-              </text>
-              <text fg={theme.textMuted}> </text>
-              <text fg={theme.textMuted}>
-                {(() => {
-                  const parsed = local.model.parsed()
-                  return parsed?.provider ?? "Provider"
-                })()}
-              </text>
-              <text fg={theme.textMuted}> </text>
-              <text fg={theme.primary} attributes={TextAttributes.BOLD}>
-                {(() => {
-                  const parsed = local.model.parsed()
-                  return parsed?.model ?? "Model"
-                })()}
-              </text>
-              <text fg={theme.textMuted}>
-                {(() => {
-                  const parsed = local.model.parsed()
-                  return parsed?.model ? " (latest)" : ""
-                })()}
-              </text>
-            </box>
             <textarea
               placeholder={
                 props.showPlaceholder
@@ -925,31 +891,35 @@ export function Prompt(props: PromptProps) {
               cursorColor={theme.primary}
               syntaxStyle={syntax()}
             />
+            <box height={1} marginTop={0} flexDirection="row" alignItems="center">
+              <text>
+                {(() => {
+                  const agent = local.agent.current()
+                  const rawName = agent?.name ?? "Agent"
+                  const agentName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
+                  const agentColor = local.agent.color(rawName)
+                  const parsed = local.model.parsed()
+                  const provider = parsed?.provider ?? "Provider"
+                  const model = parsed?.model ?? "Model"
+                  const latest = parsed?.model ? " (latest)" : ""
+
+                  return (
+                    <>
+                      <span style={{ fg: agentColor }}>{agentName}</span>
+                      <span style={{ fg: theme.textMuted }}> {provider} </span>
+                      <span style={{ fg: theme.text, bold: true }}>{model}</span>
+                      <span style={{ fg: theme.textMuted }}>{latest}</span>
+                    </>
+                  )
+                })()}
+              </text>
+            </box>
           </box>
           <box backgroundColor={theme.backgroundElement} width={1} justifyContent="center" alignItems="center"></box>
         </box>
         <box flexDirection="row" justifyContent="space-between">
           <box flexDirection="row" alignItems="center" gap={1} flexShrink={0} flexWrap="no-wrap">
-            <text
-              flexShrink={0}
-              wrapMode="none"
-              fg={theme.text}
-              onMouseUp={() => {
-                if (renderer.getSelection()?.getSelectedText()) return
-                dialog.replace(() => <DialogModel />)
-              }}
-            >
-              {(() => {
-                const parsed = local.model.parsed()
-                if (!parsed) return <span style={{ fg: theme.textMuted }}>Loading...</span>
-                return (
-                  <>
-                    <span style={{ fg: theme.textMuted }}>{parsed.provider}</span>{" "}
-                    <span style={{ bold: true, fg: theme.primary, underline: true }}>{parsed.model}</span>
-                  </>
-                )
-              })()}
-            </text>
+            {/* Footer info removed - now displayed inside prompt box */}
           </box>
           <Switch>
             <Match when={status() === "compacting"}>
