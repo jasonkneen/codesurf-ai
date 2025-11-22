@@ -265,7 +265,11 @@ export namespace SessionPrompt {
       }
 
       if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
-      if (lastAssistant?.finish && lastAssistant.finish !== "tool-calls" && lastUser.id < lastAssistant.id) {
+      if (
+        lastAssistant?.finish &&
+        !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
+        lastUser.id < lastAssistant.id
+      ) {
         log.info("exiting loop", { sessionID })
         break
       }
@@ -398,6 +402,7 @@ export namespace SessionPrompt {
           messages: msgs,
           parentID: lastUser.id,
           abort,
+          agent: lastUser.agent,
           model: {
             providerID: model.providerID,
             modelID: model.modelID,
@@ -416,6 +421,7 @@ export namespace SessionPrompt {
       ) {
         await SessionCompaction.create({
           sessionID,
+          agent: lastUser.agent,
           model: lastUser.model,
         })
         continue
