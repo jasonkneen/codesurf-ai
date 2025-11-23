@@ -105,6 +105,8 @@ const MAX_TOOL_CHIPS = 30
 const context = createContext<{
   width: number
   conceal: () => boolean
+  showThinking: () => boolean
+  showTimestamps: () => boolean
 }>()
 
 function use() {
@@ -422,124 +424,8 @@ export function Session() {
   const [leftSidebar, setLeftSidebar] = createSignal<"show" | "hide" | "auto">(kv.get("leftSidebar", "auto"))
   const [rightSidebar, setRightSidebar] = createSignal<"show" | "hide" | "auto">(kv.get("rightSidebar", "auto"))
   const [conceal, setConceal] = createSignal(true)
-  const [showSimpleMessageList, setShowSimpleMessageList] = createSignal(Boolean(kv.get("showSimpleMessageList", true)))
-
-  const clampWidth = (value: number, min: number, max: number) => {
-    if (value < min) return min
-    if (value > max) return max
-    return value
-  }
-
-  const readWidth = (key: string, fallback: number, min: number, max: number) => {
-    const stored = kv.get(key)
-    if (typeof stored !== "number") return fallback
-    return clampWidth(Math.round(stored), min, max)
-  }
-
-  const [leftSidebarWidth, setLeftSidebarWidth] = createSignal(
-    readWidth("leftSidebarWidth", LEFT_SIDEBAR_WIDTH_DEFAULT, LEFT_SIDEBAR_WIDTH_MIN, LEFT_SIDEBAR_WIDTH_MAX),
-  )
-  const [rightSidebarWidth, setRightSidebarWidth] = createSignal(
-    readWidth("rightSidebarWidth", RIGHT_SIDEBAR_WIDTH_DEFAULT, RIGHT_SIDEBAR_WIDTH_MIN, RIGHT_SIDEBAR_WIDTH_MAX),
-  )
-
-  const updateLeftSidebarWidth = (value: number) => {
-    const next = clampWidth(value, LEFT_SIDEBAR_WIDTH_MIN, LEFT_SIDEBAR_WIDTH_MAX)
-    if (next === leftSidebarWidth()) return
-    setLeftSidebarWidth(next)
-    kv.set("leftSidebarWidth", next)
-  }
-
-  const updateRightSidebarWidth = (value: number) => {
-    const next = clampWidth(value, RIGHT_SIDEBAR_WIDTH_MIN, RIGHT_SIDEBAR_WIDTH_MAX)
-    if (next === rightSidebarWidth()) return
-    setRightSidebarWidth(next)
-    kv.set("rightSidebarWidth", next)
-  }
-
-  const adjustLeftSidebarWidth = (delta: number) => {
-    updateLeftSidebarWidth(leftSidebarWidth() + delta)
-  }
-
-  const adjustRightSidebarWidth = (delta: number) => {
-    updateRightSidebarWidth(rightSidebarWidth() + delta)
-  }
-
-  // File browser, editor, and viewer state
-  const [showFileBrowser, setShowFileBrowser] = createSignal(false)
-  const [showCodeEditor, setShowCodeEditor] = createSignal(false)
-  const [showFileViewer, setShowFileViewer] = createSignal(false)
-  const [selectedFile, setSelectedFile] = createSignal<string | undefined>()
-  const initialSelectedToolChip = kv.get("selectedToolChip")
-  const [selectedToolChip, setSelectedToolChip] = createSignal<string | undefined>(
-    typeof initialSelectedToolChip === "string" ? initialSelectedToolChip : undefined,
-  )
-
-  const toolChips = createMemo(() => {
-    if (!showSimpleMessageList()) return [] as ToolChip[]
-    const list = messages()
-    const chips: ToolChip[] = []
-    for (let i = list.length - 1; i >= 0; i -= 1) {
-      const message = list[i]
-      if (message.role !== "assistant") continue
-      const parts = (sync.data.part[message.id] ?? []) as Part[]
-      for (let j = parts.length - 1; j >= 0; j -= 1) {
-        const part = parts[j]
-        if (part.type !== "tool") continue
-        const toolPart = part as ToolPart
-        chips.push({
-          id: `${message.id}:${toolPart.id}`,
-          tool: toolPart.tool,
-          status: toolPart.state.status,
-          label: getToolChipLabel(toolPart),
-          message: message as AssistantMessage,
-          part: toolPart,
-        })
-        if (chips.length >= MAX_TOOL_CHIPS) break
-      }
-      if (chips.length >= MAX_TOOL_CHIPS) break
-    }
-    return chips.reverse()
-  })
-
-  const selectedToolChipData = createMemo(() => {
-    const selected = selectedToolChip()
-    if (!selected) return
-    return toolChips().find((chip) => chip.id === selected)
-  })
-
-  createEffect(() => {
-    const simple = showSimpleMessageList()
-    const selected = selectedToolChip()
-    if (!simple && selected) {
-      kv.set("selectedToolChip", null)
-      setSelectedToolChip(undefined)
-      return
-    }
-    if (simple && selected) {
-      const exists = toolChips().some((chip) => chip.id === selected)
-      if (!exists) {
-        kv.set("selectedToolChip", null)
-        setSelectedToolChip(undefined)
-      }
-    }
-  })
-
-  const handleToolChipSelect = (chipID: string) => {
-    setSelectedToolChip((prev) => {
-      const next = prev === chipID ? undefined : chipID
-      kv.set("selectedToolChip", next ?? null)
-      return next
-    })
-  }
-
-  // Detect if messages are currently streaming to disable sticky scroll
-
-  const isStreaming = createMemo(() => {
-    const msgs = messages()
-    const lastMsg = msgs[msgs.length - 1]
-    return lastMsg?.role === "assistant" && !lastMsg.time?.completed
-  })
+  const [showThinking, setShowThinking] = createSignal(true)
+  const [showTimestamps, setShowTimestamps] = createSignal(kv.get("timestamps", "hide") === "show")
 
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => sidebar() === "show" || (sidebar() === "auto" && wide()))
@@ -696,6 +582,7 @@ export function Session() {
     const first = permissions()[0]
     if (first) {
       const response = iife(() => {
+        if (evt.ctrl || evt.meta) return
         if (evt.name === "return") return "once"
         if (evt.name === "a") return "always"
         if (evt.name === "d") return "reject"
@@ -1057,6 +944,8 @@ export function Session() {
       },
     },
     {
+        showThinking,
+        showTimestamps,
       title: "Page up",
       value: "session.page.up",
       keybind: "messages_page_up",
@@ -1242,6 +1131,8 @@ export function Session() {
           return contentWidth()
         },
         conceal,
+  showThinking: () => boolean
+  showTimestamps: () => boolean
       }}
     >
       <box flexDirection="row" paddingBottom={1} paddingTop={1} paddingLeft={2} paddingRight={2} gap={2}>
@@ -1913,6 +1804,7 @@ function UserMessage(props: {
   pending?: string
   dimFactor?: number
 }) {
+  const ctx = use()
   const text = createMemo(() => props.parts.flatMap((x) => (x.type === "text" && !x.synthetic ? [x] : []))[0])
   const files = createMemo(() => props.parts.filter((part): part is FilePart => part.type === "file"))
   const hasFiles = createMemo(() => files().length > 0)

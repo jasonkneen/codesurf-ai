@@ -5,7 +5,9 @@ import { useSync } from "./sync"
 import { makePersisted } from "@solid-primitives/storage"
 import { TextSelection, useLocal } from "./local"
 import { pipe, sumBy } from "remeda"
-import { AssistantMessage } from "@opencode-ai/sdk"
+import { AssistantMessage, UserMessage } from "@opencode-ai/sdk"
+import { useParams } from "@solidjs/router"
+import { base64Encode } from "@/utils"
 
 export const { use: useSession, provider: SessionProvider } = createSimpleContext({
   name: "Session",
@@ -55,26 +57,13 @@ export const { use: useSession, provider: SessionProvider } = createSimpleContex
       if (!store.messageId) return lastUserMessage()
       return userMessages()?.find((m) => m.id === store.messageId)
     })
-<<<<<<< HEAD
-    const working = createMemo(() => {
-      if (!props.sessionId) return false
-      const last = lastUserMessage()
-      if (!last) return false
-      const assistantMessages = sync.data.message[props.sessionId]?.filter(
-        (m) => m.role === "assistant" && m.parentID == last?.id,
-      ) as AssistantMessage[]
-      const error = assistantMessages?.find((m) => m?.error)?.error
-      return !last?.summary?.body && !error
-    })
-=======
     const status = createMemo(
       () =>
-        sync.data.session_status[params.id ?? ""] ?? {
+        sync.data.session_status[props.sessionId ?? ""] ?? {
           type: "idle",
         },
     )
     const working = createMemo(() => status()?.type !== "idle")
->>>>>>> dev
 
     const cost = createMemo(() => {
       const total = pipe(
@@ -130,8 +119,8 @@ export const { use: useSession, provider: SessionProvider } = createSimpleContex
         user: userMessages,
         last: lastUserMessage,
         active: activeMessage,
-        setActive(id: string | undefined) {
-          setStore("messageId", id)
+        setActive(message: UserMessage | undefined) {
+          setStore("messageId", message?.id)
         },
       },
       usage: {

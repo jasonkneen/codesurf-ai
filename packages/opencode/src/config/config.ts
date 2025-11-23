@@ -550,6 +550,7 @@ export namespace Config {
       history_next: z.string().optional().default("down").describe("Next history item"),
       session_child_cycle: z.string().optional().default("ctrl+right").describe("Next child session"),
       session_child_cycle_reverse: z.string().optional().default("ctrl+left").describe("Previous child session"),
+      terminal_suspend: z.string().optional().default("ctrl+z").describe("Suspend terminal"),
     })
     .strict()
     .meta({
@@ -1026,12 +1027,11 @@ export namespace Config {
 
   export async function projectConfigPath() {
     const sources = await collectConfigSources()
-    const scoped = Instance.project.id === "global" ? sources : sources.filter((file) => Filesystem.contains(Instance.worktree, path.dirname(file)))
-    const selected =
-      scoped.at(-1) ??
-      (Instance.project.id === "global"
-        ? sources.at(-1)
-        : undefined)
+    const scoped =
+      Instance.project.id === "global"
+        ? sources
+        : sources.filter((file) => Filesystem.contains(Instance.worktree, path.dirname(file)))
+    const selected = scoped.at(-1) ?? (Instance.project.id === "global" ? sources.at(-1) : undefined)
     if (selected) return selected
 
     const fallbackDir =

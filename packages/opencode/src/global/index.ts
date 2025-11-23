@@ -49,35 +49,7 @@ await Promise.all([
   fs.mkdir(Global.Path.bin, { recursive: true }),
 ])
 
-// Migration function (kept for potential future use)
-async function migrateFromLegacy() {
-  try {
-    // Check if legacy config exists and new one doesn't have content
-    const legacyConfigExists = await fs
-      .access(legacyConfig)
-      .then(() => true)
-      .catch(() => false)
-    if (!legacyConfigExists) return
-
-    const newConfigFiles = await fs.readdir(Global.Path.config).catch(() => [])
-    const hasContent = newConfigFiles.length > 1 // More than just version file
-
-    if (hasContent) {
-      // Already migrated or has new content
-      return
-    }
-
-    // Migration logic removed - app name is now consistently "opencode"
-    // Note: Logging removed to avoid circular dependency
-  } catch (error) {
-    // Note: Logging removed to avoid circular dependency
-  }
-}
-
-// Not calling migration since we're using the same name
-// await migrateFromLegacy()
-
-const CACHE_VERSION = "9"
+const CACHE_VERSION = "10"
 
 const version = await Bun.file(path.join(Global.Path.cache, "version"))
   .text()
