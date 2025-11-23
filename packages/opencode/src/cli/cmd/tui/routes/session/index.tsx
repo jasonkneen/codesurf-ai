@@ -426,6 +426,21 @@ export function Session() {
   const [conceal, setConceal] = createSignal(true)
   const [showThinking, setShowThinking] = createSignal(true)
   const [showTimestamps, setShowTimestamps] = createSignal(kv.get("timestamps", "hide") === "show")
+  const [leftSidebarWidth, setLeftSidebarWidth] = createSignal(kv.get("leftSidebarWidth", LEFT_SIDEBAR_WIDTH_DEFAULT))
+  const [rightSidebarWidth, setRightSidebarWidth] = createSignal(
+    kv.get("rightSidebarWidth", RIGHT_SIDEBAR_WIDTH_DEFAULT),
+  )
+  const [showSimpleMessageList, setShowSimpleMessageList] = createSignal(false)
+
+  const adjustLeftSidebarWidth = (delta: number) => {
+    setLeftSidebarWidth((prev) => Math.min(Math.max(prev + delta, LEFT_SIDEBAR_WIDTH_MIN), LEFT_SIDEBAR_WIDTH_MAX))
+    kv.set("leftSidebarWidth", leftSidebarWidth())
+  }
+
+  const adjustRightSidebarWidth = (delta: number) => {
+    setRightSidebarWidth((prev) => Math.min(Math.max(prev + delta, RIGHT_SIDEBAR_WIDTH_MIN), RIGHT_SIDEBAR_WIDTH_MAX))
+    kv.set("rightSidebarWidth", rightSidebarWidth())
+  }
 
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => sidebar() === "show" || (sidebar() === "auto" && wide()))
@@ -944,8 +959,8 @@ export function Session() {
       },
     },
     {
-        showThinking,
-        showTimestamps,
+      showThinking,
+      showTimestamps,
       title: "Page up",
       value: "session.page.up",
       keybind: "messages_page_up",
@@ -1131,8 +1146,8 @@ export function Session() {
           return contentWidth()
         },
         conceal,
-  showThinking: () => boolean
-  showTimestamps: () => boolean
+        showThinking,
+        showTimestamps,
       }}
     >
       <box flexDirection="row" paddingBottom={1} paddingTop={1} paddingLeft={2} paddingRight={2} gap={2}>

@@ -77,65 +77,67 @@ export const TuiThreadCommand = cmd({
       return
     }
 
-    const worker = new Worker(workerPath, {
-      env: Object.fromEntries(
-        Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
-      ),
-    })
-    worker.onerror = (e) => {
-      Log.Default.error(e)
-    }
-    const client = Rpc.client<typeof rpc>(worker)
-    process.on("uncaughtException", (e) => {
-      Log.Default.error(e)
-    })
-    process.on("unhandledRejection", (e) => {
-      Log.Default.error(e)
-    })
-    const server = await client.call("server", {
-      port: args.port,
-      hostname: args.hostname,
-    })
-    const prompt = await iife(async () => {
-      const piped = !process.stdin.isTTY ? await Bun.stdin.text() : undefined
-      if (!args.prompt) return piped
-      return piped ? piped + "\n" + args.prompt : args.prompt
-    })
+    await bootstrap(cwd, async () => {
+      const worker = new Worker(workerPath, {
+        env: Object.fromEntries(
+          Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+        ),
+      })
+      worker.onerror = (e) => {
+        Log.Default.error(e)
+      }
+      const client = Rpc.client<typeof rpc>(worker)
+      process.on("uncaughtException", (e) => {
+        Log.Default.error(e)
+      })
+      process.on("unhandledRejection", (e) => {
+        Log.Default.error(e)
+      })
+      const server = await client.call("server", {
+        port: args.port,
+        hostname: args.hostname,
+      })
+      const prompt = await iife(async () => {
+        const piped = !process.stdin.isTTY ? await Bun.stdin.text() : undefined
+        if (!args.prompt) return piped
+        return piped ? piped + "\n" + args.prompt : args.prompt
+      })
 
-    const sessionID = await (async () => {
-      if (args.continue) {
-        const it = Session.list()
-        try {
-          for await (const s of it) {
-            if (s.parentID === undefined) {
-              return s.id
+      const sessionID = await (async () => {
+        if (args.continue) {
+          const it = Session.list()
+          try {
+            for await (const s of it) {
+              if (s.parentID === undefined) {
+                return s.id
+              }
             }
+            return
+          } finally {
+            await it.return()
           }
-          return
-        } finally {
-          await it.return()
         }
-      }
-      if (args.session) {
-        return args.session
-      }
-      return undefined
-    })()
+        if (args.session) {
+          return args.session
+        }
+        return undefined
+      })()
 
-    const tuiPromise = tui({
-      url: server.url,
-      sessionID,
-      agent: args.agent,
-      prompt,
-      onExit: async () => {
-        await client.call("shutdown", undefined)
-      },
+      const tuiPromise = tui({
+        url: server.url,
+        sessionID,
+        agent: args.agent,
+        prompt,
+        onExit: async () => {
+          await client.call("shutdown", undefined)
+        },
+      })
+
+      setTimeout(() => {
+        client.call("checkUpgrade", { directory: cwd }).catch(() => {})
+      }, 1000)
+
+      await tuiPromise
     })
-
-    setTimeout(() => {
-      client.call("checkUpgrade", { directory: cwd }).catch(() => {})
-    }, 1000)
-
-    await tuiPromise
   },
 })
