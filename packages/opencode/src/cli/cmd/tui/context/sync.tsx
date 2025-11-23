@@ -81,6 +81,37 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       plugin: [],
     })
 
+    // Throttle part updates to prevent excessive re-renders during streaming
+    const pendingPartUpdates = new Map<string, Part>()
+    let partUpdateTimer: NodeJS.Timeout | null = null
+    const PART_UPDATE_THROTTLE_MS = 16 // ~60fps
+
+    const flushPartUpdates = () => {
+      if (pendingPartUpdates.size === 0) return
+      batch(() => {
+        for (const [key, part] of pendingPartUpdates.entries()) {
+          const parts = store.part[part.messageID]
+          if (!parts) {
+            setStore("part", part.messageID, [part])
+            continue
+          }
+          const result = Binary.search(parts, part.id, (p) => p.id)
+          if (result.found) {
+            setStore("part", part.messageID, result.index, reconcile(part))
+          } else {
+            setStore(
+              "part",
+              part.messageID,
+              produce((draft) => {
+                draft.splice(result.index, 0, part)
+              }),
+            )
+          }
+        }
+      })
+      pendingPartUpdates.clear()
+    }
+
     const sdk = useSDK()
 
     sdk.event.listen((e) => {
@@ -173,17 +204,22 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           }
           const result = Binary.search(messages, event.properties.info.id, (m) => m.id)
           if (result.found) {
-            setStore("message", event.properties.info.sessionID, result.index, reconcile(event.properties.info))
+            // Batch message updates to reduce re-renders
+            batch(() => {
+              setStore("message", event.properties.info.sessionID, result.index, reconcile(event.properties.info))
+            })
             break
           }
-          setStore(
-            "message",
-            event.properties.info.sessionID,
-            produce((draft) => {
-              draft.splice(result.index, 0, event.properties.info)
-              if (draft.length > 100) draft.shift()
-            }),
-          )
+          batch(() => {
+            setStore(
+              "message",
+              event.properties.info.sessionID,
+              produce((draft) => {
+                draft.splice(result.index, 0, event.properties.info)
+                if (draft.length > 100) draft.shift()
+              }),
+            )
+          })
           break
         }
         case "message.removed": {
@@ -201,23 +237,19 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
         case "message.part.updated": {
-          const parts = store.part[event.properties.part.messageID]
-          if (!parts) {
-            setStore("part", event.properties.part.messageID, [event.properties.part])
-            break
+          // Throttle part updates to prevent flickering during fast streaming
+          const part = event.properties.part
+          const key = `${part.messageID}:${part.id}`
+          pendingPartUpdates.set(key, part)
+
+          if (partUpdateTimer) {
+            clearTimeout(partUpdateTimer)
           }
-          const result = Binary.search(parts, event.properties.part.id, (p) => p.id)
-          if (result.found) {
-            setStore("part", event.properties.part.messageID, result.index, reconcile(event.properties.part))
-            break
-          }
-          setStore(
-            "part",
-            event.properties.part.messageID,
-            produce((draft) => {
-              draft.splice(result.index, 0, event.properties.part)
-            }),
-          )
+
+          partUpdateTimer = setTimeout(() => {
+            flushPartUpdates()
+            partUpdateTimer = null
+          }, PART_UPDATE_THROTTLE_MS)
           break
         }
 

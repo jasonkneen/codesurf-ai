@@ -2348,7 +2348,7 @@ function ReasoningPart(props: { part: ReasoningPart; message: AssistantMessage; 
   const showBody = createMemo(() => body().length > 0)
   return (
     <Show when={text()}>
-      <box id={"reasoning-" + props.part.id} marginTop={marginTop()} flexShrink={0}>
+      <box id={"reasoning-" + props.part.id} marginTop={marginTop()} marginBottom={1} flexShrink={0}>
         <box
           border={["left"]}
           customBorderChars={SplitBorder.customBorderChars}
@@ -2485,8 +2485,8 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
     const parts = ((props.message as any).parts as Part[] | undefined) ?? []
     const index = parts.findIndex((part) => part.id === props.part.id)
 
-    // If first part, no margin
-    if (index <= 0) return 0
+    // If first part, add margin for spacing from previous message
+    if (index <= 0) return 1
 
     const prevPart = parts[index - 1]
 
@@ -2516,7 +2516,7 @@ function TextPart(props: { part: TextPart; message: AssistantMessage }) {
         paddingTop={0}
         paddingBottom={0}
         marginTop={marginTop()}
-        marginBottom={0}
+        marginBottom={1}
         flexShrink={0}
         flexDirection="column"
       >
