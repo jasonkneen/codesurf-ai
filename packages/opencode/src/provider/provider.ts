@@ -761,12 +761,12 @@ export namespace Provider {
     // load env
     for (const [providerID, provider] of Object.entries(database)) {
       if (disabled.has(providerID)) continue
-      const apiKey = provider.env.map((item) => process.env[item]).at(0)
+      const apiKey = provider.env.map((item) => process.env[item]).find((item) => !!item)
       if (!apiKey) continue
       mergeProvider(
         providerID,
         // only include apiKey if there's only one potential option
-        provider.env.length === 1 ? { apiKey } : {},
+        provider.env.length === 1 || providerID === "google" ? { apiKey } : {},
         "env",
       )
     }
