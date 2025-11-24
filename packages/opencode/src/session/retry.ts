@@ -1,4 +1,5 @@
 import { MessageV2 } from "./message-v2"
+import { iife } from "../util/iife"
 
 export namespace SessionRetry {
   export const RETRY_INITIAL_DELAY = 2000
