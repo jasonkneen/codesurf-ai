@@ -1036,27 +1036,26 @@ export namespace Provider {
 
     // Priority 2: Auto-select from provider's available models
     const provider = await state().then((state) => state.providers[providerID])
-    if (!provider) return
-
-    // Model priority list (ordered by preference)
-    // - claude-haiku variants: Fast, cost-effective Claude models
-    // - gemini-2.5-flash: Google's efficient model for coordination
-    // - gpt-5.1-nano: OpenAI's small model (when available)
-    let priority = ["claude-haiku-4-5", "3-5-haiku", "3.5-haiku", "gemini-2.5-flash", "gpt-5.1-nano"]
-
-    // Special case: GitHub Copilot treats claude-haiku-4.5 as premium
-    // Filter it out to avoid unnecessary premium API usage
-    if (providerID === "github-copilot") {
-      priority = priority.filter((m) => m !== "claude-haiku-4.5")
-    }
-    if (providerID === "opencode" || providerID === "local") {
-      priority = ["gpt-5-nano"]
-    }
-
-    // Find first available model matching priority list
-    for (const item of priority) {
-      for (const model of Object.keys(provider.info.models)) {
-        if (model.includes(item)) return getModel(providerID, model)
+    if (provider) {
+      let priority = [
+        "claude-haiku-4-5",
+        "claude-haiku-4.5",
+        "3-5-haiku",
+        "3.5-haiku",
+        "gemini-2.5-flash",
+        "gpt-5-nano",
+      ]
+      // claude-haiku-4.5 is considered a premium model in github copilot, we shouldn't use premium requests for title gen
+      if (providerID === "github-copilot") {
+        priority = priority.filter((m) => m !== "claude-haiku-4.5")
+      }
+      if (providerID.startsWith("opencode")) {
+        priority = ["gpt-5-nano"]
+      }
+      for (const item of priority) {
+        for (const model of Object.keys(provider.info.models)) {
+          if (model.includes(item)) return getModel(providerID, model)
+        }
       }
     }
 

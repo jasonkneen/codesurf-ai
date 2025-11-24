@@ -193,21 +193,61 @@ export const BashTool = Tool.define("bash", {
     }
     const permissions = await Agent.get(ctx.agent).then((x) => x.permission.bash)
 
-    const askPatterns = new Set<string>()
-    for (const node of tree.rootNode.descendantsOfType("command")) {
-      if (!node) continue
-      const command = []
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i)
-        if (!child) continue
-        if (
-          child.type !== "command_name" &&
-          child.type !== "word" &&
-          child.type !== "string" &&
-          child.type !== "raw_string" &&
-          child.type !== "concatenation"
-        ) {
-          continue
+    if (process.platform === "win32") {
+      // Let Bun / Node pick COMSPEC (usually cmd.exe)
+      // or explicitly:
+      return process.env.COMSPEC || true
+    }
+
+    const bash = Bun.which("bash")
+    if (bash) {
+      return bash
+    }
+
+    return true
+  })
+  log.info("bash tool using shell", { shell })
+
+  return {
+    description: DESCRIPTION,
+    parameters: z.object({
+      command: z.string().describe("The command to execute"),
+      timeout: z.number().describe("Optional timeout in milliseconds").optional(),
+      description: z
+        .string()
+        .describe(
+          "Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'",
+        ),
+    }),
+    async execute(params, ctx) {
+      if (params.timeout !== undefined && params.timeout < 0) {
+        throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)
+      }
+      const timeout = Math.min(params.timeout ?? DEFAULT_TIMEOUT, MAX_TIMEOUT)
+      const tree = await parser().then((p) => p.parse(params.command))
+      if (!tree) {
+        throw new Error("Failed to parse command")
+      }
+      const agent = await Agent.get(ctx.agent)
+      const permissions = agent.permission.bash
+
+      const askPatterns = new Set<string>()
+      for (const node of tree.rootNode.descendantsOfType("command")) {
+        if (!node) continue
+        const command = []
+        for (let i = 0; i < node.childCount; i++) {
+          const child = node.child(i)
+          if (!child) continue
+          if (
+            child.type !== "command_name" &&
+            child.type !== "word" &&
+            child.type !== "string" &&
+            child.type !== "raw_string" &&
+            child.type !== "concatenation"
+          ) {
+            continue
+          }
+          command.push(child.text)
         }
         command.push(child.text)
       }
