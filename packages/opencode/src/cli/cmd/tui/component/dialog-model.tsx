@@ -6,11 +6,22 @@ import { DialogSelect, type DialogSelectRef } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
 import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 
+const MODELS_PER_PAGE = 20
+
 export function DialogModel() {
   const local = useLocal()
   const sync = useSync()
   const dialog = useDialog()
   const [ref, setRef] = createSignal<DialogSelectRef<unknown>>()
+  const [loadedCount, setLoadedCount] = createSignal(MODELS_PER_PAGE)
+  const [searchActive, setSearchActive] = createSignal(false)
+
+  // Show loading if providers haven't been fetched yet
+  if (sync.data.provider.length === 0 && !sync.data.ready) {
+    return (
+      <DialogSelect title="Loading models..." options={[{ title: "Loading...", value: "loading", disabled: true }]} />
+    )
+  }
 
   const connected = createMemo(() =>
     sync.data.provider.some((x) => x.id !== "opencode" || Object.values(x.models).some((y) => y.cost?.input !== 0)),
@@ -19,7 +30,7 @@ export function DialogModel() {
   const showRecent = createMemo(() => !ref()?.filter && local.model.recent().length > 0 && connected())
   const providers = createDialogProviderOptions()
 
-  const options = createMemo(() => {
+  const allOptions = createMemo(() => {
     return [
       ...(showRecent()
         ? local.model.recent().flatMap((item) => {
@@ -103,6 +114,25 @@ export function DialogModel() {
     ]
   })
 
+  const options = createMemo(() => {
+    const filter = ref()?.filter || ""
+    const isSearching = filter.length > 0
+
+    // Show error if ready but no options available
+    if (sync.data.ready && allOptions().length === 0) {
+      return [{ title: "No models available. Connect a provider using Ctrl+A.", value: "none", disabled: true }]
+    }
+
+    if (isSearching) {
+      setSearchActive(true)
+      return allOptions()
+    }
+
+    setSearchActive(false)
+    setLoadedCount(MODELS_PER_PAGE)
+    return allOptions().slice(0, loadedCount())
+  })
+
   return (
     <DialogSelect
       keybind={[
@@ -118,6 +148,12 @@ export function DialogModel() {
       title="Select model"
       current={local.model.current()}
       options={options()}
+      onLoadMore={() => {
+        if (!searchActive()) {
+          setLoadedCount((c) => c + MODELS_PER_PAGE)
+        }
+      }}
+      hasMore={!searchActive() && loadedCount() < allOptions().length}
     />
   )
 }

@@ -17,6 +17,7 @@ import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
 import { Installation } from "@/installation"
 import { ConfigMarkdown } from "./markdown"
+import { WorkerConfig } from "./worker-config"
 import matter from "gray-matter"
 
 export namespace Config {
@@ -588,6 +589,12 @@ export namespace Config {
         })
         .optional(),
       plugin: z.string().array().optional(),
+      backgroundValidation: WorkerConfig.BackgroundValidation.partial()
+        .optional()
+        .describe("Background validation worker configuration"),
+      prefetchWorker: WorkerConfig.PrefetchWorker.partial()
+        .optional()
+        .describe("Prefetch worker configuration"),
       snapshot: z.boolean().optional(),
       share: z
         .enum(["manual", "auto", "disabled"])
@@ -791,25 +798,6 @@ export namespace Config {
         .array(z.string())
         .optional()
         .describe("List of favorite tool IDs that will be prioritized and shown at the top"),
-      backgroundValidation: z
-        .object({
-          enabled: z.boolean().describe("Enable background validation"),
-          commands: z.array(z.string()).optional().describe("Commands to run for validation"),
-          debounceMs: z.number().optional().describe("Debounce delay in milliseconds"),
-          include: z.array(z.string()).optional().describe("Glob patterns for files to include"),
-          exclude: z.array(z.string()).optional().describe("Glob patterns for files to exclude"),
-        })
-        .optional()
-        .describe("Background validation worker configuration"),
-      prefetchWorker: z
-        .object({
-          enabled: z.boolean().describe("Enable prefetch worker"),
-          maxConcurrent: z.number().optional().describe("Maximum concurrent prefetch operations"),
-          maxCacheSize: z.number().optional().describe("Maximum cache size in bytes"),
-          strategies: z.array(z.string()).optional().describe("Prefetch strategies to use"),
-        })
-        .optional()
-        .describe("Prefetch worker configuration for caching file contents"),
     })
     .strict()
     .meta({

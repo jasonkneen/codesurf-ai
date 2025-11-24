@@ -56,7 +56,7 @@ import type { TaskTool } from "@/tool/task"
 import type { AddTaskTool } from "@/tool/add-task"
 import { useKeyboard, useRenderer, useTerminalDimensions, type BoxProps, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
-import { BackgroundWorkers } from "@/worker/background-workers"
+
 import { Instance } from "@/project/instance"
 
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -331,16 +331,6 @@ export function Session() {
   const kv = useKV()
   const { theme } = useTheme()
   const session = createMemo(() => sync.session.get(route.sessionID)!)
-
-  // Initialize background workers when entering a session
-  createEffect(() => {
-    BackgroundWorkers.init({
-      sessionID: route.sessionID,
-      workingDirectory: Instance.directory,
-      validation: { enabled: true },
-      prefetch: { enabled: false },
-    })
-  })
 
   // Track open session tabs
   const [openTabs, setOpenTabs] = createSignal<string[]>(kv.get("openTabs", []))
@@ -1253,51 +1243,92 @@ export function Session() {
               >
                 <For each={messages()} fallback={<box />}>
                   {(message, index) => {
-                    // Memoize parts to prevent re-rendering completed messages
-                    // Only update parts while message is streaming (not completed)
-                    const messageParts = createMemo(() => {
-                      // If message is completed, cache the parts and don't re-fetch
-                      if ("completed" in message.time && message.time.completed) {
-                        return untrack(() => sync.data.part[message.id] ?? [])
+                    // ANTI-FLICKER FIX: Freeze completed messages to prevent re-renders
+                    // Once a message is completed, we cache all its computed values to prevent
+                    // reactive dependencies from triggering unnecessary re-renders
+
+                    const isCompleted = createMemo(() => "completed" in message.time && message.time.completed)
+
+                    // Freeze parts for completed messages
+                    const [frozenParts, setFrozenParts] = createSignal<Part[] | null>(null)
+                    createEffect(() => {
+                      if (isCompleted() && !frozenParts()) {
+                        setFrozenParts(untrack(() => sync.data.part[message.id] ?? []))
                       }
-                      // If streaming, keep updating
-                      return sync.data.part[message.id] ?? []
+                    })
+                    const messageParts = () => frozenParts() ?? sync.data.part[message.id] ?? []
+
+                    // Freeze shouldHide calculation for completed messages
+                    const [frozenShouldHide, setFrozenShouldHide] = createSignal<boolean | null>(null)
+                    createEffect(() => {
+                      if (isCompleted() && frozenShouldHide() === null) {
+                        const shouldHide = untrack(() => {
+                          if (message.role !== "user") return false
+                          const nextMessage = messages()[index() + 1]
+                          if (!nextMessage || nextMessage.role !== "assistant") return false
+                          const nextParts = sync.data.part[nextMessage.id] ?? []
+                          const toolParts = nextParts.filter((p) => p.type === "tool") as ToolPart[]
+                          return toolParts.length > 0 && toolParts.every((p) => p.tool === "add_task")
+                        })
+                        setFrozenShouldHide(shouldHide)
+                      }
                     })
 
-                    // Check if this user message should be hidden (followed by only add_task calls)
-                    const shouldHideUserMessage = createMemo(() => {
-                      if (message.role !== "user") return false
+                    const shouldHideUserMessage = () => {
+                      const frozen = frozenShouldHide()
+                      if (frozen !== null) return frozen
 
-                      // Find the next assistant message
+                      // Live calculation for streaming messages
+                      if (message.role !== "user") return false
                       const nextMessage = messages()[index() + 1]
                       if (!nextMessage || nextMessage.role !== "assistant") return false
-
-                      // Get parts for next message
                       const nextParts = sync.data.part[nextMessage.id] ?? []
                       const toolParts = nextParts.filter((p) => p.type === "tool") as ToolPart[]
-
-                      // Hide if message only triggers add_task tools (and has at least one)
                       return toolParts.length > 0 && toolParts.every((p) => p.tool === "add_task")
+                    }
+
+                    // Freeze dim factor for completed messages
+                    const [frozenDimFactor, setFrozenDimFactor] = createSignal<number | null>(null)
+                    createEffect(() => {
+                      if (isCompleted() && frozenDimFactor() === null) {
+                        const factor = untrack(() => {
+                          const totalMessages = messages().length
+                          const currentIndex = index()
+
+                          if (currentIndex < 5) {
+                            return 0.3 + (currentIndex / 5) * 0.7
+                          }
+
+                          if (currentIndex >= totalMessages - 2) {
+                            const fromBottom = totalMessages - 1 - currentIndex
+                            return 0.3 + ((1 - fromBottom) / 2) * 0.7
+                          }
+
+                          return 1.0
+                        })
+                        setFrozenDimFactor(factor)
+                      }
                     })
 
-                    // Calculate dimming/fade effect for top 5 and bottom 2 messages
-                    const dimFactor = createMemo(() => {
+                    const dimFactor = () => {
+                      const frozen = frozenDimFactor()
+                      if (frozen !== null) return frozen
+
+                      // Live calculation for streaming messages
                       const totalMessages = messages().length
                       const currentIndex = index()
 
-                      // Top 5 messages fade
                       if (currentIndex < 5) {
-                        return 0.3 + (currentIndex / 5) * 0.7 // 0.3 to 1.0
+                        return 0.3 + (currentIndex / 5) * 0.7
                       }
 
-                      // Bottom 2 messages fade
                       if (currentIndex >= totalMessages - 2) {
-                        const fromBottom = totalMessages - 1 - currentIndex // 0 or 1
-                        return 0.3 + ((1 - fromBottom) / 2) * 0.7 // 0.65 or 0.3
+                        const fromBottom = totalMessages - 1 - currentIndex
+                        return 0.3 + ((1 - fromBottom) / 2) * 0.7
                       }
 
-                      return 1.0 // Full opacity for middle messages
-                    })
+                      return 1.0
+                    }
 
                     return (
                       <DimFactorContext.Provider value={dimFactor}>
@@ -1871,7 +1902,7 @@ function UserMessage(props: {
         }}
         onMouseUp={props.onMouseUp}
         border={["left"]}
-        paddingTop={0}
+        paddingTop={1}
         paddingBottom={1}
         paddingLeft={2}
         marginTop={1}
@@ -1880,33 +1911,23 @@ function UserMessage(props: {
         borderColor={color()}
         flexShrink={0}
       >
-        <box flexDirection="column" gap={hasFiles() ? 0 : 0} justifyContent="center">
-          <box flexDirection="row" justifyContent="flex-end" marginTop={-1} marginRight={2}>
-            <MessageControls
-              sessionID={props.message.sessionID}
-              messageID={props.message.id}
-              priority={props.message.priority}
-              inline
-            />
-          </box>
-          <box flexDirection="row" alignItems="flex-start" justifyContent="space-between" gap={1}>
-            <box flexDirection="column" flexGrow={1} gap={hasFiles() ? 1 : 0}>
-              <Show when={!hasFiles()}>
-                <text fg={dimmedText()}>{text()?.text}</text>
-              </Show>
-              <Show when={hasFiles()}>
-                <box flexDirection="column" gap={0}>
-                  <For each={files()}>
-                    {(file) => (
-                      <text fg={dimmedText()} onMouseUp={(event) => void openAttachment(event, file)}>
-                        <span style={{ fg: dimmedText(), bold: true }}>{MIME_BADGE[file.mime] ?? file.mime}</span>{" "}
-                        <span style={{ fg: dimmedTextMuted() }}>{file.filename ?? "attachment"}</span>
-                      </text>
-                    )}
-                  </For>
-                </box>
-              </Show>
-            </box>
+        <box flexDirection="column" gap={0}>
+          <box flexDirection="column" flexGrow={1} gap={hasFiles() ? 1 : 0}>
+            <Show when={!hasFiles()}>
+              <text fg={dimmedText()}>{text()?.text}</text>
+            </Show>
+            <Show when={hasFiles()}>
+              <box flexDirection="column" gap={0}>
+                <For each={files()}>
+                  {(file) => (
+                    <text fg={dimmedText()} onMouseUp={(event) => void openAttachment(event, file)}>
+                      <span style={{ fg: dimmedText(), bold: true }}>{MIME_BADGE[file.mime] ?? file.mime}</span>{" "}
+                      <span style={{ fg: dimmedTextMuted() }}>{file.filename ?? "attachment"}</span>
+                    </text>
+                  )}
+                </For>
+              </box>
+            </Show>
           </box>
           <Switch>
             <Match when={queued()}>
@@ -2528,6 +2549,9 @@ function ToolPart(props: {
   const metadata = props.part.state.status === "pending" ? {} : (props.part.state.metadata ?? {})
   const input = props.part.state.input ?? {}
   const container = toolRegistry.container(props.part.tool)
+  // Favorite star removed - context system handles message prioritization
+  const priorityControls = undefined
+  /*
   const priorityControls =
     props.showPriorityControls === false ? undefined : (
       <MessageControls
@@ -2537,6 +2561,7 @@ function ToolPart(props: {
         inline
       />
     )
+  */
 
   // Make permissions reactive
   const permissions = createMemo(() => sync.data.permission[props.message.sessionID] ?? [])

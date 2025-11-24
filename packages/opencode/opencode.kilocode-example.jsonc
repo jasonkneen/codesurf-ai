@@ -1,0 +1,31 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // Example configuration for Kilocode AI provider
+  // Get your API key at: https://kilocode.ai
+
+  "model": "kilocode/anthropic/claude-sonnet-4.5",
+
+  // Provider configuration
+  "provider": {
+    "kilocode": {
+      "options": {
+        // API key from environment variable (recommended)
+        "apiKey": "{env:KILOCODE_API_KEY}",
+
+        // Or hardcode your API key (not recommended for shared repositories)
+        // "apiKey": "your-api-key-here",
+      },
+    },
+  },
+
+  // Available models on Kilocode:
+  // - kilocode/anthropic/claude-sonnet-4.5 (1M context, best for complex tasks)
+  // - kilocode/anthropic/claude-haiku-4.5 (200K context, fast and efficient)
+  // - kilocode/openai/gpt-5.1 (400K context)
+  // - kilocode/openai/gpt-5.1-codex (400K context, optimized for coding)
+  // - kilocode/google/gemini-3-pro-preview (1M context)
+  // - kilocode/google/gemini-2.5-flash (1M context, fast)
+  // - kilocode/x-ai/grok-code-fast-1 (256K context, FREE)
+  // - kilocode/x-ai/grok-4.1-fast (2M context, FREE)
+}

@@ -84,7 +84,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     // Throttle part updates to prevent excessive re-renders during streaming
     const pendingPartUpdates = new Map<string, Part>()
     let partUpdateTimer: NodeJS.Timeout | null = null
-    const PART_UPDATE_THROTTLE_MS = 16 // ~60fps
+    const PART_UPDATE_THROTTLE_MS = 50 // Reduce flicker during streaming
 
     const flushPartUpdates = () => {
       if (pendingPartUpdates.size === 0) return

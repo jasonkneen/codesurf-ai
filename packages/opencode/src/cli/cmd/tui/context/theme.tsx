@@ -265,6 +265,9 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     const sync = useSync()
     const kv = useKV()
     const resolveInitialTheme = () => {
+      // Wait for KV to be ready before reading saved theme
+      if (!kv.ready) return "codesurf"
+
       const saved = kv.get("theme") as string | undefined
       if (saved && saved !== "opencode") return saved
       const configTheme = sync.data.config.theme
@@ -277,6 +280,16 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
       mode: props.mode,
       active: resolveInitialTheme(),
       ready: false,
+    })
+
+    // Load saved theme once KV is ready
+    createEffect(() => {
+      if (kv.ready) {
+        const saved = kv.get("theme") as string | undefined
+        if (saved && saved !== "opencode" && saved !== store.active) {
+          setStore("active", saved)
+        }
+      }
     })
 
     createEffect(async () => {

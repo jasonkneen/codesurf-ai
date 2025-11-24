@@ -129,15 +129,12 @@ function findRelatedFiles(filePath: string, content: string): string[] {
 
   // Strategy 3: Component patterns
   if (filePath.includes("component") || content.includes("export default") || content.includes("export const")) {
-    // Look for related CSS/style files
     related.push(
       path.join(dir, `${basename}.css`),
       path.join(dir, `${basename}.module.css`),
       path.join(dir, `${basename}.scss`),
       path.join(dir, `${basename}.module.scss`),
     )
-
-    // Look for story files
     related.push(path.join(dir, `${basename}.stories.ts`), path.join(dir, `${basename}.stories.tsx`))
   }
 
@@ -172,7 +169,6 @@ async function prefetchFile(task: PrefetchTask): Promise<void> {
     const content = await loadFileContent(task.filePath)
     const size = content.length
 
-    // Store in cache
     state.cache.set(task.filePath, {
       content,
       timestamp: Date.now(),
@@ -186,13 +182,11 @@ async function prefetchFile(task: PrefetchTask): Promise<void> {
     state.stats.totalPrefetched++
     state.stats.cacheSize += size
 
-    // Trigger related file prefetch
     if (config.strategies.includes("import") || config.strategies.includes("related")) {
       const relatedFiles = findRelatedFiles(task.filePath, content)
       await logWorker(`Found ${relatedFiles.length} related files for ${task.filePath}`)
 
       for (const relatedFile of relatedFiles.slice(0, 5)) {
-        // Limit to prevent explosion
         if (!state.cache.has(relatedFile) && !state.queue.some((t) => t.filePath === relatedFile)) {
           const relatedTask: PrefetchTask = {
             id: `prefetch_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
@@ -215,12 +209,10 @@ async function prefetchFile(task: PrefetchTask): Promise<void> {
 }
 
 async function processQueue() {
-  // Process up to maxConcurrent files simultaneously
   while (state.runningTasks.size < config.maxConcurrent && state.queue.length > 0) {
     const task = state.queue.shift()!
     task.status = "loading"
 
-    // Update running state for backward compatibility (set to first running task)
     if (!state.running) {
       state.running = task
     }
@@ -231,7 +223,6 @@ async function processQueue() {
 
     broadcastState()
 
-    // Create and track task promise
     const processTask = async () => {
       try {
         await prefetchFile(task)
@@ -239,26 +230,22 @@ async function processQueue() {
         task.status = "error"
         await logWorker(`Queue processing error for ${task.filePath}: ${error}`)
       } finally {
-        // Remove from running tasks
         state.runningTasks.delete(taskPromise)
 
         await logWorker(
           `Completed task ${task.filePath} (${state.runningTasks.size} still running, ${state.queue.length} queued)`,
         )
 
-        // Clear running state if this was the last task
         if (state.runningTasks.size === 0) {
           state.running = null
         }
 
-        // Clean cache if too large
         if (state.stats.cacheSize > config.maxCacheSize) {
           await cleanCache()
         }
 
         broadcastState()
 
-        // Continue processing queue if there are more items
         if (state.queue.length > 0) {
           processQueue()
         }
@@ -272,7 +259,7 @@ async function processQueue() {
 
 async function cleanCache() {
   const entries = Array.from(state.cache.entries())
-  entries.sort((a, b) => a[1].timestamp - b[1].timestamp) // Oldest first
+  entries.sort((a, b) => a[1].timestamp - b[1].timestamp)
 
   while (state.stats.cacheSize > config.maxCacheSize * 0.8 && entries.length > 0) {
     const [path, data] = entries.shift()!
@@ -283,7 +270,6 @@ async function cleanCache() {
 }
 
 function enqueuePrefetch(filePath: string, strategy: PrefetchTask["strategy"] = "import") {
-  // Skip if already cached or queued
   if (state.cache.has(filePath) || state.queue.some((t) => t.filePath === filePath)) {
     return
   }
@@ -325,19 +311,15 @@ export const rpc = {
   async onFileAccess(filePath: string) {
     await logWorker(`File accessed: ${filePath}`)
 
-    // Record access
     state.recentAccess.push({ file: filePath, timestamp: Date.now() })
-    state.recentAccess = state.recentAccess.slice(-20) // Keep last 20
+    state.recentAccess = state.recentAccess.slice(-20)
 
-    // Check cache hit/miss
     if (state.cache.has(filePath)) {
       state.stats.cacheHits++
       await logWorker(`Cache hit: ${filePath}`)
     } else {
       state.stats.cacheMisses++
       await logWorker(`Cache miss: ${filePath}`)
-
-      // Trigger prefetch for related files
       enqueuePrefetch(filePath, "import")
     }
 

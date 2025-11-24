@@ -26,6 +26,8 @@ export interface DialogSelectProps<T> {
   limit?: number
   current?: T
   collapsibleDescriptions?: boolean
+  onLoadMore?: () => void
+  hasMore?: boolean
 }
 
 export interface DialogSelectOption<T = any> {
@@ -217,6 +219,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   })
 
   let scroll: ScrollBoxRenderable
+
   const ref: DialogSelectRef<T> = {
     get filter() {
       return store.filter
@@ -226,6 +229,14 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
     },
   }
   props.ref?.(ref)
+
+  createEffect(() => {
+    if (!props.onLoadMore || !props.hasMore || !scroll) return
+    const scrollPercentage = (scroll.y + scroll.height) / scroll.scrollHeight
+    if (scrollPercentage > 0.8) {
+      props.onLoadMore()
+    }
+  })
 
   return (
     <box gap={1}>
@@ -288,11 +299,9 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
             focusedTextColor={theme.textMuted}
             ref={(r) => {
               input = r
-              setTimeout(() => {
-                if (input && !input.isDestroyed) {
-                  input.focus()
-                }
-              }, 50)
+              if (input && !input.isDestroyed) {
+                input.focus()
+              }
             }}
             placeholder="Enter search term"
           />

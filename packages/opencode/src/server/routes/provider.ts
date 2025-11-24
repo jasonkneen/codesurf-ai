@@ -34,10 +34,29 @@ export function providerRoutes() {
     }),
     async (c) => {
       using _ = log.time("providers")
-      const providers = await Provider.list().then((x) => mapValues(x, (item) => item.info))
+      const authenticatedProviders = await Provider.list().then((x) => mapValues(x, (item) => item.info))
+
+      // Get all providers from models.dev database plus synthetic ones
+      const database = await ModelsDev.get()
+
+      // Add synthetic kilocode provider to database if not already there
+      if (!database["kilocode"]) {
+        database["kilocode"] = {
+          id: "kilocode",
+          name: "Kilocode",
+          npm: "@ai-sdk/openai-compatible",
+          env: ["KILOCODE_API_KEY"],
+          api: "https://api.kilocode.ai/api/openrouter",
+          models: {},
+        }
+      }
+
+      // Merge authenticated and database providers, preferring authenticated ones
+      const allProviders = { ...database, ...authenticatedProviders }
+
       return c.json({
-        providers: Object.values(providers),
-        default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
+        providers: Object.values(allProviders),
+        default: mapValues(authenticatedProviders, (item) => Provider.sort(Object.values(item.models))[0].id),
       })
     },
   )

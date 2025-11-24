@@ -10,7 +10,7 @@ test("background workers config schema", () => {
 
   expect(validationConfig.enabled).toBe(true)
   expect(validationConfig.commands).toEqual(["bun run lint", "bun run typecheck"])
-  expect(validationConfig.debounceMs).toBe(2000) // default
+  expect(validationConfig.debounceMs).toBe(2000)
 })
 
 test("prefetch worker config schema", () => {
@@ -21,18 +21,17 @@ test("prefetch worker config schema", () => {
 
   expect(prefetchConfig.enabled).toBe(true)
   expect(prefetchConfig.maxCacheSize).toBe(100 * 1024 * 1024)
-  expect(prefetchConfig.maxConcurrent).toBe(3) // default
-  expect(prefetchConfig.strategies).toEqual(["import", "related"]) // default
+  expect(prefetchConfig.maxConcurrent).toBe(3)
+  expect(prefetchConfig.strategies).toEqual(["import", "related"])
 })
 
 test("background workers initialization with config", async () => {
-  const config = {
+  await BackgroundWorkers.init({
     validation: { enabled: false },
     prefetch: { enabled: false },
-  }
-
-  // Should not throw
-  await BackgroundWorkers.init(config)
+    sessionID: "test",
+    workingDirectory: process.cwd(),
+  })
 
   const workerConfig = BackgroundWorkers.getConfig()
   expect(workerConfig?.validation.enabled).toBe(false)
@@ -42,10 +41,11 @@ test("background workers initialization with config", async () => {
 })
 
 test("background workers state management", async () => {
-  // With workers disabled, state should return null
   await BackgroundWorkers.init({
     validation: { enabled: false },
     prefetch: { enabled: false },
+    sessionID: "test",
+    workingDirectory: process.cwd(),
   })
 
   const validationState = await BackgroundWorkers.getValidationState()
@@ -61,6 +61,8 @@ test("background workers config update", async () => {
   await BackgroundWorkers.init({
     validation: { enabled: false },
     prefetch: { enabled: false },
+    sessionID: "test",
+    workingDirectory: process.cwd(),
   })
 
   BackgroundWorkers.updateConfig({

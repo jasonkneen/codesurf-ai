@@ -13,7 +13,8 @@ const PROVIDER_PRIORITY: Record<string, number> = {
   "github-copilot": 2,
   openai: 3,
   google: 4,
-  openrouter: 5,
+  kilocode: 5,
+  openrouter: 6,
 }
 
 export function createDialogProviderOptions() {
@@ -21,7 +22,7 @@ export function createDialogProviderOptions() {
   const dialog = useDialog()
   const options = createMemo(() => {
     return pipe(
-      sync.data.provider,
+      sync.data.provider_next.all,
       map((provider) => ({
         title: provider.name,
         value: provider.id,

@@ -327,6 +327,82 @@ export namespace Provider {
         },
       }
     },
+    kilocode: async (provider) => {
+      // Check for API key in env or auth
+      const auth = await Auth.get(provider.id)
+      const apiKey = process.env["KILOCODE_API_KEY"] || (auth?.type === "api" ? auth.key : undefined)
+      if (!apiKey) return { autoload: false }
+
+      try {
+        // Fetch models from kilocode API
+        const response = await fetch("https://api.kilocode.ai/api/openrouter/models", {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+          },
+          signal: AbortSignal.timeout(10 * 1000),
+        })
+
+        if (!response.ok) {
+          log.error("Failed to fetch kilocode models", { status: response.status })
+          return { autoload: false }
+        }
+
+        const data = (await response.json()) as {
+          data: Array<{
+            id: string
+            name: string
+            created: number
+            context_length: number
+            pricing: {
+              prompt: string
+              completion: string
+            }
+            top_provider?: {
+              max_completion_tokens?: number
+            }
+          }>
+        }
+
+        // Populate models from API
+        for (const model of data.data) {
+          provider.models[model.id] = {
+            id: model.id,
+            name: model.name,
+            release_date: new Date(model.created * 1000).toISOString().split("T")[0],
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: {
+              input: parseFloat(model.pricing.prompt) * 1000000, // Convert to per-million-token pricing
+              output: parseFloat(model.pricing.completion) * 1000000,
+              cache_read: 0,
+              cache_write: 0,
+            },
+            limit: {
+              context: model.context_length,
+              output: model.top_provider?.max_completion_tokens || 4096,
+            },
+            options: {},
+          }
+        }
+
+        return {
+          autoload: true,
+          options: {
+            apiKey,
+            baseURL: "https://api.kilocode.ai/api/openrouter",
+            headers: {
+              "HTTP-Referer": "https://opencode.ai/",
+              "X-Title": "OpenCode",
+            },
+          },
+        }
+      } catch (error) {
+        log.error("Error loading kilocode models", { error })
+        return { autoload: false }
+      }
+    },
   }
 
   const state = Instance.state(async () => {
@@ -559,6 +635,123 @@ export namespace Provider {
             tool_call: true,
             cost: { input: 0.0005, output: 0.0015, cache_read: 0, cache_write: 0 },
             limit: { context: 256000, output: 16000 },
+            options: {},
+          },
+        },
+      }
+    }
+
+    // Add kilocode provider
+    if (!disabled.has("kilocode")) {
+      database["kilocode"] = {
+        id: "kilocode",
+        name: "Kilocode",
+        npm: "@ai-sdk/openai-compatible",
+        env: ["KILOCODE_API_KEY"],
+        api: "https://api.kilocode.ai/api/openrouter",
+        models: {
+          "anthropic/claude-sonnet-4.5": {
+            id: "anthropic/claude-sonnet-4.5",
+            name: "Claude Sonnet 4.5",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.000003, output: 0.000015, cache_read: 0.0000003, cache_write: 0.00000375 },
+            limit: { context: 1000000, output: 64000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+            options: {},
+          },
+          "anthropic/claude-haiku-4.5": {
+            id: "anthropic/claude-haiku-4.5",
+            name: "Claude Haiku 4.5",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.000001, output: 0.000005, cache_read: 0.0000001, cache_write: 0.00000125 },
+            limit: { context: 200000, output: 64000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+            options: {},
+          },
+          "openai/gpt-5.1": {
+            id: "openai/gpt-5.1",
+            name: "GPT-5.1",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.00000125, output: 0.00001, cache_read: 0.000000125, cache_write: 0 },
+            limit: { context: 400000, output: 128000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+            options: {},
+          },
+          "openai/gpt-5.1-codex": {
+            id: "openai/gpt-5.1-codex",
+            name: "GPT-5.1 Codex",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.00000125, output: 0.00001, cache_read: 0.000000125, cache_write: 0 },
+            limit: { context: 400000, output: 128000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+            options: {},
+          },
+          "google/gemini-3-pro-preview": {
+            id: "google/gemini-3-pro-preview",
+            name: "Gemini 3 Pro Preview",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.000002, output: 0.000012, cache_read: 0.0000002, cache_write: 0.000002375 },
+            limit: { context: 1048576, output: 65536 },
+            modalities: { input: ["text", "image", "audio", "video"], output: ["text"] },
+            options: {},
+          },
+          "google/gemini-2.5-flash": {
+            id: "google/gemini-2.5-flash",
+            name: "Gemini 2.5 Flash",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.0000003, output: 0.0000025, cache_read: 0.00000003, cache_write: 0.0000003833 },
+            limit: { context: 1048576, output: 65535 },
+            modalities: { input: ["text", "image", "audio", "video"], output: ["text"] },
+            options: {},
+          },
+          "x-ai/grok-code-fast-1": {
+            id: "x-ai/grok-code-fast-1",
+            name: "Grok Code Fast 1 (free)",
+            release_date: "2025-01-01",
+            attachment: false,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+            limit: { context: 256000, output: 10000 },
+            modalities: { input: ["text"], output: ["text"] },
+            options: {},
+          },
+          "x-ai/grok-4.1-fast": {
+            id: "x-ai/grok-4.1-fast",
+            name: "Grok 4.1 Fast (free)",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+            limit: { context: 2000000, output: 30000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
             options: {},
           },
         },

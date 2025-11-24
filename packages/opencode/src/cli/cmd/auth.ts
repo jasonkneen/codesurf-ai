@@ -121,16 +121,25 @@ export const AuthLoginCommand = cmd({
           "github-copilot": 2,
           openai: 3,
           google: 4,
-          openrouter: 5,
-          vercel: 6,
+          kilocode: 5,
+          openrouter: 6,
+          vercel: 7,
         }
+        // Add synthetic providers that aren't in models.dev
+        const syntheticProviders = [
+          {
+            id: "kilocode",
+            name: "Kilocode",
+            env: ["KILOCODE_API_KEY"],
+          },
+        ]
+
         let provider = await prompts.autocomplete({
           message: "Select provider",
           maxItems: 8,
           options: [
             ...pipe(
-              providers,
-              values(),
+              [...values(providers), ...syntheticProviders],
               sortBy(
                 (x) => priority[x.id] ?? 99,
                 (x) => x.name ?? x.id,
@@ -313,6 +322,10 @@ export const AuthLoginCommand = cmd({
 
         if (provider === "opencode") {
           prompts.log.info("Create an api key at https://opencode.ai/auth")
+        }
+
+        if (provider === "kilocode") {
+          prompts.log.info("Create an api key at https://kilocode.ai")
         }
 
         if (provider === "vercel") {
