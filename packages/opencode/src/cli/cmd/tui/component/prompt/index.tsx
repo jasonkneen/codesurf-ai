@@ -841,12 +841,14 @@ export function Prompt(props: PromptProps) {
 
                 const fileCandidates = extractFilePathCandidates(pastedContent)
                 if (fileCandidates.length) {
+                  // Prevent default BEFORE async operation to avoid race condition
+                  event.preventDefault()
                   const attached = await attachFilesFromCandidates(fileCandidates)
-                  if (attached) {
-                    event.preventDefault()
-                    return
+                  if (!attached) {
+                    // If attachment failed, manually insert the original text
+                    input.insertText(pastedContent)
                   }
-                  // If attachment failed, allow default paste behavior to continue
+                  return
                 }
 
                 const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
