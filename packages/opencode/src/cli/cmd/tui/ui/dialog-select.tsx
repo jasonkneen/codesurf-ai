@@ -264,17 +264,35 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
             }}
             onKeyDown={(evt) => {
               const name = evt.name?.toLowerCase()
-              // Blur input for navigation keys so they can be handled by global handler
-              if (
-                name === "up" ||
-                name === "down" ||
-                name === "pageup" ||
-                name === "pagedown" ||
-                (evt.ctrl && ["k", "j", "p", "n", "u", "d"].includes(name || ""))
-              ) {
-                if (input && !input.isDestroyed) {
-                  input.blur()
+              // Handle navigation keys directly from input - don't wait for global handler
+              if (name === "up" || (evt.ctrl && (name === "k" || name === "p"))) {
+                evt.preventDefault()
+                move(-1)
+                return
+              }
+              if (name === "down" || (evt.ctrl && (name === "j" || name === "n"))) {
+                evt.preventDefault()
+                move(1)
+                return
+              }
+              if (name === "pageup" || (evt.ctrl && name === "u")) {
+                evt.preventDefault()
+                move(-10)
+                return
+              }
+              if (name === "pagedown" || (evt.ctrl && name === "d")) {
+                evt.preventDefault()
+                move(10)
+                return
+              }
+              if (name === "return") {
+                evt.preventDefault()
+                const option = selected()
+                if (option) {
+                  if (option.onSelect) option.onSelect(dialog)
+                  props.onSelect?.(option)
                 }
+                return
               }
             }}
             focusedBackgroundColor={theme.backgroundPanel}
