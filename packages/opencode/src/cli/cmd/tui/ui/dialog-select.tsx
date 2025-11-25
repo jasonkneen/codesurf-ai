@@ -98,8 +98,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         batch(() => {
           setStore("selected", index)
         })
-        // Defer scroll until after render
-        setTimeout(() => {
+        // Scroll to selected item (use queueMicrotask for immediate but deferred execution)
+        queueMicrotask(() => {
           if (scroll) {
             const target = scroll.getChildren().find((child) => {
               return child.id === JSON.stringify(props.current)
@@ -112,7 +112,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
               }
             }
           }
-        }, 10)
+        })
       }
     }
   })
@@ -300,9 +300,12 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
             focusedTextColor={theme.textMuted}
             ref={(r) => {
               input = r
-              if (input && !input.isDestroyed) {
-                input.focus()
-              }
+              // Ensure input gets focus after render is complete
+              queueMicrotask(() => {
+                if (input && !input.isDestroyed) {
+                  input.focus()
+                }
+              })
             }}
             placeholder="Enter search term"
           />
