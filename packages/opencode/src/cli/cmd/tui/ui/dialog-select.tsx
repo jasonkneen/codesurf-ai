@@ -89,33 +89,31 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   const selected = createMemo(() => flat()[store.selected])
 
-  // Initialize selection to current item if provided
-  createEffect(() => {
-    if (props.current && !store.filter) {
-      const index = flat().findIndex((x) => isDeepEqual(x.value, props.current))
-      if (index !== -1 && index !== store.selected) {
-        // Use batch to avoid triggering multiple updates
-        batch(() => {
-          setStore("selected", index)
-        })
-        // Scroll to selected item (use queueMicrotask for immediate but deferred execution)
-        queueMicrotask(() => {
-          if (scroll) {
-            const target = scroll.getChildren().find((child) => {
-              return child.id === JSON.stringify(props.current)
-            })
-            if (target) {
-              const y = target.y
-              // Center it or scroll to it
-              if (y >= scroll.height) {
-                scroll.scrollBy(y - scroll.height + 1)
-              }
-            }
-          }
-        })
-      }
-    }
-  })
+  // Initialize selection to current item if provided - DISABLED FOR TESTING
+  // The current prop handling seems to cause navigation to lock up
+  // createEffect(() => {
+  //   if (props.current && !store.filter) {
+  //     const index = flat().findIndex((x) => isDeepEqual(x.value, props.current))
+  //     if (index !== -1 && index !== store.selected) {
+  //       batch(() => {
+  //         setStore("selected", index)
+  //       })
+  //       queueMicrotask(() => {
+  //         if (scroll) {
+  //           const target = scroll.getChildren().find((child) => {
+  //             return child.id === JSON.stringify(props.current)
+  //           })
+  //           if (target) {
+  //             const y = target.y
+  //             if (y >= scroll.height) {
+  //               scroll.scrollBy(y - scroll.height + 1)
+  //             }
+  //           }
+  //         }
+  //       })
+  //     }
+  //   }
+  // })
 
   createEffect(() => {
     store.filter
