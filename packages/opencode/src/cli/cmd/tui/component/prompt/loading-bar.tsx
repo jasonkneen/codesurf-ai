@@ -1,7 +1,19 @@
-import { createSignal, onMount, onCleanup } from "solid-js"
+import { createSignal, onMount, onCleanup, createMemo } from "solid-js"
 import { useTheme } from "@tui/context/theme"
+import { createFrames, createColors, type KnightRiderOptions } from "@tui/ui/spinner"
 
-export function LoadingBar() {
+export type LoadingBarVariant = "simple" | "knight-rider"
+
+export interface LoadingBarProps {
+  variant?: LoadingBarVariant
+  /** Knight Rider options - only used when variant is "knight-rider" */
+  knightRiderOptions?: KnightRiderOptions
+}
+
+/**
+ * Simple loading bar - slides filled blocks across
+ */
+function SimpleLoadingBar() {
   const FRAMES = [
     "▱▱▱▱▱▱▱",
     "▱▱▱▱▱▱▱",
@@ -35,3 +47,70 @@ export function LoadingBar() {
   const { theme } = useTheme()
   return <text fg={theme.diffAdded}>{FRAMES[frame()]}</text>
 }
+
+/**
+ * Knight Rider loading bar - red sweeping animation with gradient trail
+ */
+function KnightRiderLoadingBar(props: { options?: KnightRiderOptions }) {
+  const { theme } = useTheme()
+
+  const options = createMemo(() => ({
+    width: 8,
+    style: "diamonds" as const,
+    holdStart: 30,
+    holdEnd: 9,
+    ...props.options,
+  }))
+
+  const frames = createMemo(() => createFrames(options()))
+  const colorGenerator = createMemo(() => createColors(options()))
+
+  const [frameIndex, setFrameIndex] = createSignal(0)
+
+  onMount(() => {
+    const timer = setInterval(() => {
+      setFrameIndex((prev) => (prev + 1) % frames().length)
+    }, 50)
+    onCleanup(() => clearInterval(timer))
+  })
+
+  const currentFrame = createMemo(() => frames()[frameIndex()])
+  const totalFrames = createMemo(() => frames().length)
+
+  return (
+    <text>
+      {currentFrame()
+        .split("")
+        .map((char, charIndex) => {
+          const color = colorGenerator()(frameIndex(), charIndex, totalFrames(), currentFrame().length)
+          return (
+            <span style={{ fg: color }}>
+              {char}
+            </span>
+          )
+        })}
+    </text>
+  )
+}
+
+/**
+ * Swappable LoadingBar component
+ * - "simple": Original sliding blocks animation (green)
+ * - "knight-rider": Red sweeping Knight Rider style animation
+ */
+export function LoadingBar(props: LoadingBarProps = {}) {
+  const variant = () => props.variant ?? "knight-rider"
+
+  return (
+    <>
+      {variant() === "simple" ? (
+        <SimpleLoadingBar />
+      ) : (
+        <KnightRiderLoadingBar options={props.knightRiderOptions} />
+      )}
+    </>
+  )
+}
+
+// Export individual components for direct use
+export { SimpleLoadingBar, KnightRiderLoadingBar }
