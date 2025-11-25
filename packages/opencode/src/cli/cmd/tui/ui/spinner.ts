@@ -1,6 +1,8 @@
 import type { ColorInput } from "@opentui/core"
 import { RGBA } from "@opentui/core"
-import type { ColorGenerator } from "opentui-spinner"
+
+// Type for color generator function - generates colors for each character in the animation
+type ColorGenerator = (frameIndex: number, charIndex: number, totalFrames: number, totalChars: number) => ColorInput
 
 interface AdvancedGradientOptions {
   colors: ColorInput[]

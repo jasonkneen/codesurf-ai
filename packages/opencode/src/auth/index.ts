@@ -1,7 +1,7 @@
 import path from "path"
 import { Global } from "../global"
 import z from "zod"
-import { NamedError } from "../util/error"
+import { NamedError } from "@opencode-ai/util/error"
 import { Log } from "../util/log"
 
 export namespace Auth {

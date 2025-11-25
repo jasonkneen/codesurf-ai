@@ -1,12 +1,15 @@
 import { Log } from "../util/log"
 import { Bus } from "../bus"
-import { generateSpecs, openAPIRouteHandler, validator } from "hono-openapi"
+import { describeRoute, generateSpecs, openAPIRouteHandler, resolver, validator } from "hono-openapi"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
+import { stream, streamSSE } from "hono/streaming"
 import { proxy } from "hono/proxy"
+import { Session } from "../session"
 import z from "zod"
-import { NamedError } from "@opencode-ai/util/error"
+import { Provider } from "../provider/provider"
 import { mapValues } from "remeda"
+import { NamedError } from "@opencode-ai/util/error"
 import { ModelsDev } from "../provider/models"
 import { Ripgrep } from "../file/ripgrep"
 import { Config } from "../config/config"
@@ -17,37 +20,69 @@ import { MessageV2 } from "../session/message-v2"
 import { TuiRoute } from "./tui"
 import { Permission } from "../permission"
 import { Instance } from "../project/instance"
-import { InstanceBootstrap } from "../project/bootstrap"
+import { Agent } from "../agent/agent"
+import { Auth } from "../auth"
+import { Command } from "../command"
+import { ProviderAuth } from "../provider/auth"
+import { Global } from "../global"
+import { ProjectRoute } from "./project"
+import { ToolRegistry } from "../tool/registry"
+import { zodToJsonSchema } from "zod-to-json-schema"
+import { SessionPrompt } from "../session/prompt"
+import { SessionCompaction } from "../session/compaction"
+import { SessionRevert } from "../session/revert"
+import { SessionLock } from "../session/lock"
 import { lazy } from "../util/lazy"
+import { Todo } from "../session/todo"
+import { InstanceBootstrap } from "../project/bootstrap"
+import { MCP } from "../mcp"
 import { Storage } from "../storage/storage"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
-import { Provider } from "../provider/provider"
-import { ProjectRoute } from "./project"
-import { TuiRoute } from "./tui"
+import { TuiEvent } from "@/cli/cmd/tui/event"
+import { Snapshot } from "@/snapshot"
+import { SessionSummary } from "@/session/summary"
+import { GlobalBus } from "@/bus/global"
+import { SessionStatus } from "@/session/status"
+import { ShareNext } from "@/share/share-next"
 
-import {
-  sessionRoutes,
-  configRoutes,
-  favoriteToolsRoutes,
-  providerRoutes,
-  fileRoutes,
-  findRoutes,
-  toolRoutes,
-  mcpRoutes,
-  tuiRoutes,
-  uiRoutes,
-  eventRoutes,
-  globalEventRoutes,
-  agentRoutes,
-  authRoutes,
-  lspRoutes,
-  formatterRoutes,
-  pluginRoutes,
-  commandRoutes,
-  pathRoutes,
-  logRoutes,
-  gitRoutes,
-} from "./routes"
+import { eventRoutes, globalEventRoutes } from "./routes"
+import { authRoutes } from "./routes"
+
+// @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout
+globalThis.AI_SDK_LOG_WARNINGS = false
+
+const ERRORS = {
+  400: {
+    description: "Bad request",
+    content: {
+      "application/json": {
+        schema: resolver(
+          z
+            .object({
+              data: z.any(),
+              errors: z.array(z.record(z.string(), z.any())),
+              success: z.literal(false),
+            })
+            .meta({
+              ref: "BadRequestError",
+            }),
+        ),
+      },
+    },
+  },
+  404: {
+    description: "Not found",
+    content: {
+      "application/json": {
+        schema: resolver(Storage.NotFoundError.Schema),
+      },
+    },
+  },
+} as const
+
+function errors(...codes: number[]) {
+  return Object.fromEntries(codes.map((code) => [code, ERRORS[code as keyof typeof ERRORS]]))
+}
 
 export namespace Server {
   const log = Log.create({ service: "server" })
@@ -166,7 +201,7 @@ export namespace Server {
       .get(
         "/experimental/tool/ids",
         describeRoute({
-          description: "List all tool IDs (including built-in and dynamically registered)",
+          description: "List all tool IDs for a provider/model (including built-in and dynamically registered)",
           operationId: "tool.ids",
           responses: {
             200: {
@@ -180,8 +215,16 @@ export namespace Server {
             ...errors(400),
           },
         }),
+        validator(
+          "query",
+          z.object({
+            provider: z.string(),
+            model: z.string(),
+          }),
+        ),
         async (c) => {
-          return c.json(await ToolRegistry.ids())
+          const { provider, model } = c.req.valid("query")
+          return c.json(await ToolRegistry.ids(provider, model))
         },
       )
       .get(
@@ -604,8 +647,7 @@ export namespace Server {
           }),
         ),
         async (c) => {
-          SessionPrompt.cancel(c.req.valid("param").id)
-          return c.json(true)
+          return c.json(SessionLock.abort(c.req.valid("param").id))
         },
       )
       .post(
@@ -739,24 +781,7 @@ export namespace Server {
         async (c) => {
           const id = c.req.valid("param").id
           const body = c.req.valid("json")
-          const msgs = await Session.messages({ sessionID: id })
-          let currentAgent = "build"
-          for (let i = msgs.length - 1; i >= 0; i--) {
-            const info = msgs[i].info
-            if (info.role === "user") {
-              currentAgent = info.agent || "build"
-              break
-            }
-          }
-          await SessionCompaction.create({
-            sessionID: id,
-            agent: currentAgent,
-            model: {
-              providerID: body.providerID,
-              modelID: body.modelID,
-            },
-          })
-          await SessionPrompt.loop(id)
+          await SessionCompaction.run({ ...body, sessionID: id })
           return c.json(true)
         },
       )

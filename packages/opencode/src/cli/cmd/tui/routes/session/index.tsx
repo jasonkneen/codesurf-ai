@@ -26,7 +26,7 @@ import { useRoute, useRouteData } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { SplitBorder } from "@tui/component/border"
 import { useTheme } from "@tui/context/theme"
-import { BoxRenderable, ScrollBoxRenderable, RGBA, addDefaultParsers, TextAttributes } from "@opentui/core"
+import { BoxRenderable, ScrollBoxRenderable, RGBA, addDefaultParsers, TextAttributes, type ScrollAcceleration } from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
 import type {
   AssistantMessage,
@@ -92,6 +92,16 @@ import { FileViewer } from "@tui/component/file-viewer"
 import { SessionStatus } from "@/session/status"
 
 addDefaultParsers(parsers.parsers)
+
+class CustomSpeedScroll implements ScrollAcceleration {
+  constructor(private speed: number) {}
+
+  tick(_now?: number): number {
+    return this.speed
+  }
+
+  reset(): void {}
+}
 
 const SIDEBAR_WIDTH_STEP = 2
 const LEFT_SIDEBAR_WIDTH_DEFAULT = 30
@@ -1947,8 +1957,8 @@ function UserMessage(props: {
             </Match>
           </Switch>
         </box>
-      </box>
-    </Show>
+      </Show>
+    </>
   )
 }
 
@@ -2072,6 +2082,11 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
 
   // Get session status from SessionStatus module
   const status = createMemo(() => SessionStatus.get(route.sessionID))
+  const sync = useSync()
+  const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  const final = createMemo(() => {
+    return !!props.message.time.completed
+  })
 
   // Group consecutive identical tools
   const partGroups = createMemo(() => {

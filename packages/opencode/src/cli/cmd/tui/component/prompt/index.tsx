@@ -10,7 +10,6 @@ import {
   type KeyBinding,
 } from "@opentui/core"
 import { createEffect, createMemo, Match, Switch, Show, type JSX, batch, onMount, createSignal, onCleanup } from "solid-js"
-import "opentui-spinner/solid"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
 import { SplitBorder, EmptyBorder } from "@tui/component/border"
@@ -38,7 +37,6 @@ import path from "path"
 import { useContextManager, type ContextItem } from "../../context/context"
 import { iife } from "@/util/iife"
 import { Locale } from "@/util/locale"
-import { createColors, createFrames } from "../../ui/spinner.ts"
 
 export type PromptProps = {
   sessionID?: string
@@ -152,6 +150,12 @@ export function Prompt(props: PromptProps) {
     mode: "normal",
     extmarkToPartIndex: new Map(),
     interrupt: 0,
+  })
+
+  const highlight = createMemo(() => {
+    if (keybind.leader) return theme.border
+    if (store.mode === "shell") return theme.primary
+    return local.agent.color(local.agent.current()?.name ?? "")
   })
 
   createEffect(() => {
@@ -671,22 +675,6 @@ export function Prompt(props: PromptProps) {
       dropProcessing = false
     }
   }
-
-  const spinnerDef = createMemo(() => {
-    const color = local.agent.color(local.agent.current().name)
-    return {
-      frames: createFrames({
-        color,
-        style: "blocks",
-        inactiveFactor: 0.25,
-      }),
-      color: createColors({
-        color,
-        style: "blocks",
-        inactiveFactor: 0.25,
-      }),
-    }
-  })
 
   return (
     <>

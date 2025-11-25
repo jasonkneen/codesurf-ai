@@ -11,6 +11,7 @@ import type {
   LspStatus,
   McpStatus,
   FormatterStatus,
+  SessionStatus,
 } from "@opencode-ai/sdk"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
@@ -37,6 +38,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       }
       config: Config
       session: Session[]
+      session_status: {
+        [sessionID: string]: SessionStatus
+      }
       session_diff: {
         [sessionID: string]: Snapshot.FileDiff[]
       }
@@ -71,6 +75,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       provider_next: { all: [] },
       provider_auth: {},
       session: [],
+      session_status: {},
       session_diff: {},
       todo: {},
       message: {},

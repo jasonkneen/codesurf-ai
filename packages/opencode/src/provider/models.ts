@@ -78,13 +78,16 @@ export namespace ModelsDev {
       })
     })
     if (result) return result as Record<string, Provider>
-    const json = await data().catch((error) => {
+    try {
+      const json = await data()
+      if (!json) return {} as Record<string, Provider>
+      return JSON.parse(json) as Record<string, Provider>
+    } catch (error) {
       log.error("failed to load embedded models", {
         error,
       })
-    })
-    if (!json) return {} as Record<string, Provider>
-    return JSON.parse(json) as Record<string, Provider>
+      return {} as Record<string, Provider>
+    }
   }
 
   export async function refresh() {
