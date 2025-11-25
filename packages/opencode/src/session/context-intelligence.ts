@@ -2,9 +2,18 @@ import { Log } from "@/util/log"
 import { Provider } from "@/provider/provider"
 import { generateObject } from "ai"
 import { z } from "zod"
+import { App } from "@/app/app"
+import { readFile, writeFile, mkdir } from "fs/promises"
+import path from "path"
 
 export namespace ContextIntelligence {
   const log = Log.create({ service: "context-intelligence" })
+
+  // Persistence configuration
+  const LEARNING_DATA_FILE = "context-intelligence-learning.json"
+  const SAVE_DEBOUNCE_MS = 5000 // Debounce saves to prevent excessive I/O
+  let saveTimeout: ReturnType<typeof setTimeout> | null = null
+  let isInitialized = false
 
   // Schema for extracted entities and tasks
   const AnalysisSchema = z.object({
@@ -43,23 +52,136 @@ export namespace ContextIntelligence {
 
   type ContextAnalysis = z.infer<typeof AnalysisSchema>
 
-  // In-memory store for learning data
-  let learningData: {
+  // Learning data structure (persisted to disk)
+  interface LearningData {
     userOverrides: Array<{
       contextId: string
       originalPrediction: string
       userChoice: string
-      timestamp: Date
+      timestamp: string // ISO string for JSON serialization
     }>
     messageOutcomes: Array<{
       sessionId: string
       contextUsed: string[]
       success: boolean
-      timestamp: Date
+      timestamp: string // ISO string for JSON serialization
     }>
-  } = {
+    version: number // For future schema migrations
+  }
+
+  // In-memory store for learning data
+  let learningData: LearningData = {
     userOverrides: [],
     messageOutcomes: [],
+    version: 1,
+  }
+
+  /**
+   * Get the path to the learning data file
+   */
+  async function getLearningDataPath(): Promise<string> {
+    const app = await App.provide()
+    return path.join(app.path.data, LEARNING_DATA_FILE)
+  }
+
+  /**
+   * Initialize learning data from disk (call once at startup)
+   */
+  export async function initialize(): Promise<void> {
+    if (isInitialized) return
+
+    try {
+      const filePath = await getLearningDataPath()
+      const data = await readFile(filePath, "utf-8")
+      const parsed = JSON.parse(data) as LearningData
+
+      // Validate and migrate if needed
+      if (parsed.version === 1) {
+        learningData = parsed
+        log.info("Loaded learning data from disk", {
+          overrides: learningData.userOverrides.length,
+          outcomes: learningData.messageOutcomes.length,
+        })
+      }
+    } catch (error) {
+      // File doesn't exist or is invalid - start fresh
+      log.info("Starting with fresh learning data", { reason: String(error) })
+    }
+
+    isInitialized = true
+  }
+
+  /**
+   * Save learning data to disk (debounced)
+   */
+  function scheduleSave(): void {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout)
+    }
+
+    saveTimeout = setTimeout(async () => {
+      try {
+        const filePath = await getLearningDataPath()
+        const dir = path.dirname(filePath)
+
+        // Ensure directory exists
+        await mkdir(dir, { recursive: true })
+
+        await writeFile(filePath, JSON.stringify(learningData, null, 2))
+        log.info("Saved learning data to disk", {
+          overrides: learningData.userOverrides.length,
+          outcomes: learningData.messageOutcomes.length,
+        })
+      } catch (error) {
+        log.error("Failed to save learning data", { error })
+      }
+    }, SAVE_DEBOUNCE_MS)
+  }
+
+  /**
+   * Force immediate save (call on shutdown)
+   */
+  export async function flush(): Promise<void> {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout)
+      saveTimeout = null
+    }
+
+    try {
+      const filePath = await getLearningDataPath()
+      const dir = path.dirname(filePath)
+      await mkdir(dir, { recursive: true })
+      await writeFile(filePath, JSON.stringify(learningData, null, 2))
+      log.info("Flushed learning data to disk")
+    } catch (error) {
+      log.error("Failed to flush learning data", { error })
+    }
+  }
+
+  /**
+   * Get learning statistics
+   */
+  export function getStats(): {
+    overrideCount: number
+    outcomeCount: number
+    successRate: number
+    lastUpdated: string | null
+  } {
+    const outcomes = learningData.messageOutcomes
+    const successRate = outcomes.length > 0 ? outcomes.filter((o) => o.success).length / outcomes.length : 0
+
+    const allTimestamps = [
+      ...learningData.userOverrides.map((o) => o.timestamp),
+      ...learningData.messageOutcomes.map((o) => o.timestamp),
+    ]
+    const lastUpdated = allTimestamps.length > 0 ? allTimestamps.sort().pop() || null : null
+
+    return {
+      overrideCount: learningData.userOverrides.length,
+      outcomeCount: outcomes.length,
+      successRate,
+      lastUpdated,
+    }
   }
 
   /**
@@ -290,33 +412,34 @@ Extract actionable entities, potential tasks, assess relevance, and predict prio
   }
 
   /**
-   * Track user override for learning
+   * Track user override for learning (persisted to disk)
    */
   export function trackUserOverride(contextId: string, originalPrediction: string, userChoice: string) {
     learningData.userOverrides.push({
       contextId,
       originalPrediction,
       userChoice,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     })
 
-    // Keep only last 100 overrides to prevent memory bloat
+    // Keep only last 100 overrides to prevent bloat
     if (learningData.userOverrides.length > 100) {
       learningData.userOverrides = learningData.userOverrides.slice(-100)
     }
 
     log.info("Tracked user override", { contextId, originalPrediction, userChoice })
+    scheduleSave() // Persist to disk
   }
 
   /**
-   * Track message outcome for learning
+   * Track message outcome for learning (persisted to disk)
    */
   export function trackMessageOutcome(sessionId: string, contextUsed: string[], success: boolean) {
     learningData.messageOutcomes.push({
       sessionId,
       contextUsed,
       success,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     })
 
     // Keep only last 200 outcomes
@@ -325,6 +448,7 @@ Extract actionable entities, potential tasks, assess relevance, and predict prio
     }
 
     log.info("Tracked message outcome", { sessionId, contextUsed, success })
+    scheduleSave() // Persist to disk
   }
 
   /**
