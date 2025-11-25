@@ -89,16 +89,14 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   const selected = createMemo(() => flat()[store.selected])
 
-  // Initialize selection to current item if provided
-  // Note: Removed the scroll-to-current logic as it was causing navigation to lock up
-  createEffect(() => {
-    if (props.current && !store.filter) {
-      const index = flat().findIndex((x) => isDeepEqual(x.value, props.current))
-      if (index !== -1 && index !== store.selected) {
-        setStore("selected", index)
-      }
+  // Initialize selection to current item ONCE on mount (not reactive)
+  // Using untrack to prevent this from re-running when selection changes
+  if (props.current) {
+    const index = flat().findIndex((x) => isDeepEqual(x.value, props.current))
+    if (index !== -1) {
+      setStore("selected", index)
     }
-  })
+  }
 
   createEffect(() => {
     store.filter
