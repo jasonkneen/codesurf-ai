@@ -340,7 +340,7 @@ export function Session() {
   const sync = useSync()
   const kv = useKV()
   const { theme } = useTheme()
-  const session = createMemo(() => sync.session.get(route.sessionID)!)
+  const session = createMemo(() => sync.session.get(route.sessionID))
 
   // Track open session tabs
   const [openTabs, setOpenTabs] = createSignal<string[]>(kv.get("openTabs", []))
@@ -798,7 +798,7 @@ export function Session() {
       keybind: "messages_undo",
       category: "Session",
       onSelect: (dialog) => {
-        const revert = session().revert?.messageID
+        const revert = session()?.revert?.messageID
         const message = messages().findLast((x) => (!revert || x.id < revert) && x.role === "user")
         if (!message) return
         sdk.client.session.revert({
@@ -833,7 +833,7 @@ export function Session() {
       category: "Session",
       onSelect: (dialog) => {
         dialog.clear()
-        const messageID = session().revert?.messageID
+        const messageID = session()?.revert?.messageID
         if (!messageID) return
         const message = messages().find((x) => x.role === "user" && x.id > messageID)
         if (!message) {

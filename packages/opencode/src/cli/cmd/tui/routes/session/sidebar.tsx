@@ -296,7 +296,7 @@ export function Sidebar(props: {
   })
 
   const uiExtensions = useUIExtensions()
-  const session = createMemo(() => sync.session.get(props.sessionID)!)
+  const session = createMemo(() => sync.session.get(props.sessionID))
   const diff = createMemo(() => sync.data.session_diff[props.sessionID] ?? [])
   const serverTodos = createMemo(() => sync.data.todo[props.sessionID] ?? [])
 
@@ -602,7 +602,9 @@ export function Sidebar(props: {
   // Check which files are committed
   const checkCommittedFiles = async () => {
     try {
-      const diffs = session().summary?.diffs || []
+      const s = session()
+      if (!s) return
+      const diffs = s.summary?.diffs || []
       if (diffs.length === 0) return
 
       const { $ } = await import("bun")
