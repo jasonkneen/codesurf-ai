@@ -8,7 +8,7 @@ import { mergeDeep, pipe } from "remeda"
 import { Global } from "../global"
 import fs from "fs/promises"
 import { lazy } from "../util/lazy"
-import { NamedError } from "../util/error"
+import { NamedError } from "@opencode-ai/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
 import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
@@ -438,7 +438,7 @@ export namespace Config {
     })
 
   export const TUI = z.object({
-    scroll_speed: z.number().min(0.001).optional().default(1).describe("TUI scroll speed"),
+    scroll_speed: z.number().min(0.001).optional().describe("TUI scroll speed"),
     scroll_acceleration: z
       .object({
         enabled: z.boolean().describe("Enable scroll acceleration"),
@@ -479,7 +479,12 @@ export namespace Config {
         .boolean()
         .optional()
         .describe("@deprecated Use 'share' field instead. Share newly created sessions automatically"),
-      autoupdate: z.boolean().optional().describe("Automatically update to the latest version"),
+      autoupdate: z
+        .union([z.boolean(), z.literal("notify")])
+        .optional()
+        .describe(
+          "Automatically update to the latest version. Set to true to auto-update, false to disable, or 'notify' to show update notifications",
+        ),
       disabled_providers: z.array(z.string()).optional().describe("Disable providers that are loaded automatically"),
       enabled_providers: z
         .array(z.string())
