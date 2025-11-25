@@ -262,10 +262,6 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                 props.onFilter?.(e)
               })
             }}
-            onKeyDown={(evt) => {
-              // Let navigation keys bubble up to global handler
-              // Only handle input-specific behavior here if needed
-            }}
             focusedBackgroundColor={theme.backgroundPanel}
             cursorColor={theme.primary}
             focusedTextColor={theme.textMuted}
