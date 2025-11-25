@@ -89,31 +89,16 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   const selected = createMemo(() => flat()[store.selected])
 
-  // Initialize selection to current item if provided - DISABLED FOR TESTING
-  // The current prop handling seems to cause navigation to lock up
-  // createEffect(() => {
-  //   if (props.current && !store.filter) {
-  //     const index = flat().findIndex((x) => isDeepEqual(x.value, props.current))
-  //     if (index !== -1 && index !== store.selected) {
-  //       batch(() => {
-  //         setStore("selected", index)
-  //       })
-  //       queueMicrotask(() => {
-  //         if (scroll) {
-  //           const target = scroll.getChildren().find((child) => {
-  //             return child.id === JSON.stringify(props.current)
-  //           })
-  //           if (target) {
-  //             const y = target.y
-  //             if (y >= scroll.height) {
-  //               scroll.scrollBy(y - scroll.height + 1)
-  //             }
-  //           }
-  //         }
-  //       })
-  //     }
-  //   }
-  // })
+  // Initialize selection to current item if provided
+  // Note: Removed the scroll-to-current logic as it was causing navigation to lock up
+  createEffect(() => {
+    if (props.current && !store.filter) {
+      const index = flat().findIndex((x) => isDeepEqual(x.value, props.current))
+      if (index !== -1 && index !== store.selected) {
+        setStore("selected", index)
+      }
+    }
+  })
 
   createEffect(() => {
     store.filter
