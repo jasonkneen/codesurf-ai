@@ -53,7 +53,7 @@ export function Header() {
   const sdk = useSDK()
   const dialog = useDialog()
   const renderer = useRenderer()
-  const session = createMemo(() => sync.session.get(route.sessionID)!)
+  const session = createMemo(() => sync.session.get(route.sessionID))
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const serverStatus = useServerStatus()
 
@@ -125,12 +125,13 @@ export function Header() {
   const { theme } = useTheme()
 
   return (
+    <Show when={session()} fallback={<box paddingLeft={1} paddingRight={1} {...SplitBorder} borderColor={theme.backgroundElement} flexShrink={0} />}>
     <box paddingLeft={1} paddingRight={1} {...SplitBorder} borderColor={theme.backgroundElement} flexShrink={0}>
       <box flexDirection="row" justifyContent="space-between" alignItems="center" gap={2}>
         <box flexDirection="row" gap={2} alignItems="center">
           <text fg={theme.text}>
             <span style={{ bold: true, fg: theme.accent }}>#</span>{" "}
-            <span style={{ bold: true }}>{session().title}</span>
+            <span style={{ bold: true }}>{session()!.title}</span>
           </text>
           <text
             fg={theme.textMuted}
@@ -183,5 +184,6 @@ export function Header() {
         </box>
       </Show>
     </box>
+    </Show>
   )
 }
