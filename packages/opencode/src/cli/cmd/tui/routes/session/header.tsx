@@ -22,12 +22,26 @@ const Title = (props: { session: Accessor<Session> }) => {
   )
 }
 
-const ContextInfo = (props: { context: Accessor<string | undefined>; cost: Accessor<string> }) => {
+const ContextInfo = (props: {
+  context: Accessor<{ display: string; percent: number | null } | undefined>
+  cost: Accessor<string>
+}) => {
   const { theme } = useTheme()
+
+  // Color code based on context usage percentage
+  const contextColor = createMemo(() => {
+    const ctx = props.context()
+    if (!ctx || ctx.percent === null) return theme.textMuted
+    if (ctx.percent > 85) return theme.error // Red: critical
+    if (ctx.percent > 70) return theme.warning // Yellow: warning
+    if (ctx.percent > 50) return theme.accent // Accent: moderate
+    return theme.success // Green: healthy
+  })
+
   return (
     <Show when={props.context()}>
-      <text fg={theme.textMuted} wrapMode="none" flexShrink={0}>
-        {props.context()} ({props.cost()})
+      <text fg={contextColor()} wrapMode="none" flexShrink={0}>
+        {props.context()!.display} ({props.cost()})
       </text>
     </Show>
   )
@@ -92,15 +106,20 @@ export function Header() {
 
   const context = createMemo(() => {
     const last = messages().findLast((x) => x.role === "assistant" && x.tokens.output > 0) as AssistantMessage
-    if (!last) return
+    if (!last) return undefined
     const total =
       last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
     const model = sync.data.provider.find((x) => x.id === last.providerID)?.models[last.modelID]
-    let result = total.toLocaleString()
+
+    let display = total.toLocaleString()
+    let percent: number | null = null
+
     if (model?.limit.context) {
-      result += "/" + Math.round((total / model.limit.context) * 100) + "%"
+      percent = Math.round((total / model.limit.context) * 100)
+      display += "/" + percent + "%"
     }
-    return result
+
+    return { display, percent }
   })
 
   const { theme } = useTheme()

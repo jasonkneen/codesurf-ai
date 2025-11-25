@@ -131,7 +131,7 @@ export function Prompt(props: PromptProps) {
       })
     } catch (error) {
       console.error("[Prompt] Failed to stop session", error)
-      toast.show({ message: "Failed to stop session", variant: "error" })
+      toast.show({ message: "❌ Failed to stop • Try pressing ESC again", variant: "error" })
     } finally {
       aborting = false
     }
@@ -345,7 +345,7 @@ export function Prompt(props: PromptProps) {
       // Handle special /voice command locally
       if (commandName === "voice") {
         toast.show({
-          message: "Voice commands have been removed. LiveKit integration is no longer available.",
+          message: "🎤 Voice commands are not available in this version",
           variant: "error",
         })
         input.extmarks.clear()
@@ -491,6 +491,13 @@ export function Prompt(props: PromptProps) {
         draft.extmarkToPartIndex.set(extmarkId, partIndex)
       }),
     )
+
+    // Delight: Show feedback when file is attached
+    const emoji = file.mime.startsWith("image/") ? "🖼️" : "📄"
+    toast.show({
+      message: `${emoji} Attached ${file.filename || "file"}`,
+      variant: "success",
+    })
   }
 
   const MIME_HINTS: Record<string, string> = {
@@ -901,28 +908,36 @@ export function Prompt(props: PromptProps) {
               cursorColor={highlight()}
               syntaxStyle={syntax()}
             />
-            <box paddingTop={2} height={1} flexDirection="row" alignItems="center">
-              <text>
-                {(() => {
-                  const agent = local.agent.current()
-                  const rawName = agent?.name ?? "Agent"
-                  const agentName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
-                  const agentColor = local.agent.color(rawName)
-                  const parsed = local.model.parsed()
-                  const provider = parsed?.provider ?? "Provider"
-                  const model = parsed?.model ?? "Model"
-                  const latest = parsed?.model ? " (latest)" : ""
+            <box paddingTop={2} height={1} flexDirection="row" alignItems="center" gap={2}>
+              <Show when={store.mode === "shell"}>
+                <text>
+                  <span style={{ fg: theme.secondary, bold: true }}>⚡ SHELL</span>
+                  <span style={{ fg: theme.textMuted }}> (ESC to exit)</span>
+                </text>
+              </Show>
+              <Show when={store.mode !== "shell"}>
+                <text>
+                  {(() => {
+                    const agent = local.agent.current()
+                    const rawName = agent?.name ?? "Agent"
+                    const agentName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
+                    const agentColor = local.agent.color(rawName)
+                    const parsed = local.model.parsed()
+                    const provider = parsed?.provider ?? "Provider"
+                    const model = parsed?.model ?? "Model"
+                    const latest = parsed?.model ? " (latest)" : ""
 
-                  return (
-                    <>
-                      <span style={{ fg: agentColor }}>{agentName}</span>
-                      <span style={{ fg: theme.textMuted }}> {provider} </span>
-                      <span style={{ fg: theme.text, bold: true }}>{model}</span>
-                      <span style={{ fg: theme.textMuted }}>{latest}</span>
-                    </>
-                  )
-                })()}
-              </text>
+                    return (
+                      <>
+                        <span style={{ fg: agentColor }}>{agentName}</span>
+                        <span style={{ fg: theme.textMuted }}> {provider} </span>
+                        <span style={{ fg: theme.text, bold: true }}>{model}</span>
+                        <span style={{ fg: theme.textMuted }}>{latest}</span>
+                      </>
+                    )
+                  })()}
+                </text>
+              </Show>
             </box>
           </box>
           <box backgroundColor={theme.backgroundElement} width={1} justifyContent="center" alignItems="center"></box>
