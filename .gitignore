@@ -39,3 +39,4 @@ packages/opencode/test-kitty-simple.ts
 packages/opencode/test-kitty-red-pixel.ts
 packages/opencode/test-kitty-graphics.ts
 packages/opencode/cs-test/
+packages/opencode/.env.local
