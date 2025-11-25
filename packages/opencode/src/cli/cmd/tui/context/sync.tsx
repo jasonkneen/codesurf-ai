@@ -121,6 +121,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     sdk.event.listen((e) => {
       const event = e.details
+      try {
       switch (event.type) {
         case "permission.updated": {
           // Sanitize permission to ensure title is a string
@@ -284,6 +285,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           sdk.client.lsp.status().then((x) => setStore("lsp", x.data!))
           break
         }
+      }
+      } catch (err) {
+        console.error("[Sync] Event handler error:", event.type, err)
       }
     })
 
