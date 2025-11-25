@@ -158,6 +158,10 @@ function init() {
     replace(input: any, onClose?: () => void) {
       if (store.stack.length === 0) {
         focus = renderer.currentFocusedRenderable
+        // Blur the currently focused element so dialog can capture keyboard events
+        if (focus && !focus.isDestroyed && typeof focus.blur === "function") {
+          focus.blur()
+        }
       }
       for (const item of store.stack) {
         if (item.onClose) item.onClose()

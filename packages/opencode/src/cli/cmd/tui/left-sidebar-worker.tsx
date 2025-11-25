@@ -69,7 +69,7 @@ export default function LeftSidebarWorker(props: {
       client = Rpc.client<typeof LeftSidebarRpc>(worker)
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Worker init timeout")), 3000),
+        setTimeout(() => reject(new Error("Worker init timeout")), 10000),
       )
 
       const result = (await Promise.race([

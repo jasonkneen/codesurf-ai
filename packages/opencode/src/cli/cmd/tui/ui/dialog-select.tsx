@@ -262,6 +262,21 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                 props.onFilter?.(e)
               })
             }}
+            onKeyDown={(evt) => {
+              const name = evt.name?.toLowerCase()
+              // Blur input for navigation keys so they can be handled by global handler
+              if (
+                name === "up" ||
+                name === "down" ||
+                name === "pageup" ||
+                name === "pagedown" ||
+                (evt.ctrl && ["k", "j", "p", "n", "u", "d"].includes(name || ""))
+              ) {
+                if (input && !input.isDestroyed) {
+                  input.blur()
+                }
+              }
+            }}
             focusedBackgroundColor={theme.backgroundPanel}
             cursorColor={theme.primary}
             focusedTextColor={theme.textMuted}

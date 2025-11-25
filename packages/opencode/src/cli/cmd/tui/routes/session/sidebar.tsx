@@ -490,16 +490,21 @@ export function Sidebar(props: {
   }
 
   // Load favorite tools from config (one-time load, no polling)
+  // Silently fails if endpoint doesn't exist - feature is optional
   const loadFavorites = async () => {
     try {
       const response = await fetch(`${sdk.url}/favorite-tools`)
       if (response.ok) {
-        const favorites: { project: string[]; global: string[] } = await response.json()
-        setProjectFavorites(new Set(favorites.project || []))
-        setGlobalFavorites(new Set(favorites.global || []))
+        const text = await response.text()
+        if (text && text.startsWith("{")) {
+          const favorites: { project: string[]; global: string[] } = JSON.parse(text)
+          setProjectFavorites(new Set(favorites.project || []))
+          setGlobalFavorites(new Set(favorites.global || []))
+        }
       }
-    } catch (error) {
-      console.error("Failed to load favorite tools", error)
+      // Silently ignore 404s - endpoint may not exist yet
+    } catch {
+      // Silently fail - favorite tools feature is optional
     }
   }
 
@@ -516,6 +521,7 @@ export function Sidebar(props: {
   }
 
   // Cycle through favorite states: none → project → global → none
+  // Uses local state fallback if backend endpoint doesn't exist
   const cycleFavorite = async (toolId: string) => {
     try {
       const response = await fetch(`${sdk.url}/favorite-tools/cycle`, {
@@ -524,15 +530,42 @@ export function Sidebar(props: {
         body: JSON.stringify({ toolId }),
       })
 
-      const responseText = await response.text()
+      // If endpoint doesn't exist (404), use local state cycling
+      if (response.status === 404) {
+        const currentLevel = getFavoriteLevel(toolId)
+        const nextLevel: "none" | "project" | "global" =
+          currentLevel === "none" ? "project" : currentLevel === "project" ? "global" : "none"
 
-      let result: { toolId: string; level: "none" | "project" | "global" }
-      try {
-        result = JSON.parse(responseText)
-      } catch (e) {
-        console.error("[Sidebar] Failed to parse response:", e)
-        throw new Error(`Invalid JSON response: ${responseText}`)
+        // Update local state only
+        setProjectFavorites((prev) => {
+          const newSet = new Set(prev)
+          if (nextLevel === "project") newSet.add(toolId)
+          else newSet.delete(toolId)
+          return newSet
+        })
+        setGlobalFavorites((prev) => {
+          const newSet = new Set(prev)
+          if (nextLevel === "global") newSet.add(toolId)
+          else newSet.delete(toolId)
+          return newSet
+        })
+
+        const messages: Record<"none" | "project" | "global", string> = {
+          none: "Removed from favorites",
+          project: "Added to project favorites (local)",
+          global: "Added to global favorites (local)",
+        }
+        toast.show({ variant: "info", message: messages[nextLevel] })
+        return
       }
+
+      const responseText = await response.text()
+      if (!responseText || !responseText.startsWith("{")) {
+        toast.show({ variant: "error", message: "Invalid server response" })
+        return
+      }
+
+      const result: { toolId: string; level: "none" | "project" | "global" } = JSON.parse(responseText)
 
       if (response.ok) {
         const level = result.level
@@ -540,25 +573,18 @@ export function Sidebar(props: {
         // Update local state
         setProjectFavorites((prev) => {
           const newSet = new Set(prev)
-          if (level === "project") {
-            newSet.add(toolId)
-          } else {
-            newSet.delete(toolId)
-          }
+          if (level === "project") newSet.add(toolId)
+          else newSet.delete(toolId)
           return newSet
         })
 
         setGlobalFavorites((prev) => {
           const newSet = new Set(prev)
-          if (level === "global") {
-            newSet.add(toolId)
-          } else {
-            newSet.delete(toolId)
-          }
+          if (level === "global") newSet.add(toolId)
+          else newSet.delete(toolId)
           return newSet
         })
 
-        // Show toast notification
         const messages: Record<"none" | "project" | "global", string> = {
           none: "Removed from favorites",
           project: "Added to project favorites",
@@ -566,14 +592,9 @@ export function Sidebar(props: {
         }
         toast.show({ variant: "info", message: messages[level] })
       } else {
-        console.error("[Sidebar] Cycle request failed with status:", response.status)
-        toast.show({
-          variant: "error",
-          message: `Failed to update favorite (status ${response.status})`,
-        })
+        toast.show({ variant: "error", message: `Failed to update favorite` })
       }
-    } catch (error) {
-      console.error("[Sidebar] Failed to cycle favorite", error)
+    } catch {
       toast.show({ variant: "error", message: "Failed to update favorite" })
     }
   }
