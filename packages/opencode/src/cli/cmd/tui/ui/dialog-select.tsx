@@ -158,6 +158,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   useKeyboard((evt) => {
     const name = evt.name?.toLowerCase()
+    console.log("[DialogSelect] useKeyboard:", name, "ctrl:", evt.ctrl, "inputFocused:", input?.focused)
 
     // Handle navigation keys first - they take priority
     if (name === "up" || (evt.ctrl && name === "k") || (evt.ctrl && name === "p")) {
@@ -264,6 +265,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
             }}
             onKeyDown={(evt) => {
               const name = evt.name?.toLowerCase()
+              console.log("[DialogSelect] onKeyDown:", name, "ctrl:", evt.ctrl, "focused:", input?.focused)
               // Handle navigation keys directly from input - don't wait for global handler
               if (name === "up" || (evt.ctrl && (name === "k" || name === "p"))) {
                 evt.preventDefault()
