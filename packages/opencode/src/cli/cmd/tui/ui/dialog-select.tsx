@@ -159,31 +159,26 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   useKeyboard((evt) => {
     const name = evt.name?.toLowerCase()
 
-    // Refocus input for typing events (not navigation keys)
-    if (
-      evt.sequence &&
-      !["up", "down", "left", "right", "pageup", "pagedown", "return", "escape"].includes(name || "")
-    ) {
-      if (input && !input.isDestroyed && !input.focused && !evt.ctrl && !evt.meta) {
-        input.focus()
-      }
-    }
-
+    // Handle navigation keys first - they take priority
     if (name === "up" || (evt.ctrl && name === "k") || (evt.ctrl && name === "p")) {
       evt.preventDefault()
       move(-1)
+      return
     }
     if (name === "down" || (evt.ctrl && name === "j") || (evt.ctrl && name === "n")) {
       evt.preventDefault()
       move(1)
+      return
     }
     if (name === "pageup" || (evt.ctrl && name === "u")) {
       evt.preventDefault()
       move(-10)
+      return
     }
     if (name === "pagedown" || (evt.ctrl && name === "d")) {
       evt.preventDefault()
       move(10)
+      return
     }
     if (props.collapsibleDescriptions && (name === "right" || name === "space")) {
       evt.preventDefault()
@@ -191,20 +186,24 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
       if (option) {
         setStore("expandedValue", (prev) => (isDeepEqual(prev, option.value) ? null : option.value))
       }
+      return
     }
     if (props.collapsibleDescriptions && name === "left") {
       evt.preventDefault()
       setStore("expandedValue", null)
+      return
     }
-    if (name === "return" || (evt.ctrl && name === "return")) {
+    if (name === "return") {
+      evt.preventDefault()
       const option = selected()
       if (option) {
-        // evt.preventDefault()
         if (option.onSelect) option.onSelect(dialog)
         props.onSelect?.(option)
       }
+      return
     }
 
+    // Check custom keybinds
     for (const item of props.keybind ?? []) {
       const parsedEvt = { ...evt, source: "raw" as const }
       const parsed = keybind.parse(parsedEvt)
@@ -214,6 +213,14 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
           evt.preventDefault()
           item.onTrigger(s)
         }
+        return
+      }
+    }
+
+    // Refocus input for typing events (not navigation keys)
+    if (evt.sequence && !evt.ctrl && !evt.meta) {
+      if (input && !input.isDestroyed && !input.focused) {
+        input.focus()
       }
     }
   })
@@ -256,43 +263,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
               })
             }}
             onKeyDown={(evt) => {
-              const name = evt.name?.toLowerCase()
-              if (name === "up" || (evt.ctrl && name === "p")) {
-                evt.preventDefault()
-                move(-1)
-              }
-              if (name === "down" || (evt.ctrl && name === "n")) {
-                evt.preventDefault()
-                move(1)
-              }
-              if (name === "pageup") {
-                evt.preventDefault()
-                move(-10)
-              }
-              if (name === "pagedown") {
-                evt.preventDefault()
-                move(10)
-              }
-              if (name === "return") {
-                const option = selected()
-                if (option) {
-                  evt.preventDefault()
-                  if (option.onSelect) option.onSelect(dialog)
-                  props.onSelect?.(option)
-                }
-              }
-
-              for (const item of props.keybind ?? []) {
-                const parsedEvt = { ...evt, source: "raw" as const }
-                const parsed = keybind.parse(parsedEvt)
-                if (Keybind.match(item.keybind, parsed)) {
-                  const s = selected()
-                  if (s) {
-                    evt.preventDefault()
-                    item.onTrigger(s)
-                  }
-                }
-              }
+              // Let navigation keys bubble up to global handler
+              // Only handle input-specific behavior here if needed
             }}
             focusedBackgroundColor={theme.backgroundPanel}
             cursorColor={theme.primary}

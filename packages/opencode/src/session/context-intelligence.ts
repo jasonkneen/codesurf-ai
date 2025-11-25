@@ -2,14 +2,14 @@ import { Log } from "@/util/log"
 import { Provider } from "@/provider/provider"
 import { generateObject } from "ai"
 import { z } from "zod"
-import { App } from "@/app/app"
-import { readFile, writeFile, mkdir } from "fs/promises"
+import { mkdir, readFile, writeFile } from "fs/promises"
 import path from "path"
 
 export namespace ContextIntelligence {
   const log = Log.create({ service: "context-intelligence" })
 
-  // Persistence configuration
+  // Persistence configuration - store in .opencode directory
+  const LEARNING_DATA_DIR = ".opencode"
   const LEARNING_DATA_FILE = "context-intelligence-learning.json"
   const SAVE_DEBOUNCE_MS = 5000 // Debounce saves to prevent excessive I/O
   let saveTimeout: ReturnType<typeof setTimeout> | null = null
@@ -79,9 +79,8 @@ export namespace ContextIntelligence {
   /**
    * Get the path to the learning data file
    */
-  async function getLearningDataPath(): Promise<string> {
-    const app = await App.provide()
-    return path.join(app.path.data, LEARNING_DATA_FILE)
+  function getLearningDataPath(): string {
+    return path.join(process.cwd(), LEARNING_DATA_DIR, LEARNING_DATA_FILE)
   }
 
   /**
@@ -91,7 +90,7 @@ export namespace ContextIntelligence {
     if (isInitialized) return
 
     try {
-      const filePath = await getLearningDataPath()
+      const filePath = getLearningDataPath()
       const data = await readFile(filePath, "utf-8")
       const parsed = JSON.parse(data) as LearningData
 
@@ -121,7 +120,7 @@ export namespace ContextIntelligence {
 
     saveTimeout = setTimeout(async () => {
       try {
-        const filePath = await getLearningDataPath()
+        const filePath = getLearningDataPath()
         const dir = path.dirname(filePath)
 
         // Ensure directory exists
@@ -148,7 +147,7 @@ export namespace ContextIntelligence {
     }
 
     try {
-      const filePath = await getLearningDataPath()
+      const filePath = getLearningDataPath()
       const dir = path.dirname(filePath)
       await mkdir(dir, { recursive: true })
       await writeFile(filePath, JSON.stringify(learningData, null, 2))
