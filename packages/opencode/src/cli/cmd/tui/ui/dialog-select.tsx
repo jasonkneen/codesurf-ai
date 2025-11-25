@@ -376,14 +376,13 @@ function Option(props: {
 
   return (
     <>
-      <Show when={props.current}>
-        <text flexShrink={0} fg={props.active ? fg : props.current ? theme.primary : theme.text} marginRight={0.5}>
-          ●
-        </text>
-      </Show>
+      {/* Fixed-width indicator column - always reserves space */}
+      <text flexShrink={0} width={2} fg={props.current ? theme.primary : RGBA.fromInts(0, 0, 0, 0)}>
+        {props.current ? "●" : " "}
+      </text>
       <text
         flexGrow={1}
-        fg={props.active ? fg : props.current ? theme.primary : theme.text}
+        fg={props.active ? fg : theme.text}
         attributes={props.active ? TextAttributes.BOLD : undefined}
         overflow="hidden"
         wrapMode="none"
