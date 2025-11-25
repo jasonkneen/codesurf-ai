@@ -9,7 +9,8 @@ import {
   fg,
   type KeyBinding,
 } from "@opentui/core"
-import { createEffect, createMemo, Match, Switch, Show, type JSX, batch } from "solid-js"
+import { createEffect, createMemo, Match, Switch, Show, type JSX, batch, onMount, createSignal, onCleanup } from "solid-js"
+import "opentui-spinner/solid"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
 import { SplitBorder, EmptyBorder } from "@tui/component/border"
@@ -35,6 +36,9 @@ import { useToast } from "../../ui/toast"
 import { Perf } from "@/util/perf"
 import path from "path"
 import { useContextManager, type ContextItem } from "../../context/context"
+import { iife } from "@/util/iife"
+import { Locale } from "@/util/locale"
+import { createColors, createFrames } from "../../ui/spinner.ts"
 
 export type PromptProps = {
   sessionID?: string
@@ -668,6 +672,22 @@ export function Prompt(props: PromptProps) {
     }
   }
 
+  const spinnerDef = createMemo(() => {
+    const color = local.agent.color(local.agent.current().name)
+    return {
+      frames: createFrames({
+        color,
+        style: "blocks",
+        inactiveFactor: 0.25,
+      }),
+      color: createColors({
+        color,
+        style: "blocks",
+        inactiveFactor: 0.25,
+      }),
+    }
+  })
+
   return (
     <>
       <Autocomplete
@@ -888,7 +908,7 @@ export function Prompt(props: PromptProps) {
               ref={(r: TextareaRenderable) => (input = r)}
               onMouseDown={(r: MouseEvent) => r.target?.focus()}
               focusedBackgroundColor={theme.backgroundElement}
-              cursorColor={theme.primary}
+              cursorColor={highlight()}
               syntaxStyle={syntax()}
             />
             <box paddingTop={2} height={1} flexDirection="row" alignItems="center">

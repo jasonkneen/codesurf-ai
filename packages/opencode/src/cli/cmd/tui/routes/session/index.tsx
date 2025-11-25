@@ -535,6 +535,10 @@ export function Session() {
       })
   })
 
+  const speedScroll = createMemo(() => {
+    return new CustomSpeedScroll(process.platform === "win32" ? 3 : 1)
+  })
+
   const contentWidth = createMemo(() => {
     const leftWidth = leftSidebarVisible() ? leftSidebarWidth() : 0
     const rightWidth = rightSidebarVisible() ? rightSidebarWidth() : 0
@@ -1891,33 +1895,32 @@ function UserMessage(props: {
   }
 
   return (
-    <Show when={text() || hasFiles()}>
-      <box
-        id={props.message.id}
-        onMouseOver={() => {
-          setHover(true)
-        }}
-        onMouseOut={() => {
-          setHover(false)
-        }}
-        onMouseUp={props.onMouseUp}
-        border={["left"]}
-        paddingTop={1}
-        paddingBottom={1}
-        paddingLeft={2}
-        marginTop={1}
-        backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
-        customBorderChars={SplitBorder.customBorderChars}
-        borderColor={color()}
-        flexShrink={0}
-      >
-        <box flexDirection="column" gap={0}>
-          <box flexDirection="column" flexGrow={1} gap={hasFiles() ? 1 : 0}>
-            <Show when={!hasFiles()}>
-              <text fg={dimmedText()}>{text()?.text}</text>
-            </Show>
-            <Show when={hasFiles()}>
-              <box flexDirection="column" gap={0}>
+    <>
+      <Show when={text()}>
+        <box
+          id={props.message.id}
+          border={["left"]}
+          borderColor={color()}
+          customBorderChars={SplitBorder.customBorderChars}
+          marginTop={props.index === 0 ? 0 : 1}
+        >
+          <box
+            onMouseOver={() => {
+              setHover(true)
+            }}
+            onMouseOut={() => {
+              setHover(false)
+            }}
+            onMouseUp={props.onMouseUp}
+            paddingTop={1}
+            paddingBottom={1}
+            paddingLeft={2}
+            backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+            flexShrink={0}
+          >
+            <text fg={theme.text}>{text()?.text}</text>
+            <Show when={files().length}>
+              <box flexDirection="row" paddingBottom={1} paddingTop={1} gap={1} flexWrap="wrap">
                 <For each={files()}>
                   {(file) => (
                     <text fg={dimmedText()} onMouseUp={(event) => void openAttachment(event, file)}>
@@ -2110,6 +2113,14 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
     }
 
     return groups
+  })
+
+  const duration = createMemo(() => {
+    if (!final()) return 0
+    if (!props.message.time.completed) return 0
+    const user = messages().find((x) => x.role === "user" && x.id === props.message.parentID)
+    if (!user || !user.time) return 0
+    return props.message.time.completed - user.time.created
   })
 
   return (

@@ -183,7 +183,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           }
           break
         }
-        case "session.updated":
+        case "session.updated": {
           const result = Binary.search(store.session, event.properties.info.id, (s) => s.id)
           if (result.found) {
             setStore("session", result.index, reconcile(event.properties.info))
@@ -196,6 +196,12 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             }),
           )
           break
+        }
+
+        case "session.status": {
+          setStore("session_status", event.properties.sessionID, event.properties.status)
+          break
+        }
         case "message.updated": {
           const messages = store.message[event.properties.info.sessionID]
           if (!messages) {
@@ -317,6 +323,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         })
     })
 
+    const fullSyncedSessions = new Set<string>()
     const result = {
       data: store,
       set: setStore,
@@ -340,16 +347,13 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           return last.time.completed ? "idle" : "working"
         },
         async sync(sessionID: string, options?: { force?: boolean }) {
-          const now = Date.now()
-          if (store.message[sessionID] && !options?.force) return
-          console.log("syncing", sessionID)
+          if (fullSyncedSessions.has(sessionID) && !options?.force) return
           const [session, messages, todo, diff] = await Promise.all([
             sdk.client.session.get({ path: { id: sessionID }, throwOnError: true }),
             sdk.client.session.messages({ path: { id: sessionID }, query: { limit: 100 } }),
             sdk.client.session.getTodo({ path: { id: sessionID } }),
             sdk.client.session.diff({ path: { id: sessionID } }),
           ])
-          console.log("fetched in " + (Date.now() - now), sessionID)
           setStore(
             produce((draft) => {
               const match = Binary.search(draft.session, sessionID, (s) => s.id)
@@ -367,7 +371,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               draft.session_diff[sessionID] = diff.data ?? []
             }),
           )
-          console.log("synced in " + (Date.now() - now), sessionID)
+          fullSyncedSessions.add(sessionID)
         },
       },
     }

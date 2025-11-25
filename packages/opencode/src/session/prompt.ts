@@ -51,7 +51,13 @@ import { $, fileURLToPath } from "bun"
 import { ConfigMarkdown } from "../config/markdown"
 import { SessionSummary } from "./summary"
 import { Config } from "@/config/config"
-import { NamedError } from "@/util/error"
+import { NamedError } from "@opencode-ai/util/error"
+import { fn } from "@/util/fn"
+import { SessionProcessor } from "./processor"
+import { SessionStatus } from "./status"
+
+// @ts-ignore
+globalThis.AI_SDK_LOG_WARNINGS = false
 
 export namespace SessionPrompt {
   const log = Log.create({ service: "session.prompt" })
@@ -2130,25 +2136,12 @@ export namespace SessionPrompt {
     if (!isFirst) return
     const small =
       (await Provider.getSmallModel(input.providerID)) ?? (await Provider.getModel(input.providerID, input.modelID))
-    const options = {
-      ...ProviderTransform.options(small.providerID, small.modelID, small.npm ?? "", input.session.id, {
-        reasoning: small.info.reasoning ?? false,
-        reasoningTokens: small.info.limit.output,
-      }),
-      ...small.info.options,
-    }
-    if (small.providerID === "openai" || small.modelID.includes("gpt-5")) {
-      if (small.modelID.includes("5.1")) {
-        options["reasoningEffort"] = "low"
-      } else {
-        options["reasoningEffort"] = "minimal"
-      }
-    }
-    if (small.providerID === "google") {
-      options["thinkingConfig"] = {
-        thinkingBudget: 0,
-      }
-    }
+    const options = pipe(
+      {},
+      mergeDeep(ProviderTransform.options(small.providerID, small.modelID, small.npm ?? "", input.session.id)),
+      mergeDeep(ProviderTransform.smallOptions({ providerID: small.providerID, modelID: small.modelID })),
+      mergeDeep(small.info.options),
+    )
     await generateText({
       // use higher # for reasoning models since reasoning tokens eat up a lot of the budget
       maxOutputTokens: small.info.reasoning ? 3000 : 20,

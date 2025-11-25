@@ -833,6 +833,9 @@ export function Sidebar(props: {
   //   console.log("[Sidebar] Panels:", extensions?.panels)
   // })
 
+  // Sort MCP servers alphabetically for consistent display order
+  const mcpEntries = createMemo(() => Object.entries(sync.data.mcp).sort(([a], [b]) => a.localeCompare(b)))
+
   const cost = createMemo(() => {
     const stats = messageStats()
     return {
