@@ -35,7 +35,7 @@
     "toolbeam-docs-theme": "0.4.8"
   },
   "devDependencies": {
-    "codesurf": "workspace:*",
+    "codesurf-ai": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:"
   }

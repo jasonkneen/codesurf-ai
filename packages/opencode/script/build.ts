@@ -85,7 +85,7 @@ await $`rm -rf dist`
 const binaries: Record<string, string> = {}
 await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
 await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
-const binaryPrefix = `${pkg.name}-ai`
+const binaryPrefix = pkg.name
 for (const item of targets) {
   const name = [
     binaryPrefix,

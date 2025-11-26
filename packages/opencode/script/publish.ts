@@ -8,17 +8,27 @@ const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
 
 const { binaries } = await import("./build.ts")
-const smokeTarget = `${pkg.name}-ai-${process.platform}-${process.arch}`
+const smokeTarget = `${pkg.name}-${process.platform}-${process.arch}`
 console.log(`smoke test: running dist/${smokeTarget}/bin/codesurf --version`)
 await $`./dist/${smokeTarget}/bin/codesurf --version`
 
 await $`mkdir -p ./dist/${pkg.name}`
 await $`cp -r ./bin ./dist/${pkg.name}/bin`
+await $`cp ./script/preinstall.mjs ./dist/${pkg.name}/preinstall.mjs`
 await $`cp ./script/postinstall.mjs ./dist/${pkg.name}/postinstall.mjs`
 await $`cp ./README.md ./dist/${pkg.name}/README.md`
 
 const metaPackage = {
   name: pkg.name,
+  version: Script.version,
+  description: pkg.description,
+  author: pkg.author,
+  license: pkg.license,
+  repository: pkg.repository,
+  homepage: pkg.homepage,
+  bugs: pkg.bugs,
+  keywords: pkg.keywords,
+  engines: pkg.engines,
   bin: {
     codesurf: "./bin/codesurf",
     surf: "./bin/surf",
@@ -27,30 +37,15 @@ const metaPackage = {
     preinstall: "bun ./preinstall.mjs || node ./preinstall.mjs",
     postinstall: "bun ./postinstall.mjs || node ./postinstall.mjs",
   },
-  version: Script.version,
   optionalDependencies: binaries,
 }
 
 const metaBaseDir = `./dist/${pkg.name}`
-const metaAliasDir = `./dist/${pkg.name}-ai`
 
 await Bun.file(`${metaBaseDir}/package.json`).write(JSON.stringify(metaPackage, null, 2))
-await $`rm -rf ${metaAliasDir}`
-await $`cp -R ${metaBaseDir} ${metaAliasDir}`
-await Bun.file(`${metaAliasDir}/package.json`).write(
-  JSON.stringify(
-    {
-      ...metaPackage,
-      name: `${pkg.name}-ai`,
-    },
-    null,
-    2,
-  ),
-)
 
 const metaPackages = [
   { name: pkg.name, path: metaBaseDir },
-  { name: `${pkg.name}-ai`, path: metaAliasDir },
 ]
 
 for (const [name] of Object.entries(binaries)) {
@@ -74,7 +69,7 @@ if (!Script.preview) {
   for (const [name] of Object.entries(binaries)) {
     await $`cd dist/${name} && npm dist-tag add ${name}@${Script.version} ${majorTag}`
   }
-  await $`cd ./dist/${pkg.name} && npm dist-tag add ${pkg.name}-ai@${Script.version} ${majorTag}`
+  await $`cd ./dist/${pkg.name} && npm dist-tag add ${pkg.name}@${Script.version} ${majorTag}`
 }
 
 if (!Script.preview) {
