@@ -236,7 +236,7 @@
     },
     "packages/opencode": {
       "name": "codesurf-ai",
-      "version": "1.0.110",
+      "version": "1.0.111",
       "bin": {
         "codesurf": "./bin/codesurf",
         "surf": "./bin/surf",
