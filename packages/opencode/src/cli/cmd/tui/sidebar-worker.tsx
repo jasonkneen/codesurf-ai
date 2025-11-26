@@ -86,7 +86,7 @@ export default function SidebarWorker(props: {
 
       // Initialize worker with timeout
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Worker init timeout")), 3000),
+        setTimeout(() => reject(new Error("Worker init timeout")), 15000),
       )
 
       const result = (await Promise.race([

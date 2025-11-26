@@ -335,7 +335,7 @@ export namespace MessageV2 {
     parentID: z.string(),
     modelID: z.string(),
     providerID: z.string(),
-    mode: z.string(),
+    mode: z.string().default("code"),
     path: z.object({
       cwd: z.string(),
       root: z.string(),

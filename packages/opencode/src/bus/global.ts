@@ -8,3 +8,7 @@ export const GlobalBus = new EventEmitter<{
     },
   ]
 }>()
+
+// Increase max listeners to prevent memory leak warnings
+// Multiple TUI components subscribe to the event bus
+GlobalBus.setMaxListeners(100)

@@ -45,7 +45,7 @@ import { GlobalBus } from "@/bus/global"
 import { SessionStatus } from "@/session/status"
 import { ShareNext } from "@/share/share-next"
 
-import { eventRoutes, globalEventRoutes } from "./routes"
+import { eventRoutes, globalEventRoutes, favoriteToolsRoutes } from "./routes"
 import { authRoutes } from "./routes"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout
@@ -1904,6 +1904,7 @@ export namespace Server {
       .route("/tui/control", TuiRoute)
       .route("/auth", authRoutes())
       .route("/event", eventRoutes())
+      .route("/favorite-tools", favoriteToolsRoutes())
       .all("/*", async (c) => {
         return proxy(`https://desktop.dev.opencode.ai${c.req.path}`, {
           ...c.req,
