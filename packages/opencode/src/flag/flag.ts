@@ -7,7 +7,8 @@ export namespace Flag {
   export const OPENCODE_CONFIG = process.env["OPENCODE_CONFIG"]
   export const OPENCODE_CONFIG_DIR = process.env["OPENCODE_CONFIG_DIR"]
   export const OPENCODE_CONFIG_CONTENT = process.env["OPENCODE_CONFIG_CONTENT"]
-  export const OPENCODE_DISABLE_AUTOUPDATE = truthy("OPENCODE_DISABLE_AUTOUPDATE")
+  // CodeSurf: Auto-update disabled by default until we set up our own update system
+  export const OPENCODE_DISABLE_AUTOUPDATE = process.env["OPENCODE_DISABLE_AUTOUPDATE"]?.toLowerCase() === "false" ? false : true
   export const OPENCODE_DISABLE_PRUNE = truthy("OPENCODE_DISABLE_PRUNE")
   export const OPENCODE_PERMISSION = process.env["OPENCODE_PERMISSION"]
   export const OPENCODE_DISABLE_DEFAULT_PLUGINS = truthy("OPENCODE_DISABLE_DEFAULT_PLUGINS")

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
-import { createOpencode } from "@opencode-ai/sdk"
+import { createOpencode } from "@opencode-ai/sdk/server"
 import { Script } from "@opencode-ai/script"
 
 const notes = [] as string[]

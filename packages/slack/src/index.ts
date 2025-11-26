@@ -1,5 +1,6 @@
 import { App } from "@slack/bolt"
-import { createOpencode, type ToolPart } from "@opencode-ai/sdk"
+import { createOpencode } from "@opencode-ai/sdk/server"
+import type { ToolPart } from "@opencode-ai/sdk"
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -15,7 +16,7 @@ console.log("- App token present:", !!process.env.SLACK_APP_TOKEN)
 
 console.log("🚀 Starting opencode server...")
 const opencode = await createOpencode({
-  port: 0,
+  server: { port: 0 },
 })
 console.log("✅ Opencode server ready")
 

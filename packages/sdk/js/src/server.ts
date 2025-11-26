@@ -1,5 +1,20 @@
 import { spawn } from "node:child_process"
 import { type Config } from "./gen/types.gen.js"
+import { createOpencodeClient } from "./client.js"
+
+export type OpencodeOptions = {
+  server?: ServerOptions
+  client?: Parameters<typeof createOpencodeClient>[0]
+}
+
+export async function createOpencode(options?: OpencodeOptions) {
+  const server = await createOpencodeServer(options?.server)
+  const client = createOpencodeClient({
+    baseUrl: server.url,
+    ...options?.client,
+  })
+  return { server, client }
+}
 
 export type ServerOptions = {
   hostname?: string
