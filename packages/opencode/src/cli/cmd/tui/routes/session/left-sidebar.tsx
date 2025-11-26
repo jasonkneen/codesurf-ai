@@ -455,7 +455,7 @@ export function LeftSidebar(props: {
                           <box
                             flexDirection="row"
                             alignItems="center"
-                            gap={1}
+                            gap={0}
                             height={1}
                             renderBefore={function () {
                               const el = this as any
@@ -474,17 +474,20 @@ export function LeftSidebar(props: {
                               }
                             }}
                           >
-                            <box flexGrow={1} overflow="hidden" flexDirection="row">
-                              <Show when={showSpinner()}>
+                            {/* Fixed-width spinner column - always reserves space */}
+                            <box width={2} flexShrink={0}>
+                              <Show when={showSpinner()} fallback={<text> </text>}>
                                 <SessionSpinner />
                               </Show>
+                            </box>
+                            <box flexGrow={1} overflow="hidden" flexDirection="row">
                               <text
                                 fg={sessionColor()}
                                 attributes={session.id === props.sessionID ? TextAttributes.BOLD : undefined}
                                 wrapMode="none"
                                 height={1}
                               >
-                                {showSpinner() ? `${title()}${suffix()}` : lineText()}
+                                {lineText()}
                               </text>
                             </box>
                             <text

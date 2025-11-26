@@ -3,7 +3,8 @@
     "allow": [
       "Bash(find:*)",
       "Bash(perl:*)",
-      "Bash(timeout 10 bun:*)"
+      "Bash(timeout 10 bun:*)",
+      "Bash(pip3 show:*)"
     ],
     "deny": [],
     "ask": []
