@@ -331,9 +331,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.lsp.status().then((x) => setStore("lsp", x.data!)),
             sdk.client.mcp.status().then((x) => setStore("mcp", x.data!)),
             sdk.client.formatter.status().then((x) => setStore("formatter", x.data!)),
-            sdk.client.session.status().then((x) => setStore("session_status", x.data!)),
-            sdk.client.provider.auth().then((x) => setStore("provider_auth", x.data ?? {})),
-            sdk.client.vcs.get().then((x) => setStore("vcs", x.data)),
+            sdk.client.vcs.get().then((x) => setStore("vcs", x.data)).catch(() => {}),
             fetch(`${sdk.url}/plugins`)
               .then((r) => r.json())
               .then((x) => setStore("plugin", x ?? []))

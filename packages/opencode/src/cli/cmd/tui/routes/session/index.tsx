@@ -26,7 +26,14 @@ import { useRoute, useRouteData } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { SplitBorder } from "@tui/component/border"
 import { useTheme } from "@tui/context/theme"
-import { BoxRenderable, ScrollBoxRenderable, RGBA, addDefaultParsers, TextAttributes, type ScrollAcceleration } from "@opentui/core"
+import {
+  BoxRenderable,
+  ScrollBoxRenderable,
+  RGBA,
+  addDefaultParsers,
+  TextAttributes,
+  type ScrollAcceleration,
+} from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
 import type {
   AssistantMessage,
@@ -451,7 +458,6 @@ export function Session() {
     if (sidebar() === "auto" && wide()) return true
     return false
   })
-  const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
 
   const leftSidebarVisible = createMemo(() => leftSidebar() === "show" || (leftSidebar() === "auto" && wide()))
   const rightSidebarVisible = createMemo(() => rightSidebar() === "show" || (rightSidebar() === "auto" && wide()))
@@ -1955,21 +1961,21 @@ function UserMessage(props: {
                 </For>
               </box>
             </Show>
+            <Switch>
+              <Match when={queued()}>
+                <text fg={dimmedText()} marginTop={0}>
+                  {displayName()}{" "}
+                  <span style={{ bg: theme.accent, fg: theme.backgroundPanel, bold: true }}> QUEUED </span>
+                </text>
+              </Match>
+              <Match when={!queued()}>
+                <text fg={dimmedText()} marginTop={0} style={{ justifyContent: "space-between" }}>
+                  <span>{displayName()}</span>
+                  <span style={{ fg: dimmedTextMuted() }}> ({Locale.time(props.message.time.created)})</span>
+                </text>
+              </Match>
+            </Switch>
           </box>
-          <Switch>
-            <Match when={queued()}>
-              <text fg={dimmedText()} marginTop={0}>
-                {displayName()}{" "}
-                <span style={{ bg: theme.accent, fg: theme.backgroundPanel, bold: true }}> QUEUED </span>
-              </text>
-            </Match>
-            <Match when={!queued()}>
-              <text fg={dimmedText()} marginTop={0} style={{ justifyContent: "space-between" }}>
-                <span>{displayName()}</span>
-                <span style={{ fg: dimmedTextMuted() }}> ({Locale.time(props.message.time.created)})</span>
-              </text>
-            </Match>
-          </Switch>
         </box>
       </Show>
     </>
