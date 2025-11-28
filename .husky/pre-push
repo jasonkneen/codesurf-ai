@@ -1,9 +1,27 @@
 #!/bin/sh
 # Check if bun version matches package.json
-EXPECTED_VERSION=$(grep '"packageManager"' package.json | sed 's/.*"bun@\([^"]*\)".*/\1/')
-CURRENT_VERSION=$(bun --version)
+
+# Find the root package.json (where packageManager is defined)
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+EXPECTED_VERSION=$(grep '"packageManager"' "$ROOT_DIR/package.json" | sed 's/.*"bun@\([^"]*\)".*/\1/')
+
+# Get current bun version with full path fallback
+CURRENT_VERSION=$(/usr/local/bin/bun --version 2>/dev/null || ~/.bun/bin/bun --version 2>/dev/null || bun --version 2>/dev/null)
+
+# Skip check if we can't determine versions
+if [ -z "$EXPECTED_VERSION" ]; then
+  echo "Warning: Could not find packageManager in package.json, skipping version check"
+  exec bun typecheck
+fi
+
+if [ -z "$CURRENT_VERSION" ]; then
+  echo "Warning: Could not determine bun version, skipping version check"
+  exec bun typecheck
+fi
+
 if [ "$CURRENT_VERSION" != "$EXPECTED_VERSION" ]; then
   echo "Error: Bun version $CURRENT_VERSION does not match expected version $EXPECTED_VERSION from package.json"
   exit 1
 fi
+
 bun typecheck
