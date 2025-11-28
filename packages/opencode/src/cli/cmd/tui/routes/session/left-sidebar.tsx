@@ -8,6 +8,7 @@ import { TextAttributes } from "@opentui/core"
 import { useRenderer } from "@opentui/solid"
 import { useDialog } from "../../ui/dialog"
 import { DialogPrompt } from "../../ui/dialog-prompt"
+import { SidebarWidthBar } from "../../component/sidebar-width-bar"
 
 const HIDDEN_CATEGORY = "Hidden"
 const CLOCK_REFRESH_INTERVAL_MS = 60 * 1000
@@ -267,8 +268,6 @@ export function LeftSidebar(props: {
   const sessions = createMemo(() => allSessions().slice(0, displayLimit()))
   const hasMore = createMemo(() => allSessions().length > displayLimit())
   const currentSession = createMemo(() => sync.session.get(props.sessionID)!)
-  const canShrink = () => props.width > props.minWidth
-  const canGrow = () => props.width < props.maxWidth
 
   type SessionIndicatorState = "idle" | "active" | "attention" | "error"
 
@@ -318,41 +317,20 @@ export function LeftSidebar(props: {
   return (
     <Show when={currentSession()}>
       <box flexShrink={0} gap={1} width={props.width}>
+        {/* Width indicator bar */}
+        <SidebarWidthBar
+          width={props.width}
+          minWidth={props.minWidth}
+          maxWidth={props.maxWidth}
+          onShrink={() => props.onResize(-props.widthStep)}
+          onGrow={() => props.onResize(props.widthStep)}
+          side="left"
+        />
+
         <box flexDirection="row" justifyContent="space-between" paddingRight={1} alignItems="center">
-          <box flexDirection="row" gap={1} alignItems="center">
-            <box flexDirection="row" gap={0} alignItems="center">
-              <text
-                fg={canShrink() ? theme.textMuted : theme.border}
-                wrapMode="none"
-                onMouseUp={(evt) => {
-                  if (renderer.getSelection()?.getSelectedText()) return
-                  if (!canShrink()) return
-                  props.onResize(-props.widthStep)
-                  evt.stopPropagation?.()
-                }}
-              >
-                -
-              </text>
-              <text fg={theme.textMuted} wrapMode="none">
-                {props.width}c
-              </text>
-              <text
-                fg={canGrow() ? theme.textMuted : theme.border}
-                wrapMode="none"
-                onMouseUp={(evt) => {
-                  if (renderer.getSelection()?.getSelectedText()) return
-                  if (!canGrow()) return
-                  props.onResize(props.widthStep)
-                  evt.stopPropagation?.()
-                }}
-              >
-                +
-              </text>
-            </box>
-            <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-              SESSIONS
-            </text>
-          </box>
+          <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+            SESSIONS
+          </text>
           <text
             fg={theme.textMuted}
             onMouseUp={() => {

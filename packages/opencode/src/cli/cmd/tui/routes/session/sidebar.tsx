@@ -29,6 +29,7 @@ import { ContextIntelligence } from "@/session/context-intelligence"
 import { DialogContextTimeline } from "./dialog-context-timeline"
 import { useServerStatus } from "../../context/server-status"
 import { useContextManager } from "../../context/context"
+import { SidebarWidthBar } from "../../component/sidebar-width-bar"
 type TabType = "files" | "todos" | "tools" | "subagents"
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const
@@ -373,8 +374,6 @@ export function Sidebar(props: {
     }
     return Array.from(seen.values())
   })
-  const canShrink = () => props.width > props.minWidth
-  const canGrow = () => props.width < props.maxWidth
 
   // Context management functions
   const configureContexts = () => {
@@ -920,50 +919,29 @@ export function Sidebar(props: {
   return (
     <Show when={session()}>
       <box flexShrink={0} gap={1} width={props.width}>
+        {/* Width indicator bar */}
+        <SidebarWidthBar
+          width={props.width}
+          minWidth={props.minWidth}
+          maxWidth={props.maxWidth}
+          onShrink={() => props.onResize(-props.widthStep)}
+          onGrow={() => props.onResize(props.widthStep)}
+          side="right"
+        />
+
         <box flexDirection="row" justifyContent="space-between" paddingRight={1} alignItems="center">
-          <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-            CODESURF
+          <text
+            fg={theme.textMuted}
+            onMouseUp={() => {
+              if (renderer.getSelection()?.getSelectedText()) return
+              props.onToggle()
+            }}
+          >
+            ▶
           </text>
-          <box flexDirection="row" gap={0} alignItems="center">
-            <box flexDirection="row" gap={0} alignItems="center">
-              <text
-                fg={canShrink() ? theme.textMuted : theme.border}
-                wrapMode="none"
-                onMouseUp={(evt) => {
-                  if (renderer.getSelection()?.getSelectedText()) return
-                  if (!canShrink()) return
-                  props.onResize(-props.widthStep)
-                  evt.stopPropagation?.()
-                }}
-              >
-                -
-              </text>
-              <text fg={theme.textMuted} wrapMode="none">
-                {props.width}c
-              </text>
-              <text
-                fg={canGrow() ? theme.textMuted : theme.border}
-                wrapMode="none"
-                onMouseUp={(evt) => {
-                  if (renderer.getSelection()?.getSelectedText()) return
-                  if (!canGrow()) return
-                  props.onResize(props.widthStep)
-                  evt.stopPropagation?.()
-                }}
-              >
-                +
-              </text>
-            </box>
-            <text
-              fg={theme.textMuted}
-              onMouseUp={() => {
-                if (renderer.getSelection()?.getSelectedText()) return
-                props.onToggle()
-              }}
-            >
-              ◀
-            </text>
-          </box>
+          <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+            OPENCODE
+          </text>
         </box>
 
         <box>
