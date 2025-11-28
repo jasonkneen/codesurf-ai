@@ -385,6 +385,7 @@ test("resolves scoped npm plugins in config", async () => {
       )
     },
   })
+
   await Instance.provide({
     directory: tmp.path,
     fn: async () => {
@@ -403,120 +404,100 @@ test("resolves scoped npm plugins in config", async () => {
   })
 })
 
-test("handles anthropic configuration with all features", async () => {
+test("merges plugin arrays from global and local configs", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
+      // Create a nested project structure with local .opencode config
+      const projectDir = path.join(dir, "project")
+      const opencodeDir = path.join(projectDir, ".opencode")
+      await fs.mkdir(opencodeDir, { recursive: true })
+
+      // Global config with plugins
       await Bun.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
-          anthropic: {
-            promptCaching: true,
-            contextEditing: true,
-            extendedThinking: true,
-            citations: true,
-            tokenEfficientToolUse: true,
-            fineGrainedToolStreaming: true,
-            codeExecutionTool: true,
-            textEditorTool: true,
-            webFetchTool: true,
-            computerUseTool: false,
-            webSearchTool: true,
-            memoryTool: true,
-            prefillAssistantMessages: true,
-            chainLongPrompts: true,
-          },
+          plugin: ["global-plugin-1", "global-plugin-2"],
+        }),
+      )
+
+      // Local .opencode config with different plugins
+      await Bun.write(
+        path.join(opencodeDir, "opencode.json"),
+        JSON.stringify({
+          $schema: "https://opencode.ai/config.json",
+          plugin: ["local-plugin-1"],
         }),
       )
     },
   })
+
   await Instance.provide({
-    directory: tmp.path,
+    directory: path.join(tmp.path, "project"),
     fn: async () => {
       const config = await Config.get()
-      expect(config.anthropic?.promptCaching).toBe(true)
-      expect(config.anthropic?.contextEditing).toBe(true)
-      expect(config.anthropic?.extendedThinking).toBe(true)
-      expect(config.anthropic?.citations).toBe(true)
-      expect(config.anthropic?.tokenEfficientToolUse).toBe(true)
-      expect(config.anthropic?.fineGrainedToolStreaming).toBe(true)
-      expect(config.anthropic?.codeExecutionTool).toBe(true)
-      expect(config.anthropic?.textEditorTool).toBe(true)
-      expect(config.anthropic?.webFetchTool).toBe(true)
-      expect(config.anthropic?.computerUseTool).toBe(false)
-      expect(config.anthropic?.webSearchTool).toBe(true)
-      expect(config.anthropic?.memoryTool).toBe(true)
-      expect(config.anthropic?.prefillAssistantMessages).toBe(true)
-      expect(config.anthropic?.chainLongPrompts).toBe(true)
+      const plugins = config.plugin ?? []
+
+      // Should contain both global and local plugins
+      expect(plugins.some((p) => p.includes("global-plugin-1"))).toBe(true)
+      expect(plugins.some((p) => p.includes("global-plugin-2"))).toBe(true)
+      expect(plugins.some((p) => p.includes("local-plugin-1"))).toBe(true)
+
+      // Should have all 3 plugins (not replaced, but merged)
+      const pluginNames = plugins.filter((p) => p.includes("global-plugin") || p.includes("local-plugin"))
+      expect(pluginNames.length).toBeGreaterThanOrEqual(3)
     },
   })
 })
 
-test("handles anthropic configuration with defaults", async () => {
+test("deduplicates duplicate plugins from global and local configs", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      await Bun.write(
-        path.join(dir, "opencode.json"),
-        JSON.stringify({
-          $schema: "https://opencode.ai/config.json",
-          anthropic: {},
-        }),
-      )
-    },
-  })
-  await Instance.provide({
-    directory: tmp.path,
-    fn: async () => {
-      const config = await Config.get()
-      // All features should be optional and not cause validation errors
-      expect(config.anthropic).toBeDefined()
-    },
-  })
-})
+      // Create a nested project structure with local .opencode config
+      const projectDir = path.join(dir, "project")
+      const opencodeDir = path.join(projectDir, ".opencode")
+      await fs.mkdir(opencodeDir, { recursive: true })
 
-test("handles prefillAssistant plugin configuration", async () => {
-  await using tmp = await tmpdir({
-    init: async (dir) => {
+      // Global config with plugins
       await Bun.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
-          plugin: ["@opencode-ai/plugin-prefill-assistant"],
+          plugin: ["duplicate-plugin", "global-plugin-1"],
         }),
       )
-    },
-  })
-  await Instance.provide({
-    directory: tmp.path,
-    fn: async () => {
-      const config = await Config.get()
-      expect(config.plugin).toContain("@opencode-ai/plugin-prefill-assistant")
-      // Note: prefillAssistant config is passed to plugin via plugin.config() hook
-      // It's not part of the core config schema
-    },
-  })
-})
 
-test("validates anthropic configuration schema", async () => {
-  await using tmp = await tmpdir({
-    init: async (dir) => {
+      // Local .opencode config with some overlapping plugins
       await Bun.write(
-        path.join(dir, "opencode.json"),
+        path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
-          anthropic: {
-            promptCaching: true,
-            // All anthropic fields are optional booleans
-          },
+          plugin: ["duplicate-plugin", "local-plugin-1"],
         }),
       )
     },
   })
+
   await Instance.provide({
-    directory: tmp.path,
+    directory: path.join(tmp.path, "project"),
     fn: async () => {
       const config = await Config.get()
-      expect(config.anthropic?.promptCaching).toBe(true)
+      const plugins = config.plugin ?? []
+
+      // Should contain all unique plugins
+      expect(plugins.some((p) => p.includes("global-plugin-1"))).toBe(true)
+      expect(plugins.some((p) => p.includes("local-plugin-1"))).toBe(true)
+      expect(plugins.some((p) => p.includes("duplicate-plugin"))).toBe(true)
+
+      // Should deduplicate the duplicate plugin
+      const duplicatePlugins = plugins.filter((p) => p.includes("duplicate-plugin"))
+      expect(duplicatePlugins.length).toBe(1)
+
+      // Should have exactly 3 unique plugins
+      const pluginNames = plugins.filter(
+        (p) => p.includes("global-plugin") || p.includes("local-plugin") || p.includes("duplicate-plugin"),
+      )
+      expect(pluginNames.length).toBe(3)
     },
   })
 })

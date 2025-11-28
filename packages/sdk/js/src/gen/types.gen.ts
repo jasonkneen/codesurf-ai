@@ -49,7 +49,15 @@ export type UserMessage = {
     body?: string
     diffs: Array<FileDiff>
   }
-  priority?: "red" | "amber" | "green" | "none"
+  agent: string
+  model: {
+    providerID: string
+    modelID: string
+  }
+  system?: string
+  tools?: {
+    [key: string]: boolean
+  }
 }
 
 export type ProviderAuthError = {
@@ -112,7 +120,6 @@ export type AssistantMessage = {
     root: string
   }
   summary?: boolean
-  priority?: "red" | "amber" | "green" | "none"
   cost: number
   tokens: {
     input: number
@@ -123,6 +130,7 @@ export type AssistantMessage = {
       write: number
     }
   }
+  finish?: string
 }
 
 export type Message = UserMessage | AssistantMessage
@@ -149,6 +157,7 @@ export type TextPart = {
   type: "text"
   text: string
   synthetic?: boolean
+  ignored?: boolean
   time?: {
     start: number
     end?: number
@@ -357,8 +366,25 @@ export type RetryPart = {
   }
 }
 
+export type CompactionPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "compaction"
+  auto: boolean
+}
+
 export type Part =
   | TextPart
+  | {
+      id: string
+      sessionID: string
+      messageID: string
+      type: "subtask"
+      prompt: string
+      description: string
+      agent: string
+    }
   | ReasoningPart
   | FilePart
   | ToolPart
@@ -368,6 +394,7 @@ export type Part =
   | PatchPart
   | AgentPart
   | RetryPart
+  | CompactionPart
 
 export type EventMessagePartUpdated = {
   type: "message.part.updated"
@@ -476,10 +503,6 @@ export type Todo = {
    * Unique identifier for the todo item
    */
   id: string
-  /**
-   * ID of parent task if this is a subtask
-   */
-  parentId?: string
 }
 
 export type EventTodoUpdated = {
@@ -527,22 +550,6 @@ export type Session = {
     snapshot?: string
     diff?: string
   }
-  orchestration?: {
-    depth: number
-    status: "active" | "paused" | "completed" | "failed"
-    pausedMode?: string
-    pausedAt?: number
-    completedAt?: number
-    result?: string
-    rootAgent?: string
-    currentAgent?: string
-    subtaskResults?: Array<{
-      sessionID: string
-      summary: string
-      result: string
-      completedAt: number
-    }>
-  }
 }
 
 export type EventSessionCreated = {
@@ -579,6 +586,21 @@ export type EventSessionError = {
   properties: {
     sessionID?: string
     error?: ProviderAuthError | UnknownError | MessageOutputLengthError | MessageAbortedError | ApiError
+  }
+}
+
+export type EventFileWatcherUpdated = {
+  type: "file.watcher.updated"
+  properties: {
+    file: string
+    event: "add" | "change" | "unlink"
+  }
+}
+
+export type EventVcsBranchUpdated = {
+  type: "vcs.branch.updated"
+  properties: {
+    branch?: string
   }
 }
 
@@ -633,24 +655,6 @@ export type EventServerConnected = {
   }
 }
 
-export type EventFileWatcherUpdated = {
-  type: "file.watcher.updated"
-  properties: {
-    file: string
-    event: "add" | "change" | "unlink"
-  }
-}
-
-export type EventValidationStateUpdated = {
-  type: "validation.state.updated"
-  properties: unknown
-}
-
-export type EventPrefetchStateUpdated = {
-  type: "prefetch.state.updated"
-  properties: unknown
-}
-
 export type Event =
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
@@ -673,13 +677,12 @@ export type Event =
   | EventSessionDeleted
   | EventSessionDiff
   | EventSessionError
+  | EventFileWatcherUpdated
+  | EventVcsBranchUpdated
   | EventTuiPromptAppend
   | EventTuiCommandExecute
   | EventTuiToastShow
   | EventServerConnected
-  | EventFileWatcherUpdated
-  | EventValidationStateUpdated
-  | EventPrefetchStateUpdated
 
 export type GlobalEvent = {
   directory: string
@@ -689,6 +692,7 @@ export type GlobalEvent = {
 export type Project = {
   id: string
   worktree: string
+  vcsDir?: string
   vcs?: "git"
   time: {
     created: number
@@ -880,6 +884,10 @@ export type AgentConfig = {
    */
   description?: string
   mode?: "subagent" | "primary" | "all"
+  /**
+   * Hex color code for the agent (e.g., #FF5733)
+   */
+  color?: string
   permission?: {
     edit?: "ask" | "allow" | "deny"
     bash?:
@@ -888,6 +896,8 @@ export type AgentConfig = {
           [key: string]: "ask" | "allow" | "deny"
         }
     webfetch?: "ask" | "allow" | "deny"
+    doom_loop?: "ask" | "allow" | "deny"
+    external_directory?: "ask" | "allow" | "deny"
   }
   [key: string]:
     | unknown
@@ -906,6 +916,8 @@ export type AgentConfig = {
               [key: string]: "ask" | "allow" | "deny"
             }
         webfetch?: "ask" | "allow" | "deny"
+        doom_loop?: "ask" | "allow" | "deny"
+        external_directory?: "ask" | "allow" | "deny"
       }
     | undefined
 }
@@ -930,10 +942,6 @@ export type McpLocalConfig = {
    */
   enabled?: boolean
   /**
-   * List of tool names to disable from this MCP server
-   */
-  disabledTools?: Array<string>
-  /**
    * Timeout in ms for fetching tools from the MCP server. Defaults to 5000 (5 seconds) if not specified.
    */
   timeout?: number
@@ -952,10 +960,6 @@ export type McpRemoteConfig = {
    * Enable or disable the MCP server on startup
    */
   enabled?: boolean
-  /**
-   * List of tool names to disable from this MCP server
-   */
-  disabledTools?: Array<string>
   /**
    * Headers to send with the request
    */
@@ -1000,6 +1004,10 @@ export type Config = {
        */
       enabled: boolean
     }
+    /**
+     * Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column
+     */
+    diff_style?: "auto" | "stacked"
   }
   /**
    * Command configuration, see https://opencode.ai/docs/commands
@@ -1034,6 +1042,10 @@ export type Config = {
    * Disable providers that are loaded automatically
    */
   disabled_providers?: Array<string>
+  /**
+   * When set, ONLY these providers will be enabled. All other providers will be ignored
+   */
+  enabled_providers?: Array<string>
   /**
    * Model to use in the format of provider/model, eg anthropic/claude-2
    */
@@ -1115,6 +1127,8 @@ export type Config = {
           }
         }
       }
+      whitelist?: Array<string>
+      blacklist?: Array<string>
       options?: {
         apiKey?: string
         baseURL?: string
@@ -1123,10 +1137,14 @@ export type Config = {
          */
         enterpriseUrl?: string
         /**
+         * Enable promptCacheKey for this provider (default false)
+         */
+        setCacheKey?: boolean
+        /**
          * Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.
          */
         timeout?: number | false
-        [key: string]: unknown | string | (number | false) | undefined
+        [key: string]: unknown | string | boolean | (number | false) | undefined
       }
     }
   }
@@ -1180,9 +1198,17 @@ export type Config = {
           [key: string]: "ask" | "allow" | "deny"
         }
     webfetch?: "ask" | "allow" | "deny"
+    doom_loop?: "ask" | "allow" | "deny"
+    external_directory?: "ask" | "allow" | "deny"
   }
   tools?: {
     [key: string]: boolean
+  }
+  enterprise?: {
+    /**
+     * Enterprise URL
+     */
+    url?: string
   }
   experimental?: {
     hook?: {
@@ -1211,133 +1237,94 @@ export type Config = {
      */
     batch_tool?: boolean
   }
-  /**
-   * Anthropic-specific feature flags and settings
-   */
-  anthropic?: {
-    /**
-     * Enable prompt caching to reduce costs and latency (default: true)
-     */
-    promptCaching?: boolean
-    /**
-     * Report cache savings in session usage stats (default: true)
-     */
-    reportCacheSavings?: boolean
-    /**
-     * Enable context editing for compact/compressing context (default: true)
-     */
-    contextEditing?: boolean
-    /**
-     * Enable extended thinking for complex reasoning tasks (default: true)
-     */
-    extendedThinking?: boolean
-    /**
-     * Enable citations feature for source attribution (default: true)
-     */
-    citations?: boolean
-    /**
-     * Enable token efficient tool use to reduce token consumption (default: true)
-     */
-    tokenEfficientToolUse?: boolean
-    /**
-     * Enable fine-grained tool streaming for better progress tracking (default: true)
-     */
-    fineGrainedToolStreaming?: boolean
-    /**
-     * Enable code execution tool for running code snippets (default: true)
-     */
-    codeExecutionTool?: boolean
-    /**
-     * Enable computer use tool for desktop automation (requires special setup) (default: false)
-     */
-    computerUseTool?: boolean
-    /**
-     * Enable text editor tool for file manipulation (default: true)
-     */
-    textEditorTool?: boolean
-    /**
-     * Enable web fetch tool for retrieving web content (default: true)
-     */
-    webFetchTool?: boolean
-    /**
-     * Enable web search tool for searching the internet (default: true)
-     */
-    webSearchTool?: boolean
-    /**
-     * Enable memory tool for persistent knowledge storage (default: true)
-     */
-    memoryTool?: boolean
-    /**
-     * Enable pre-fill assistant messages for guidance and role-playing (default: true)
-     */
-    prefillAssistantMessages?: boolean
-    /**
-     * Enable chaining long prompts for complex multi-step tasks (default: true)
-     */
-    chainLongPrompts?: boolean
-  }
-  /**
-   * Directories outside the project that agents can access
-   */
-  allowedDirectories?: Array<string>
-  /**
-   * List of favorite tool IDs that will be prioritized and shown at the top
-   */
-  favoriteTools?: Array<string>
-  /**
-   * Background validation worker configuration
-   */
-  backgroundValidation?: {
-    /**
-     * Enable background validation
-     */
-    enabled: boolean
-    /**
-     * Commands to run for validation
-     */
-    commands?: Array<string>
-    /**
-     * Debounce delay in milliseconds
-     */
-    debounceMs?: number
-    /**
-     * Glob patterns for files to include
-     */
-    include?: Array<string>
-    /**
-     * Glob patterns for files to exclude
-     */
-    exclude?: Array<string>
-  }
-  /**
-   * Prefetch worker configuration for caching file contents
-   */
-  prefetchWorker?: {
-    /**
-     * Enable prefetch worker
-     */
-    enabled: boolean
-    /**
-     * Maximum concurrent prefetch operations
-     */
-    maxConcurrent?: number
-    /**
-     * Maximum cache size in bytes
-     */
-    maxCacheSize?: number
-    /**
-     * Prefetch strategies to use
-     */
-    strategies?: Array<string>
-  }
 }
 
 export type BadRequestError = {
-  data: unknown | null
+  data: unknown
   errors: Array<{
     [key: string]: unknown
   }>
   success: false
+}
+
+export type ToolIds = Array<string>
+
+export type ToolListItem = {
+  id: string
+  description: string
+  parameters: unknown
+}
+
+export type ToolList = Array<ToolListItem>
+
+export type Path = {
+  state: string
+  config: string
+  worktree: string
+  directory: string
+}
+
+export type VcsInfo = {
+  branch: string
+}
+
+export type NotFoundError = {
+  name: "NotFoundError"
+  data: {
+    message: string
+  }
+}
+
+export type TextPartInput = {
+  id?: string
+  type: "text"
+  text: string
+  synthetic?: boolean
+  ignored?: boolean
+  time?: {
+    start: number
+    end?: number
+  }
+  metadata?: {
+    [key: string]: unknown
+  }
+}
+
+export type FilePartInput = {
+  id?: string
+  type: "file"
+  mime: string
+  filename?: string
+  url: string
+  source?: FilePartSource
+}
+
+export type AgentPartInput = {
+  id?: string
+  type: "agent"
+  name: string
+  source?: {
+    value: string
+    start: number
+    end: number
+  }
+}
+
+export type SubtaskPartInput = {
+  id?: string
+  type: "subtask"
+  prompt: string
+  description: string
+  agent: string
+}
+
+export type Command = {
+  name: string
+  description?: string
+  agent?: string
+  model?: string
+  template: string
+  subtask?: boolean
 }
 
 export type Model = {
@@ -1392,71 +1379,15 @@ export type Provider = {
   }
 }
 
-export type ToolIds = Array<string>
-
-export type ToolListItem = {
-  id: string
-  description: string
-  parameters: unknown
+export type ProviderAuthMethod = {
+  type: "oauth" | "api"
+  label: string
 }
 
-export type ToolList = Array<ToolListItem>
-
-export type Path = {
-  state: string
-  config: string
-  worktree: string
-  directory: string
-}
-
-export type NotFoundError = {
-  name: "NotFoundError"
-  data: {
-    message: string
-  }
-}
-
-export type TextPartInput = {
-  id?: string
-  type: "text"
-  text: string
-  synthetic?: boolean
-  time?: {
-    start: number
-    end?: number
-  }
-  metadata?: {
-    [key: string]: unknown
-  }
-}
-
-export type FilePartInput = {
-  id?: string
-  type: "file"
-  mime: string
-  filename?: string
+export type ProviderAuthAuthorization = {
   url: string
-  source?: FilePartSource
-}
-
-export type AgentPartInput = {
-  id?: string
-  type: "agent"
-  name: string
-  source?: {
-    value: string
-    start: number
-    end: number
-  }
-}
-
-export type Command = {
-  name: string
-  description?: string
-  agent?: string
-  model?: string
-  template: string
-  subtask?: boolean
+  method: "auto" | "code"
+  instructions: string
 }
 
 export type Symbol = {
@@ -1533,16 +1464,6 @@ export type Agent = {
   options: {
     [key: string]: unknown
   }
-  roleDefinition?: string
-  fileTypeRestrictions?: Array<string>
-  canSwitchFrom?: Array<string>
-  requiresApproval?: boolean
-  capabilities?: {
-    canCreateSubtasks: boolean
-    canSwitchModes: boolean
-    canModifyFiles: boolean
-    canExecuteCommands: boolean
-  }
 }
 
 export type McpStatusConnected = {
@@ -1559,17 +1480,6 @@ export type McpStatusFailed = {
 }
 
 export type McpStatus = McpStatusConnected | McpStatusDisabled | McpStatusFailed
-
-export type McpDiscoveredServer = {
-  name: string
-  description: string
-  vendor: string
-  sourceUrl: string
-  homepage?: string
-  license?: string
-  runtime?: string
-  installCommand: string
-}
 
 export type LspStatus = {
   id: string
@@ -1702,112 +1612,11 @@ export type ConfigUpdateResponses = {
 
 export type ConfigUpdateResponse = ConfigUpdateResponses[keyof ConfigUpdateResponses]
 
-export type ConfigProvidersData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-  }
-  url: "/config/providers"
-}
-
-export type ConfigProvidersResponses = {
-  /**
-   * List of providers
-   */
-  200: {
-    providers: Array<Provider>
-    default: {
-      [key: string]: string
-    }
-  }
-}
-
-export type ConfigProvidersResponse = ConfigProvidersResponses[keyof ConfigProvidersResponses]
-
-export type FavoriteToolsListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-  }
-  url: "/favorite-tools"
-}
-
-export type FavoriteToolsListResponses = {
-  /**
-   * Lists of project and global favorite tool IDs
-   */
-  200: {
-    project: Array<string>
-    global: Array<string>
-  }
-}
-
-export type FavoriteToolsListResponse = FavoriteToolsListResponses[keyof FavoriteToolsListResponses]
-
-export type FavoriteToolsCycleData = {
-  body?: {
-    toolId: string
-  }
-  path?: never
-  query?: {
-    directory?: string
-  }
-  url: "/favorite-tools/cycle"
-}
-
-export type FavoriteToolsCycleErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-}
-
-export type FavoriteToolsCycleError = FavoriteToolsCycleErrors[keyof FavoriteToolsCycleErrors]
-
-export type FavoriteToolsCycleResponses = {
-  /**
-   * Successfully cycled favorite status
-   */
-  200: {
-    toolId: string
-    level: "none" | "project" | "global"
-  }
-}
-
-export type FavoriteToolsCycleResponse = FavoriteToolsCycleResponses[keyof FavoriteToolsCycleResponses]
-
-export type FavoriteToolsGetLevelData = {
-  body?: never
-  path: {
-    toolId: string
-  }
-  query?: {
-    directory?: string
-  }
-  url: "/favorite-tools/{toolId}/level"
-}
-
-export type FavoriteToolsGetLevelResponses = {
-  /**
-   * Favorite level for the tool
-   */
-  200: {
-    toolId: string
-    level: "none" | "project" | "global"
-  }
-}
-
-export type FavoriteToolsGetLevelResponse = FavoriteToolsGetLevelResponses[keyof FavoriteToolsGetLevelResponses]
-
 export type ToolIdsData = {
   body?: never
   path?: never
-  query: {
+  query?: {
     directory?: string
-    provider: string
-    model: string
   }
   url: "/experimental/tool/ids"
 }
@@ -1841,6 +1650,15 @@ export type ToolListData = {
   url: "/experimental/tool"
 }
 
+export type ToolListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ToolListError = ToolListErrors[keyof ToolListErrors]
+
 export type ToolListResponses = {
   /**
    * Tools
@@ -1849,6 +1667,24 @@ export type ToolListResponses = {
 }
 
 export type ToolListResponse = ToolListResponses[keyof ToolListResponses]
+
+export type InstanceDisposeData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/instance/dispose"
+}
+
+export type InstanceDisposeResponses = {
+  /**
+   * Instance disposed
+   */
+  200: boolean
+}
+
+export type InstanceDisposeResponse = InstanceDisposeResponses[keyof InstanceDisposeResponses]
 
 export type PathGetData = {
   body?: never
@@ -1867,6 +1703,24 @@ export type PathGetResponses = {
 }
 
 export type PathGetResponse = PathGetResponses[keyof PathGetResponses]
+
+export type VcsGetData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/vcs"
+}
+
+export type VcsGetResponses = {
+  /**
+   * VCS info
+   */
+  200: VcsInfo
+}
+
+export type VcsGetResponse = VcsGetResponses[keyof VcsGetResponses]
 
 export type SessionListData = {
   body?: never
@@ -1915,6 +1769,35 @@ export type SessionCreateResponses = {
 }
 
 export type SessionCreateResponse = SessionCreateResponses[keyof SessionCreateResponses]
+
+export type SessionStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/session/status"
+}
+
+export type SessionStatusErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type SessionStatusError = SessionStatusErrors[keyof SessionStatusErrors]
+
+export type SessionStatusResponses = {
+  /**
+   * Get session status
+   */
+  200: {
+    [key: string]: SessionStatus
+  }
+}
+
+export type SessionStatusResponse = SessionStatusResponses[keyof SessionStatusResponses]
 
 export type SessionDeleteData = {
   body?: never
@@ -2050,7 +1933,7 @@ export type SessionChildrenResponses = {
 
 export type SessionChildrenResponse = SessionChildrenResponses[keyof SessionChildrenResponses]
 
-export type SessionGetTodoData = {
+export type SessionTodoData = {
   body?: never
   path: {
     /**
@@ -2064,7 +1947,7 @@ export type SessionGetTodoData = {
   url: "/session/{id}/todo"
 }
 
-export type SessionGetTodoErrors = {
+export type SessionTodoErrors = {
   /**
    * Bad request
    */
@@ -2075,54 +1958,16 @@ export type SessionGetTodoErrors = {
   404: NotFoundError
 }
 
-export type SessionGetTodoError = SessionGetTodoErrors[keyof SessionGetTodoErrors]
+export type SessionTodoError = SessionTodoErrors[keyof SessionTodoErrors]
 
-export type SessionGetTodoResponses = {
+export type SessionTodoResponses = {
   /**
    * Todo list
    */
   200: Array<Todo>
 }
 
-export type SessionGetTodoResponse = SessionGetTodoResponses[keyof SessionGetTodoResponses]
-
-export type SessionUpdateTodoData = {
-  body?: {
-    todos: Array<Todo>
-  }
-  path: {
-    /**
-     * Session ID
-     */
-    id: string
-  }
-  query?: {
-    directory?: string
-  }
-  url: "/session/{id}/todo"
-}
-
-export type SessionUpdateTodoErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-  /**
-   * Not found
-   */
-  404: NotFoundError
-}
-
-export type SessionUpdateTodoError = SessionUpdateTodoErrors[keyof SessionUpdateTodoErrors]
-
-export type SessionUpdateTodoResponses = {
-  /**
-   * Updated todo list
-   */
-  200: Array<Todo>
-}
-
-export type SessionUpdateTodoResponse = SessionUpdateTodoResponses[keyof SessionUpdateTodoResponses]
+export type SessionTodoResponse = SessionTodoResponses[keyof SessionTodoResponses]
 
 export type SessionInitData = {
   body?: {
@@ -2288,6 +2133,9 @@ export type SessionShareResponse = SessionShareResponses[keyof SessionShareRespo
 export type SessionDiffData = {
   body?: never
   path: {
+    /**
+     * Session ID
+     */
     id: string
   }
   query?: {
@@ -2297,9 +2145,22 @@ export type SessionDiffData = {
   url: "/session/{id}/diff"
 }
 
+export type SessionDiffErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionDiffError = SessionDiffErrors[keyof SessionDiffErrors]
+
 export type SessionDiffResponses = {
   /**
-   * Successfully retrieved diff
+   * List of diffs
    */
   200: Array<FileDiff>
 }
@@ -2398,12 +2259,7 @@ export type SessionPromptData = {
     tools?: {
       [key: string]: boolean
     }
-    context?: Array<{
-      id: string
-      name: string
-      content: string
-    }>
-    parts: Array<TextPartInput | FilePartInput | AgentPartInput>
+    parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {
     /**
@@ -2484,89 +2340,6 @@ export type SessionMessageResponses = {
 }
 
 export type SessionMessageResponse = SessionMessageResponses[keyof SessionMessageResponses]
-
-export type SessionSetMessagePriorityData = {
-  body?: {
-    priority: "red" | "amber" | "green" | "none"
-  }
-  path: {
-    /**
-     * Session ID
-     */
-    id: string
-    /**
-     * Message ID
-     */
-    messageID: string
-  }
-  query?: {
-    directory?: string
-  }
-  url: "/session/{id}/message/{messageID}/priority"
-}
-
-export type SessionSetMessagePriorityErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-  /**
-   * Not found
-   */
-  404: NotFoundError
-}
-
-export type SessionSetMessagePriorityError = SessionSetMessagePriorityErrors[keyof SessionSetMessagePriorityErrors]
-
-export type SessionSetMessagePriorityResponses = {
-  /**
-   * Updated message info
-   */
-  200: Message
-}
-
-export type SessionSetMessagePriorityResponse =
-  SessionSetMessagePriorityResponses[keyof SessionSetMessagePriorityResponses]
-
-export type SessionCompactMessageData = {
-  body?: never
-  path: {
-    /**
-     * Session ID
-     */
-    id: string
-    /**
-     * Message ID
-     */
-    messageID: string
-  }
-  query?: {
-    directory?: string
-  }
-  url: "/session/{id}/message/{messageID}/compact"
-}
-
-export type SessionCompactMessageErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-  /**
-   * Not found
-   */
-  404: NotFoundError
-}
-
-export type SessionCompactMessageError = SessionCompactMessageErrors[keyof SessionCompactMessageErrors]
-
-export type SessionCompactMessageResponses = {
-  /**
-   * Updated message info
-   */
-  200: Message
-}
-
-export type SessionCompactMessageResponse = SessionCompactMessageResponses[keyof SessionCompactMessageResponses]
 
 export type SessionPromptAsyncData = {
   body?: {
@@ -2665,6 +2438,10 @@ export type SessionCommandResponse = SessionCommandResponses[keyof SessionComman
 export type SessionShellData = {
   body?: {
     agent: string
+    model?: {
+      providerID: string
+      modelID: string
+    }
     command: string
   }
   path: {
@@ -2825,6 +2602,151 @@ export type CommandListResponses = {
 }
 
 export type CommandListResponse = CommandListResponses[keyof CommandListResponses]
+
+export type ConfigProvidersData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/config/providers"
+}
+
+export type ConfigProvidersResponses = {
+  /**
+   * List of providers
+   */
+  200: {
+    providers: Array<Provider>
+    default: {
+      [key: string]: string
+    }
+  }
+}
+
+export type ConfigProvidersResponse = ConfigProvidersResponses[keyof ConfigProvidersResponses]
+
+export type ProviderListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/provider"
+}
+
+export type ProviderListResponses = {
+  /**
+   * List of providers
+   */
+  200: {
+    all: Array<Provider>
+    default: {
+      [key: string]: string
+    }
+    connected: Array<string>
+  }
+}
+
+export type ProviderListResponse = ProviderListResponses[keyof ProviderListResponses]
+
+export type ProviderAuthData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/provider/auth"
+}
+
+export type ProviderAuthResponses = {
+  /**
+   * Provider auth methods
+   */
+  200: {
+    [key: string]: Array<ProviderAuthMethod>
+  }
+}
+
+export type ProviderAuthResponse = ProviderAuthResponses[keyof ProviderAuthResponses]
+
+export type ProviderOauthAuthorizeData = {
+  body?: {
+    /**
+     * Auth method index
+     */
+    method: number
+  }
+  path: {
+    /**
+     * Provider ID
+     */
+    id: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/provider/{id}/oauth/authorize"
+}
+
+export type ProviderOauthAuthorizeErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ProviderOauthAuthorizeError = ProviderOauthAuthorizeErrors[keyof ProviderOauthAuthorizeErrors]
+
+export type ProviderOauthAuthorizeResponses = {
+  /**
+   * Authorization URL and method
+   */
+  200: ProviderAuthAuthorization
+}
+
+export type ProviderOauthAuthorizeResponse = ProviderOauthAuthorizeResponses[keyof ProviderOauthAuthorizeResponses]
+
+export type ProviderOauthCallbackData = {
+  body?: {
+    /**
+     * Auth method index
+     */
+    method: number
+    /**
+     * OAuth authorization code
+     */
+    code?: string
+  }
+  path: {
+    /**
+     * Provider ID
+     */
+    id: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/provider/{id}/oauth/callback"
+}
+
+export type ProviderOauthCallbackErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ProviderOauthCallbackError = ProviderOauthCallbackErrors[keyof ProviderOauthCallbackErrors]
+
+export type ProviderOauthCallbackResponses = {
+  /**
+   * OAuth callback processed successfully
+   */
+  200: boolean
+}
+
+export type ProviderOauthCallbackResponse = ProviderOauthCallbackResponses[keyof ProviderOauthCallbackResponses]
 
 export type FindTextData = {
   body?: never
@@ -3002,31 +2924,6 @@ export type AppLogResponses = {
 
 export type AppLogResponse = AppLogResponses[keyof AppLogResponses]
 
-export type GitStatusData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-  }
-  url: "/git/status"
-}
-
-export type GitStatusResponses = {
-  /**
-   * Git status
-   */
-  200: {
-    branch: string
-    ahead: number
-    behind: number
-    modified: number
-    staged: number
-    untracked: number
-  }
-}
-
-export type GitStatusResponse = GitStatusResponses[keyof GitStatusResponses]
-
 export type AppAgentsData = {
   body?: never
   path?: never
@@ -3097,80 +2994,6 @@ export type McpAddResponses = {
 
 export type McpAddResponse = McpAddResponses[keyof McpAddResponses]
 
-export type McpDiscoverData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-  }
-  url: "/mcp/discover"
-}
-
-export type McpDiscoverResponses = {
-  /**
-   * List of discoverable MCP servers
-   */
-  200: Array<McpDiscoveredServer>
-}
-
-export type McpDiscoverResponse = McpDiscoverResponses[keyof McpDiscoverResponses]
-
-export type McpServerToolsData = {
-  body?: never
-  path: {
-    serverName: string
-  }
-  query?: {
-    directory?: string
-  }
-  url: "/mcp/{serverName}/tools"
-}
-
-export type McpServerToolsResponses = {
-  /**
-   * MCP server tools
-   */
-  200: {
-    [key: string]: unknown
-  }
-}
-
-export type McpServerToolsResponse = McpServerToolsResponses[keyof McpServerToolsResponses]
-
-export type McpServerUpdateData = {
-  body?: {
-    enabled?: boolean
-    disabledTools?: Array<string>
-  }
-  path: {
-    serverName: string
-  }
-  query?: {
-    directory?: string
-  }
-  url: "/mcp/{serverName}"
-}
-
-export type McpServerUpdateErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-}
-
-export type McpServerUpdateError = McpServerUpdateErrors[keyof McpServerUpdateErrors]
-
-export type McpServerUpdateResponses = {
-  /**
-   * Successfully updated MCP server
-   */
-  200: {
-    success: boolean
-  }
-}
-
-export type McpServerUpdateResponse = McpServerUpdateResponses[keyof McpServerUpdateResponses]
-
 export type LspStatusData = {
   body?: never
   path?: never
@@ -3206,190 +3029,6 @@ export type FormatterStatusResponses = {
 }
 
 export type FormatterStatusResponse = FormatterStatusResponses[keyof FormatterStatusResponses]
-
-export type PluginsStatusData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-  }
-  url: "/plugins"
-}
-
-export type PluginsStatusResponses = {
-  /**
-   * Loaded plugins
-   */
-  200: Array<{
-    name: string
-    path: string
-    status: "loaded"
-  }>
-}
-
-export type PluginsStatusResponse = PluginsStatusResponses[keyof PluginsStatusResponses]
-
-export type UiExtensionsData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-  }
-  url: "/ui/extensions"
-}
-
-export type UiExtensionsResponses = {
-  /**
-   * UI extensions
-   */
-  200: {
-    sidebars: Array<{
-      id: string
-      label: string
-      icon?: string
-      position: "left" | "right"
-      defaultOpen?: boolean
-      keybind?: string
-    }>
-    tabs: Array<{
-      id: string
-      label: string
-      icon?: string
-      parent: string
-    }>
-    panels: Array<{
-      id: string
-      label: string
-      icon?: string
-      area: "top" | "bottom" | "left" | "right"
-      position?: "top" | "bottom"
-      collapsible?: boolean
-    }>
-    widgets: Array<{
-      id: string
-      label: string
-      sidebarPosition?: "top" | "bottom" | "inline"
-      position?: {
-        x: number
-        y: number
-      }
-      size?: {
-        width: number
-        height: number
-      }
-    }>
-    keybinds: Array<{
-      id: string
-      keys: string
-      command: string
-      when?: string
-    }>
-    statusItems: Array<{
-      id: string
-      priority: number
-      alignment: "left" | "right"
-    }>
-    commands: Array<{
-      id: string
-      label: string
-      description?: string
-    }>
-  }
-}
-
-export type UiExtensionsResponse = UiExtensionsResponses[keyof UiExtensionsResponses]
-
-export type UiRenderData = {
-  body?: {
-    context?: {
-      [key: string]: unknown
-    }
-  }
-  path: {
-    /**
-     * UI component ID
-     */
-    componentId: string
-  }
-  query?: {
-    directory?: string
-  }
-  url: "/ui/render/{componentId}"
-}
-
-export type UiRenderErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-  /**
-   * Not found
-   */
-  404: NotFoundError
-}
-
-export type UiRenderError = UiRenderErrors[keyof UiRenderErrors]
-
-export type UiRenderResponses = {
-  /**
-   * Rendered component content
-   */
-  200: {
-    content: string
-    type: "text" | "markdown" | "ansi" | "html"
-    error?: string
-  }
-}
-
-export type UiRenderResponse = UiRenderResponses[keyof UiRenderResponses]
-
-export type UiActionData = {
-  body?: {
-    /**
-     * Action name
-     */
-    action: string
-    /**
-     * Action payload
-     */
-    payload?: unknown
-  }
-  path: {
-    /**
-     * UI component ID
-     */
-    componentId: string
-  }
-  query?: {
-    directory?: string
-  }
-  url: "/ui/action/{componentId}"
-}
-
-export type UiActionErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-  /**
-   * Not found
-   */
-  404: NotFoundError
-}
-
-export type UiActionError = UiActionErrors[keyof UiActionErrors]
-
-export type UiActionResponses = {
-  /**
-   * Action result
-   */
-  200: {
-    result?: unknown
-    error?: string
-  }
-}
-
-export type UiActionResponse = UiActionResponses[keyof UiActionResponses]
 
 export type TuiAppendPromptData = {
   body?: {

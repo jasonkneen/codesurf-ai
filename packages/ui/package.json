@@ -1,10 +1,11 @@
 {
   "name": "@opencode-ai/ui",
-  "version": "1.0.110",
+  "version": "1.0.119",
   "type": "module",
   "exports": {
     ".": "./src/components/index.ts",
     "./*": "./src/components/*.tsx",
+    "./pierre": "./src/components/pierre.ts",
     "./hooks": "./src/hooks/index.ts",
     "./styles": "./src/styles/index.css",
     "./styles/tailwind": "./src/styles/tailwind/index.css",

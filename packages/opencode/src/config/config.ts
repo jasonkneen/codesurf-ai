@@ -24,12 +24,18 @@ export namespace Config {
   const log = Log.create({ service: "config" })
   const ProviderOverride = ModelsDev.Provider.partial()
     .extend({
+      whitelist: z.array(z.string()).optional(),
+      blacklist: z.array(z.string()).optional(),
       models: z.record(z.string(), ModelsDev.Model.partial()).optional(),
       options: z
         .object({
           apiKey: z.string().optional(),
           baseURL: z.string().optional(),
           enterpriseUrl: z.string().optional().describe("GitHub Enterprise URL for copilot authentication"),
+          setCacheKey: z
+            .boolean()
+            .optional()
+            .describe("Enable promptCacheKey for this provider (default false)"),
           timeout: z
             .union([
               z
@@ -51,6 +57,17 @@ export namespace Config {
     })
     .strict()
 
+  // Custom merge function that concatenates plugin arrays instead of replacing them
+  function mergeConfigWithPlugins(target: Info, source: Info): Info {
+    const merged = mergeDeep(target, source)
+    // If both configs have plugin arrays, concatenate them instead of replacing
+    if (target.plugin && source.plugin) {
+      const pluginSet = new Set([...target.plugin, ...source.plugin])
+      merged.plugin = Array.from(pluginSet)
+    }
+    return merged
+  }
+
   export const state = Instance.state(async () => {
     const auth = await Auth.all()
     let result = await global()
@@ -63,12 +80,12 @@ export namespace Config {
 
     // Override with custom config if provided
     if (Flag.OPENCODE_CONFIG) {
-      result = mergeDeep(result, await loadFile(Flag.OPENCODE_CONFIG))
+      result = mergeConfigWithPlugins(result, await loadFile(Flag.OPENCODE_CONFIG))
       log.debug("loaded custom config", { path: Flag.OPENCODE_CONFIG })
     }
 
     if (Flag.OPENCODE_CONFIG_CONTENT) {
-      result = mergeDeep(result, JSON.parse(Flag.OPENCODE_CONFIG_CONTENT))
+      result = mergeConfigWithPlugins(result, JSON.parse(Flag.OPENCODE_CONFIG_CONTENT))
       log.debug("loaded custom config from OPENCODE_CONFIG_CONTENT")
     }
 
@@ -76,7 +93,7 @@ export namespace Config {
       if (value.type === "wellknown") {
         process.env[value.key] = value.token
         const wellknown = (await fetch(`${key}/.well-known/opencode`).then((x) => x.json())) as any
-        result = mergeDeep(result, await load(JSON.stringify(wellknown.config ?? {}), process.cwd()))
+        result = mergeConfigWithPlugins(result, await load(JSON.stringify(wellknown.config ?? {}), process.cwd()))
       }
     }
 
@@ -119,7 +136,8 @@ export namespace Config {
         : ["opencode.jsonc", "opencode.json", "codesurf.jsonc", "codesurf.json"]
 
       for (const file of configFiles) {
-        result = mergeDeep(result, await loadFile(path.join(dir, file)))
+        log.debug(`loading config from ${path.join(dir, file)}`)
+        result = mergeConfigWithPlugins(result, await loadFile(path.join(dir, file)))
         // to satisy the type checker
         result.agent ??= {}
         result.mode ??= {}
@@ -566,6 +584,10 @@ export namespace Config {
       })
       .optional()
       .describe("Scroll acceleration settings"),
+    diff_style: z
+      .enum(["auto", "stacked"])
+      .optional()
+      .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
   })
 
   export const Layout = z.enum(["auto", "stretch"]).meta({

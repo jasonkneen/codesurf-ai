@@ -3,7 +3,7 @@ import { useTheme, selectedForeground } from "@tui/context/theme"
 import { entries, filter, flatMap, groupBy, pipe, take } from "remeda"
 import { batch, createEffect, createMemo, For, Show, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
-import { useTerminalDimensions, useKeyboard } from "@opentui/solid"
+import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import * as fuzzysort from "fuzzysort"
 import { isDeepEqual } from "remeda"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
@@ -21,20 +21,17 @@ export interface DialogSelectProps<T> {
   keybind?: {
     keybind: Keybind.Info
     title: string
+    disabled?: boolean
     onTrigger: (option: DialogSelectOption<T>) => void
   }[]
-  limit?: number
   current?: T
-  collapsibleDescriptions?: boolean
-  onLoadMore?: () => void
-  hasMore?: boolean
 }
 
 export interface DialogSelectOption<T = any> {
   title: string
   value: T
   description?: string
-  footer?: string
+  footer?: JSX.Element | string
   category?: string
   disabled?: boolean
   bg?: RGBA
@@ -52,16 +49,25 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   const [store, setStore] = createStore({
     selected: 0,
     filter: "",
-    expandedValue: null as T | null,
+  })
+
+  createEffect(() => {
+    if (props.current) {
+      const currentIndex = flat().findIndex((opt) => isDeepEqual(opt.value, props.current))
+      if (currentIndex >= 0) {
+        setStore("selected", currentIndex)
+      }
+    }
   })
 
   let input: InputRenderable
 
   const filtered = createMemo(() => {
     const needle = store.filter.toLowerCase()
-    // Use HEAD version: allow disabled items (headers) to pass through for display
-    const result = pipe(props.options, (x) =>
-      !needle ? x : fuzzysort.go(needle, x, { keys: ["title", "category"] }).map((x) => x.obj),
+    const result = pipe(
+      props.options,
+      filter((x) => x.disabled !== true),
+      (x) => (!needle ? x : fuzzysort.go(needle, x, { keys: ["title", "category"] }).map((x) => x.obj)),
     )
     return result
   })
@@ -70,6 +76,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
     const result = pipe(
       filtered(),
       groupBy((x) => x.category ?? ""),
+      // mapValues((x) => x.sort((a, b) => a.title.localeCompare(b.title))),
       entries(),
     )
     return result
@@ -89,23 +96,20 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   const selected = createMemo(() => flat()[store.selected])
 
-  // Initialize selection to current item ONCE on mount (not reactive)
-  // Using untrack to prevent this from re-running when selection changes
-  if (props.current) {
-    const index = flat().findIndex((x) => isDeepEqual(x.value, props.current))
-    if (index !== -1) {
-      setStore("selected", index)
-    }
-  }
-
   createEffect(() => {
     store.filter
-    setStore("selected", 0)
-    if (scroll) scroll.scrollTo(0)
+    if (store.filter.length > 0) {
+      setStore("selected", 0)
+    } else if (props.current) {
+      const currentIndex = flat().findIndex((opt) => isDeepEqual(opt.value, props.current))
+      if (currentIndex >= 0) {
+        setStore("selected", currentIndex)
+      }
+    }
+    scroll.scrollTo(0)
   })
 
   function move(direction: number) {
-    if (flat().length === 0) return
     let next = store.selected + direction
     if (next < 0) next = flat().length - 1
     if (next >= flat().length) next = 0
@@ -114,11 +118,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   function moveTo(next: number) {
     setStore("selected", next)
-    const sel = selected()
-    if (sel) {
-      props.onMove?.(sel)
-    }
-    if (!scroll) return
+    props.onMove?.(selected()!)
     const target = scroll.getChildren().find((child) => {
       return child.id === JSON.stringify(selected()?.value)
     })
@@ -129,85 +129,40 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
     }
     if (y < 0) {
       scroll.scrollBy(y)
-      if (flat().length > 0 && isDeepEqual(flat()[0].value, selected()?.value)) {
+      if (isDeepEqual(flat()[0].value, selected()?.value)) {
         scroll.scrollTo(0)
       }
     }
   }
 
   const keybind = useKeybind()
-
   useKeyboard((evt) => {
-    const name = evt.name?.toLowerCase()
-
-    // Handle navigation keys first - they take priority
-    if (name === "up" || (evt.ctrl && name === "k") || (evt.ctrl && name === "p")) {
-      evt.preventDefault()
-      move(-1)
-      return
-    }
-    if (name === "down" || (evt.ctrl && name === "j") || (evt.ctrl && name === "n")) {
-      evt.preventDefault()
-      move(1)
-      return
-    }
-    if (name === "pageup" || (evt.ctrl && name === "u")) {
-      evt.preventDefault()
-      move(-10)
-      return
-    }
-    if (name === "pagedown" || (evt.ctrl && name === "d")) {
-      evt.preventDefault()
-      move(10)
-      return
-    }
-    if (props.collapsibleDescriptions && (name === "right" || name === "space")) {
-      evt.preventDefault()
+    if (evt.name === "up" || (evt.ctrl && evt.name === "p")) move(-1)
+    if (evt.name === "down" || (evt.ctrl && evt.name === "n")) move(1)
+    if (evt.name === "pageup") move(-10)
+    if (evt.name === "pagedown") move(10)
+    if (evt.name === "return") {
       const option = selected()
       if (option) {
-        setStore("expandedValue", (prev) => (isDeepEqual(prev, option.value) ? null : option.value))
-      }
-      return
-    }
-    if (props.collapsibleDescriptions && name === "left") {
-      evt.preventDefault()
-      setStore("expandedValue", null)
-      return
-    }
-    if (name === "return") {
-      evt.preventDefault()
-      const option = selected()
-      if (option) {
+        // evt.preventDefault()
         if (option.onSelect) option.onSelect(dialog)
         props.onSelect?.(option)
       }
-      return
     }
 
-    // Check custom keybinds
     for (const item of props.keybind ?? []) {
-      const parsedEvt = { ...evt, source: "raw" as const }
-      const parsed = keybind.parse(parsedEvt)
-      if (Keybind.match(item.keybind, parsed)) {
+      if (item.disabled) continue
+      if (Keybind.match(item.keybind, keybind.parse(evt))) {
         const s = selected()
         if (s) {
           evt.preventDefault()
           item.onTrigger(s)
         }
-        return
-      }
-    }
-
-    // Refocus input for typing events (not navigation keys)
-    if (evt.sequence && !evt.ctrl && !evt.meta) {
-      if (input && !input.isDestroyed && !input.focused) {
-        input.focus()
       }
     }
   })
 
   let scroll: ScrollBoxRenderable
-
   const ref: DialogSelectRef<T> = {
     get filter() {
       return store.filter
@@ -218,17 +173,11 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   }
   props.ref?.(ref)
 
-  createEffect(() => {
-    if (!props.onLoadMore || !props.hasMore || !scroll) return
-    const scrollPercentage = (scroll.y + scroll.height) / scroll.scrollHeight
-    if (scrollPercentage > 0.8) {
-      props.onLoadMore()
-    }
-  })
+  const keybinds = createMemo(() => props.keybind?.filter((x) => !x.disabled) ?? [])
 
   return (
-    <box gap={1}>
-      <box paddingLeft={3} paddingRight={2}>
+    <box gap={1} paddingBottom={1}>
+      <box paddingLeft={4} paddingRight={4}>
         <box flexDirection="row" justifyContent="space-between">
           <text fg={theme.text} attributes={TextAttributes.BOLD}>
             {props.title}
@@ -243,58 +192,20 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                 props.onFilter?.(e)
               })
             }}
-            onKeyDown={(evt) => {
-              const name = evt.name?.toLowerCase()
-              // Handle navigation keys directly from input - don't wait for global handler
-              if (name === "up" || (evt.ctrl && (name === "k" || name === "p"))) {
-                evt.preventDefault()
-                move(-1)
-                return
-              }
-              if (name === "down" || (evt.ctrl && (name === "j" || name === "n"))) {
-                evt.preventDefault()
-                move(1)
-                return
-              }
-              if (name === "pageup" || (evt.ctrl && name === "u")) {
-                evt.preventDefault()
-                move(-10)
-                return
-              }
-              if (name === "pagedown" || (evt.ctrl && name === "d")) {
-                evt.preventDefault()
-                move(10)
-                return
-              }
-              if (name === "return") {
-                evt.preventDefault()
-                const option = selected()
-                if (option) {
-                  if (option.onSelect) option.onSelect(dialog)
-                  props.onSelect?.(option)
-                }
-                return
-              }
-            }}
             focusedBackgroundColor={theme.backgroundPanel}
             cursorColor={theme.primary}
             focusedTextColor={theme.textMuted}
             ref={(r) => {
               input = r
-              // Ensure input gets focus after render is complete
-              queueMicrotask(() => {
-                if (input && !input.isDestroyed) {
-                  input.focus()
-                }
-              })
+              setTimeout(() => input.focus(), 1)
             }}
             placeholder="Enter search term"
           />
         </box>
       </box>
       <scrollbox
-        paddingLeft={2}
-        paddingRight={2}
+        paddingLeft={1}
+        paddingRight={1}
         scrollbarOptions={{ visible: false }}
         ref={(r: ScrollBoxRenderable) => (scroll = r)}
         maxHeight={height()}
@@ -303,7 +214,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
           {([category, options], index) => (
             <>
               <Show when={category}>
-                <box paddingTop={index() > 0 ? 1 : 0} paddingLeft={1}>
+                <box paddingTop={index() > 0 ? 1 : 0} paddingLeft={3}>
                   <text fg={theme.accent} attributes={TextAttributes.BOLD}>
                     {category}
                   </text>
@@ -312,6 +223,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
               <For each={options}>
                 {(option) => {
                   const active = createMemo(() => isDeepEqual(option.value, selected()?.value))
+                  const current = createMemo(() => isDeepEqual(option.value, props.current))
                   return (
                     <box
                       id={JSON.stringify(option.value)}
@@ -321,23 +233,21 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                         props.onSelect?.(option)
                       }}
                       onMouseOver={() => {
-                        const index = flat().findIndex((x) => isDeepEqual(x.value, option.value))
+                        const index = filtered().findIndex((x) => isDeepEqual(x.value, option.value))
                         if (index === -1) return
                         moveTo(index)
-                        // Blur input to hide cursor when using mouse
-                        if (input) input.blur()
                       }}
                       backgroundColor={active() ? (option.bg ?? theme.primary) : RGBA.fromInts(0, 0, 0, 0)}
-                      paddingLeft={1}
-                      paddingRight={1}
-                      gap={0}
+                      paddingLeft={current() ? 1 : 3}
+                      paddingRight={3}
+                      gap={1}
                     >
                       <Option
                         title={option.title}
                         footer={option.footer}
                         description={option.description !== category ? option.description : undefined}
                         active={active()}
-                        current={isDeepEqual(option.value, props.current)}
+                        current={current()}
                       />
                     </box>
                   )
@@ -347,18 +257,20 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
           )}
         </For>
       </scrollbox>
-      <box paddingRight={2} paddingLeft={3} flexDirection="row" paddingBottom={1} gap={1}>
-        <For each={props.keybind ?? []}>
-          {(item) => (
-            <box flexDirection="row">
-              <text fg={theme.text} attributes={TextAttributes.BOLD}>
-                {Keybind.toString(item.keybind)}
+      <Show when={keybinds().length} fallback={<box flexShrink={0} />}>
+        <box paddingRight={2} paddingLeft={4} flexDirection="row" gap={2} flexShrink={0} paddingTop={1}>
+          <For each={keybinds()}>
+            {(item) => (
+              <text>
+                <span style={{ fg: theme.text }}>
+                  <b>{item.title}</b>{" "}
+                </span>
+                <span style={{ fg: theme.textMuted }}>{Keybind.toString(item.keybind)}</span>
               </text>
-              <text fg={theme.textMuted}> {item.title}</text>
-            </box>
-          )}
-        </For>
-      </box>
+            )}
+          </For>
+        </box>
+      </Show>
     </box>
   )
 }
@@ -376,16 +288,18 @@ function Option(props: {
 
   return (
     <>
-      {/* Fixed-width indicator column - always reserves space */}
-      <text flexShrink={0} width={2} fg={props.current ? theme.primary : RGBA.fromInts(0, 0, 0, 0)}>
-        {props.current ? "●" : " "}
-      </text>
+      <Show when={props.current}>
+        <text flexShrink={0} fg={props.active ? fg : props.current ? theme.primary : theme.text} marginRight={0.5}>
+          ●
+        </text>
+      </Show>
       <text
         flexGrow={1}
-        fg={props.active ? fg : theme.text}
+        fg={props.active ? fg : props.current ? theme.primary : theme.text}
         attributes={props.active ? TextAttributes.BOLD : undefined}
         overflow="hidden"
         wrapMode="none"
+        paddingLeft={3}
       >
         {Locale.truncate(props.title, 62)}
         <span style={{ fg: props.active ? fg : theme.textMuted }}> {props.description}</span>

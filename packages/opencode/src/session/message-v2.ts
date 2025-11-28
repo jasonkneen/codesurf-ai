@@ -32,12 +32,6 @@ export namespace MessageV2 {
   )
   export type APIError = z.infer<typeof APIError.Schema>
 
-  // TODO: Apply branded types for type-safe ID handling
-  // After migration:
-  // - id: PartID (branded string)
-  // - sessionID: SessionID (branded string)
-  // - messageID: MessageID (branded string)
-  // See src/util/branded-types.ts for branded type utilities
   const PartBase = z.object({
     id: z.string(),
     sessionID: z.string(),
@@ -65,6 +59,7 @@ export namespace MessageV2 {
     type: z.literal("text"),
     text: z.string(),
     synthetic: z.boolean().optional(),
+    ignored: z.boolean().optional(),
     time: z
       .object({
         start: z.number(),
@@ -148,6 +143,22 @@ export namespace MessageV2 {
     ref: "AgentPart",
   })
   export type AgentPart = z.infer<typeof AgentPart>
+
+  export const CompactionPart = PartBase.extend({
+    type: z.literal("compaction"),
+    auto: z.boolean(),
+  }).meta({
+    ref: "CompactionPart",
+  })
+  export type CompactionPart = z.infer<typeof CompactionPart>
+
+  export const SubtaskPart = PartBase.extend({
+    type: z.literal("subtask"),
+    prompt: z.string(),
+    description: z.string(),
+    agent: z.string(),
+  })
+  export type SubtaskPart = z.infer<typeof SubtaskPart>
 
   export const RetryPart = PartBase.extend({
     type: z.literal("retry"),
@@ -256,8 +267,6 @@ export namespace MessageV2 {
       ref: "ToolState",
     })
 
-  // TODO: callID should use ToolCallID branded type
-  // After migration: callID: ToolCallID (branded string)
   export const ToolPart = PartBase.extend({
     type: z.literal("tool"),
     callID: z.string(),
@@ -269,11 +278,6 @@ export namespace MessageV2 {
   })
   export type ToolPart = z.infer<typeof ToolPart>
 
-  // TODO: Apply branded types for type-safe ID handling
-  // After migration:
-  // - id: MessageID (branded string)
-  // - sessionID: SessionID (branded string)
-  // See src/util/branded-types.ts for branded type utilities
   const Base = z.object({
     id: z.string(),
     sessionID: z.string(),
@@ -291,7 +295,13 @@ export namespace MessageV2 {
         diffs: Snapshot.FileDiff.array(),
       })
       .optional(),
-    priority: z.enum(["red", "amber", "green", "none"]).optional(),
+    agent: z.string(),
+    model: z.object({
+      providerID: z.string(),
+      modelID: z.string(),
+    }),
+    system: z.string().optional(),
+    tools: z.record(z.string(), z.boolean()).optional(),
   }).meta({
     ref: "UserMessage",
   })
@@ -300,6 +310,7 @@ export namespace MessageV2 {
   export const Part = z
     .discriminatedUnion("type", [
       TextPart,
+      SubtaskPart,
       ReasoningPart,
       FilePart,
       ToolPart,
@@ -309,14 +320,13 @@ export namespace MessageV2 {
       PatchPart,
       AgentPart,
       RetryPart,
+      CompactionPart,
     ])
     .meta({
       ref: "Part",
     })
   export type Part = z.infer<typeof Part>
 
-  // TODO: parentID should use MessageID branded type
-  // After migration: parentID: MessageID (branded string)
   export const Assistant = Base.extend({
     role: z.literal("assistant"),
     time: z.object({
@@ -335,13 +345,12 @@ export namespace MessageV2 {
     parentID: z.string(),
     modelID: z.string(),
     providerID: z.string(),
-    mode: z.string().default("code"),
+    mode: z.string(),
     path: z.object({
       cwd: z.string(),
       root: z.string(),
     }),
     summary: z.boolean().optional(),
-    priority: z.enum(["red", "amber", "green", "none"]).optional(),
     cost: z.number(),
     tokens: z.object({
       input: z.number(),
@@ -352,6 +361,7 @@ export namespace MessageV2 {
         write: z.number(),
       }),
     }),
+    finish: z.string().optional(),
   }).meta({
     ref: "AssistantMessage",
   })
@@ -500,6 +510,11 @@ export namespace MessageV2 {
         time: {
           created: v1.metadata.time.created,
         },
+        agent: "build",
+        model: {
+          providerID: "opencode",
+          modelID: "opencode",
+        },
       }
       const parts = v1.parts.flatMap((part): Part[] => {
         const base = {
@@ -547,105 +562,111 @@ export namespace MessageV2 {
       if (msg.parts.length === 0) continue
 
       if (msg.info.role === "user") {
-        result.push({
+        const userMessage: UIMessage = {
           id: msg.info.id,
           role: "user",
-          parts: msg.parts.flatMap((part): UIMessage["parts"] => {
-            if (part.type === "text")
-              return [
-                {
-                  type: "text",
-                  text: part.text,
-                },
-              ]
-            // text/plain and directory files are converted into text parts, ignore them
-            if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory")
-              return [
-                {
-                  type: "file",
-                  url: part.url,
-                  mediaType: part.mime,
-                  filename: part.filename,
-                },
-              ]
-            return []
-          }),
-        })
+          parts: [],
+        }
+        result.push(userMessage)
+        for (const part of msg.parts) {
+          if (part.type === "text" && !part.ignored)
+            userMessage.parts.push({
+              type: "text",
+              text: part.text,
+            })
+          // text/plain and directory files are converted into text parts, ignore them
+          if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory")
+            userMessage.parts.push({
+              type: "file",
+              url: part.url,
+              mediaType: part.mime,
+              filename: part.filename,
+            })
+
+          if (part.type === "compaction") {
+            userMessage.parts.push({
+              type: "text",
+              text: "What did we do so far?",
+            })
+          }
+          if (part.type === "subtask") {
+            userMessage.parts.push({
+              type: "text",
+              text: "The following tool was executed by the user",
+            })
+          }
+        }
       }
 
       if (msg.info.role === "assistant") {
-        result.push({
+        const assistantMessage: UIMessage = {
           id: msg.info.id,
           role: "assistant",
-          parts: msg.parts.flatMap((part): UIMessage["parts"] => {
-            if (part.type === "text")
-              return [
-                {
-                  type: "text",
-                  text: part.text,
-                  providerMetadata: part.metadata,
-                },
-              ]
-            if (part.type === "step-start")
-              return [
-                {
-                  type: "step-start",
-                },
-              ]
-            if (part.type === "tool") {
-              if (part.state.status === "completed") {
-                if (part.state.attachments?.length) {
-                  result.push({
-                    id: Identifier.ascending("message"),
-                    role: "user",
-                    parts: [
-                      {
-                        type: "text",
-                        text: `Tool ${part.tool} returned an attachment:`,
-                      },
-                      ...part.state.attachments.map((attachment) => ({
-                        type: "file" as const,
-                        url: attachment.url,
-                        mediaType: attachment.mime,
-                        filename: attachment.filename,
-                      })),
-                    ],
-                  })
-                }
-                return [
-                  {
-                    type: ("tool-" + part.tool) as `tool-${string}`,
-                    state: "output-available",
-                    toolCallId: part.callID,
-                    input: part.state.input,
-                    output: part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output,
-                    callProviderMetadata: part.metadata,
-                  },
-                ]
+          parts: [],
+        }
+        result.push(assistantMessage)
+        for (const part of msg.parts) {
+          if (part.type === "text")
+            assistantMessage.parts.push({
+              type: "text",
+              text: part.text,
+              providerMetadata: part.metadata,
+            })
+          if (part.type === "step-start")
+            assistantMessage.parts.push({
+              type: "step-start",
+            })
+          if (part.type === "tool") {
+            if (part.state.status === "completed") {
+              if (part.state.attachments?.length) {
+                result.push({
+                  id: Identifier.ascending("message"),
+                  role: "user",
+                  parts: [
+                    {
+                      type: "text",
+                      text: `Tool ${part.tool} returned an attachment:`,
+                    },
+                    ...part.state.attachments.map((attachment) => ({
+                      type: "file" as const,
+                      url: attachment.url,
+                      mediaType: attachment.mime,
+                      filename: attachment.filename,
+                    })),
+                  ],
+                })
               }
-              if (part.state.status === "error")
-                return [
-                  {
-                    type: ("tool-" + part.tool) as `tool-${string}`,
-                    state: "output-error",
-                    toolCallId: part.callID,
-                    input: part.state.input,
-                    errorText: part.state.error,
-                    callProviderMetadata: part.metadata,
-                  },
-                ]
+              assistantMessage.parts.push({
+                type: ("tool-" + part.tool) as `tool-${string}`,
+                state: "output-available",
+                toolCallId: part.callID,
+                input: part.state.input,
+                output: part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output,
+                callProviderMetadata: part.metadata,
+              })
             }
-            if (part.type === "reasoning") {
-              // Provider APIs reject reasoning content in prompts, so skip it
-              return []
-            }
-            return []
-          }),
-        })
+            if (part.state.status === "error")
+              assistantMessage.parts.push({
+                type: ("tool-" + part.tool) as `tool-${string}`,
+                state: "output-error",
+                toolCallId: part.callID,
+                input: part.state.input,
+                errorText: part.state.error,
+                callProviderMetadata: part.metadata,
+              })
+          }
+          if (part.type === "reasoning") {
+            assistantMessage.parts.push({
+              type: "reasoning",
+              text: part.text,
+              providerMetadata: part.metadata,
+            })
+          }
+        }
       }
     }
 
-    return convertToModelMessages(result)
+    return convertToModelMessages(result.filter((msg) => msg.parts.length > 0))
   }
 
   export const stream = fn(Identifier.schema("session"), async function* (sessionID) {
@@ -683,22 +704,16 @@ export namespace MessageV2 {
 
   export async function filterCompacted(stream: AsyncIterable<MessageV2.WithParts>) {
     const result = [] as MessageV2.WithParts[]
-    let foundSummary = false
+    const completed = new Set<string>()
     for await (const msg of stream) {
-      // Always include red and amber priority messages, even after summary
-      if (msg.info.priority === "red" || msg.info.priority === "amber") {
-        result.push(msg)
-        continue
-      }
-      // Skip green priority messages after summary (these get removed during compaction)
-      if (foundSummary && msg.info.priority === "green") {
-        continue
-      }
       result.push(msg)
-      if (msg.info.role === "assistant" && msg.info.summary === true) {
-        foundSummary = true
+      if (
+        msg.info.role === "user" &&
+        completed.has(msg.info.id) &&
+        msg.parts.some((part) => part.type === "compaction")
+      )
         break
-      }
+      if (msg.info.role === "assistant" && msg.info.summary && msg.info.finish) completed.add(msg.info.parentID)
     }
     result.reverse()
     return result
@@ -741,162 +756,4 @@ export namespace MessageV2 {
         return new NamedError.Unknown({ message: JSON.stringify(e) }, { cause: e })
     }
   }
-
-  // Type guard functions for Part discriminated union
-  export function isTextPart(part: Part): part is TextPart {
-    return part.type === "text"
-  }
-
-  export function isReasoningPart(part: Part): part is ReasoningPart {
-    return part.type === "reasoning"
-  }
-
-  export function isFilePart(part: Part): part is FilePart {
-    return part.type === "file"
-  }
-
-  export function isToolPart(part: Part): part is ToolPart {
-    return part.type === "tool"
-  }
-
-  export function isStepStartPart(part: Part): part is StepStartPart {
-    return part.type === "step-start"
-  }
-
-  export function isStepFinishPart(part: Part): part is StepFinishPart {
-    return part.type === "step-finish"
-  }
-
-  export function isSnapshotPart(part: Part): part is SnapshotPart {
-    return part.type === "snapshot"
-  }
-
-  export function isPatchPart(part: Part): part is PatchPart {
-    return part.type === "patch"
-  }
-
-  export function isAgentPart(part: Part): part is AgentPart {
-    return part.type === "agent"
-  }
-
-  export function isRetryPart(part: Part): part is RetryPart {
-    return part.type === "retry"
-  }
-
-  // Type guard functions for Message roles
-  export function isUserMessage(msg: Info): msg is User {
-    return msg.role === "user"
-  }
-
-  export function isAssistantMessage(msg: Info): msg is Assistant {
-    return msg.role === "assistant"
-  }
-
-  // Type guard functions for ToolState discriminated union
-  export function isToolStatePending(state: z.infer<typeof ToolState>): state is ToolStatePending {
-    return state.status === "pending"
-  }
-
-  export function isToolStateRunning(state: z.infer<typeof ToolState>): state is ToolStateRunning {
-    return state.status === "running"
-  }
-
-  export function isToolStateCompleted(state: z.infer<typeof ToolState>): state is ToolStateCompleted {
-    return state.status === "completed"
-  }
-
-  export function isToolStateError(state: z.infer<typeof ToolState>): state is ToolStateError {
-    return state.status === "error"
-  }
-
-  // Helper functions for extracting specific parts
-  export function getTextParts(parts: Part[]): TextPart[] {
-    return parts.filter(isTextPart)
-  }
-
-  export function getReasoningParts(parts: Part[]): ReasoningPart[] {
-    return parts.filter(isReasoningPart)
-  }
-
-  export function getFileParts(parts: Part[]): FilePart[] {
-    return parts.filter(isFilePart)
-  }
-
-  export function getToolParts(parts: Part[]): ToolPart[] {
-    return parts.filter(isToolPart)
-  }
-
-  export function getStepStartParts(parts: Part[]): StepStartPart[] {
-    return parts.filter(isStepStartPart)
-  }
-
-  export function getStepFinishParts(parts: Part[]): StepFinishPart[] {
-    return parts.filter(isStepFinishPart)
-  }
-
-  export function getSnapshotParts(parts: Part[]): SnapshotPart[] {
-    return parts.filter(isSnapshotPart)
-  }
-
-  export function getPatchParts(parts: Part[]): PatchPart[] {
-    return parts.filter(isPatchPart)
-  }
-
-  export function getAgentParts(parts: Part[]): AgentPart[] {
-    return parts.filter(isAgentPart)
-  }
-
-  export function getRetryParts(parts: Part[]): RetryPart[] {
-    return parts.filter(isRetryPart)
-  }
-
-  // Helper to get the first part of a specific type
-  export function getFirstTextPart(parts: Part[]): TextPart | undefined {
-    return parts.find(isTextPart)
-  }
-
-  export function getFirstToolPart(parts: Part[]): ToolPart | undefined {
-    return parts.find(isToolPart)
-  }
-
-  export function getFirstFilePart(parts: Part[]): FilePart | undefined {
-    return parts.find(isFilePart)
-  }
-
-  // Helper to check if parts contain a specific type
-  export function hasTextPart(parts: Part[]): boolean {
-    return parts.some(isTextPart)
-  }
-
-  export function hasToolPart(parts: Part[]): boolean {
-    return parts.some(isToolPart)
-  }
-
-  export function hasFilePart(parts: Part[]): boolean {
-    return parts.some(isFilePart)
-  }
-
-  export function hasReasoningPart(parts: Part[]): boolean {
-    return parts.some(isReasoningPart)
-  }
-
-  // Helper to get completed tool parts
-  export function getCompletedToolParts(parts: Part[]): ToolPart[] {
-    return getToolParts(parts).filter((part) => part.state.status === "completed")
-  }
-
-  // Helper to get error tool parts
-  export function getErrorToolParts(parts: Part[]): ToolPart[] {
-    return getToolParts(parts).filter((part) => part.state.status === "error")
-  }
-
-  // Helper to get running tool parts
-  export function getRunningToolParts(parts: Part[]): ToolPart[] {
-    return getToolParts(parts).filter((part) => part.state.status === "running")
-  }
-
-  // Helper to get pending tool parts
-export function getPendingToolParts(parts: Part[]): ToolPart[] {
-  return getToolParts(parts).filter((part) => part.state.status === "pending")
-}
 }

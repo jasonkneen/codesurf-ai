@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "codesurf-ai",
-  "version": "1.0.111",
+  "version": "1.0.119",
   "description": "AI coding agent for the terminal with advanced UI, parallel workflows, and deep Anthropic integration",
   "author": "CodeSurf Contributors",
   "license": "MIT",
@@ -75,7 +75,7 @@
     "@actions/github": "6.0.1",
     "@agentclientprotocol/sdk": "0.5.1",
     "@ai-sdk/amazon-bedrock": "3.0.57",
-    "@ai-sdk/anthropic": "2.0.45",
+    "@ai-sdk/anthropic": "2.0.50",
     "@ai-sdk/azure": "2.0.73",
     "@ai-sdk/google": "2.0.42",
     "@ai-sdk/google-vertex": "3.0.74",

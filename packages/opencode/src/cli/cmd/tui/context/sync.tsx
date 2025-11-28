@@ -12,6 +12,9 @@ import type {
   McpStatus,
   FormatterStatus,
   SessionStatus,
+  ProviderListResponse,
+  ProviderAuthMethod,
+  VcsInfo,
 } from "@opencode-ai/sdk"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
@@ -20,6 +23,7 @@ import { createSimpleContext } from "./helper"
 import type { Snapshot } from "@/snapshot"
 import { useExit } from "./exit"
 import { batch, createEffect } from "solid-js"
+import { Log } from "@/util/log"
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -63,6 +67,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         path: string
         status: "loaded"
       }>
+      vcs: VcsInfo | undefined
     }>({
       config: {},
       ready: false,
@@ -84,6 +89,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       mcp: {},
       formatter: [],
       plugin: [],
+      vcs: undefined,
     })
 
     // Throttle part updates to prevent excessive re-renders during streaming
@@ -285,6 +291,11 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           sdk.client.lsp.status().then((x) => setStore("lsp", x.data!))
           break
         }
+
+        case "vcs.branch.updated": {
+          setStore("vcs", { branch: event.properties.branch })
+          break
+        }
       }
       } catch (err) {
         console.error("[Sync] Event handler error:", event.type, err)
@@ -320,17 +331,24 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.lsp.status().then((x) => setStore("lsp", x.data!)),
             sdk.client.mcp.status().then((x) => setStore("mcp", x.data!)),
             sdk.client.formatter.status().then((x) => setStore("formatter", x.data!)),
+            sdk.client.session.status().then((x) => setStore("session_status", x.data!)),
+            sdk.client.provider.auth().then((x) => setStore("provider_auth", x.data ?? {})),
+            sdk.client.vcs.get().then((x) => setStore("vcs", x.data)),
             fetch(`${sdk.url}/plugins`)
               .then((r) => r.json())
               .then((x) => setStore("plugin", x ?? []))
               .catch(() => setStore("plugin", [])),
-          ])
+          ]).then(() => {
+            setStore("status", "complete")
+          })
         })
-        .then(() => {
-          setStore("status", "complete")
-        })
-        .catch(async (error) => {
-          await exit(error)
+        .catch(async (e) => {
+          Log.Default.error("tui bootstrap failed", {
+            error: e instanceof Error ? e.message : String(e),
+            name: e instanceof Error ? e.name : undefined,
+            stack: e instanceof Error ? e.stack : undefined,
+          })
+          await exit(e)
         })
     })
 
