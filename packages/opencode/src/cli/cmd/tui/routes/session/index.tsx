@@ -2080,7 +2080,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
           customBorderChars={SplitBorder.customBorderChars}
           borderColor={theme.backgroundElement}
         >
-          <text fg={local.agent.color(props.message.mode)}>{Locale.titlecase(props.message.mode)}</text>
+          <text fg={local.agent.color(props.message.mode)}>▣ {Locale.titlecase(props.message.mode)}</text>
           <Shimmer text={`${props.message.modelID}`} color={theme.text} />
           {(() => {
             const retry = createMemo(() => {
@@ -2127,7 +2127,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
       >
         <box paddingLeft={3}>
           <text marginTop={0}>
-            <span style={{ fg: local.agent.color(props.message.mode) }}>{Locale.titlecase(props.message.mode)}</span>{" "}
+            <span style={{ fg: local.agent.color(props.message.mode) }}>▣ {Locale.titlecase(props.message.mode)}</span>{" "}
             <span style={{ fg: theme.textMuted }}>{props.message.modelID}</span>
           </text>
         </box>
