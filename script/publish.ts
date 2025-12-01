@@ -9,15 +9,30 @@ const notes = [] as string[]
 console.log("=== publishing ===\n")
 
 if (!Script.preview) {
-  const previous = await fetch("https://registry.npmjs.org/opencode-ai/latest")
+  const previous = await fetch("https://registry.npmjs.org/codesurf-ai/latest")
     .then((res) => {
-      if (!res.ok) throw new Error(res.statusText)
+      if (!res.ok) return null
       return res.json()
     })
-    .then((data: any) => data.version)
+    .then((data: any) => data?.version)
+    .catch(() => null)
 
-  const log =
-    await $`git log v${previous}..HEAD --oneline --format="%h %s" -- packages/opencode packages/sdk packages/plugin`.text()
+  // Get the most recent tag if npm version tag doesn't exist
+  let logCmd: string
+  if (previous) {
+    const tagExists = await $`git rev-parse v${previous} 2>/dev/null`.nothrow()
+    if (tagExists.exitCode === 0) {
+      logCmd = `git log v${previous}..HEAD --oneline --format="%h %s" -- packages/opencode packages/sdk packages/plugin`
+    } else {
+      // Fall back to last 50 commits if tag doesn't exist
+      logCmd = `git log -50 --oneline --format="%h %s" -- packages/opencode packages/sdk packages/plugin`
+    }
+  } else {
+    // No previous version on npm, use last 50 commits
+    logCmd = `git log -50 --oneline --format="%h %s" -- packages/opencode packages/sdk packages/plugin`
+  }
+
+  const log = await $`${{ raw: logCmd }}`.text()
 
   const commits = log
     .split("\n")
