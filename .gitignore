@@ -41,3 +41,4 @@ packages/opencode/test-kitty-graphics.ts
 packages/opencode/cs-test/
 packages/opencode/.env.local
 /.git-backup
+.beads/
