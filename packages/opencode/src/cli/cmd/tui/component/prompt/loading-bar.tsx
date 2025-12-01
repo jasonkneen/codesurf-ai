@@ -49,16 +49,26 @@ function SimpleLoadingBar() {
 }
 
 /**
- * Knight Rider loading bar - red sweeping animation with gradient trail
+ * Knight Rider loading bar - sweeping animation with gradient trail
+ *
+ * Style options:
+ * - "blocks": Pulsing square blocks (■ ⬝) - dev default, smoother animation
+ * - "diamonds": Diamond shapes (⬥ ◆ ⬩ ⬪) - codesurf original style
  */
 function KnightRiderLoadingBar(props: { options?: KnightRiderOptions }) {
   const { theme } = useTheme()
 
   const options = createMemo(() => ({
     width: 8,
-    style: "diamonds" as const,
+    // Use "blocks" style (pulsing squares) from dev branch
+    // Change to "diamonds" for original codesurf style (⬥ ◆ ⬩ ⬪)
+    style: "blocks" as const,
     holdStart: 30,
     holdEnd: 9,
+    // Original codesurf diamond style:
+    // style: "diamonds" as const,
+    inactiveFactor: 0.6,
+    minAlpha: 0.3,
     ...props.options,
   }))
 
