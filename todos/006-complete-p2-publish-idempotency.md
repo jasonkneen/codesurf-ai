@@ -1,9 +1,10 @@
 ---
-status: pending
+status: complete
 priority: p2
 issue_id: "006"
 tags: [code-review, data-integrity, ci-cd, reliability]
 dependencies: []
+completed: 2025-12-01
 ---
 
 # No Idempotent Guarantees on Publish Operations

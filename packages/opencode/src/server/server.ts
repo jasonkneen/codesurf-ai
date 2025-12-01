@@ -111,8 +111,12 @@ export namespace Server {
         }),
       )
       .onError((err, c) => {
+        // Always log full error details internally (including stack trace)
         log.error("failed", {
           error: err,
+          stack: err instanceof Error ? err.stack : undefined,
+          path: c.req.path,
+          method: c.req.method,
         })
         if (err instanceof NamedError) {
           let status: ContentfulStatusCode
@@ -121,7 +125,11 @@ export namespace Server {
           else status = 500
           return c.json(err.toObject(), { status })
         }
-        const message = err instanceof Error && err.stack ? err.stack : err.toString()
+        // Return generic error message to client - never expose stack traces
+        const isDev = process.env.NODE_ENV === "development"
+        const message = isDev
+          ? (err instanceof Error ? err.message : String(err))
+          : "Internal server error"
         return c.json(new NamedError.Unknown({ message }).toObject(), {
           status: 500,
         })

@@ -4,12 +4,48 @@ import { $ } from "bun"
 import { createOpencode } from "@opencode-ai/sdk/server"
 import { Script } from "@opencode-ai/script"
 
+// Helper: fetch with timeout
+async function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+// Helper: promise with timeout
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
+  ])
+}
+
 const notes = [] as string[]
 
 console.log("=== publishing ===\n")
 
 if (!Script.preview) {
-  const previous = await fetch("https://registry.npmjs.org/codesurf-ai/latest")
+  // Pre-flight check: ensure version doesn't already exist
+  const existingTag = await $`git tag -l v${Script.version}`.text()
+  if (existingTag.trim()) {
+    console.error(`\n❌ Version v${Script.version} already has a git tag. Use a different version.\n`)
+    process.exit(1)
+  }
+
+  const npmVersionCheck = await fetchWithTimeout(`https://registry.npmjs.org/codesurf-ai/${Script.version}`, 5000)
+    .then((res) => res.ok)
+    .catch(() => false)
+  if (npmVersionCheck) {
+    console.error(`\n❌ Version ${Script.version} already published to npm. Use a different version.\n`)
+    process.exit(1)
+  }
+
+  console.log(`✓ Version ${Script.version} is available for publishing\n`)
+
+  const previous = await fetchWithTimeout("https://registry.npmjs.org/codesurf-ai/latest", 10000)
     .then((res) => {
       if (!res.ok) return null
       return res.json()
@@ -53,7 +89,9 @@ if (!Script.preview) {
   const opencode = await createOpencode()
   const session = await opencode.client.session.create()
   console.log("generating changelog since " + previous)
-  const raw = await opencode.client.session
+
+  // Changelog generation with 60-second timeout and fallback
+  const changelogPromise = opencode.client.session
     .prompt({
       path: {
         id: session.data!.id,
@@ -90,9 +128,16 @@ if (!Script.preview) {
       },
     })
     .then((x) => x.data?.parts?.find((y) => y.type === "text")?.text)
-  for (const line of raw?.split("\n") ?? []) {
-    if (line.startsWith("- ")) {
-      notes.push(line)
+
+  const raw = await withTimeout(changelogPromise, 60000, null)
+  if (raw === null) {
+    console.warn("⚠️  Changelog generation timed out, using fallback message")
+    notes.push("- See commit history for detailed changes")
+  } else {
+    for (const line of raw?.split("\n") ?? []) {
+      if (line.startsWith("- ")) {
+        notes.push(line)
+      }
     }
   }
   console.log("---- Generated Changelog ----")

@@ -1,9 +1,10 @@
 ---
-status: pending
+status: complete
 priority: p3
 issue_id: "008"
 tags: [code-review, security, information-disclosure]
 dependencies: []
+completed: 2025-12-01
 ---
 
 # Information Disclosure via Error Stack Traces
