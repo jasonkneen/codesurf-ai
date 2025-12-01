@@ -1,4 +1,5 @@
 name: publish
+# Publish CLI to npm, brew, AUR, and Docker
 run-name: "${{ format('release {0}', inputs.bump) }}"
 
 on:
