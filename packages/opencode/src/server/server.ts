@@ -1,3 +1,4 @@
+import path from "path"
 import { Log } from "../util/log"
 import { Bus } from "../bus"
 import { describeRoute, generateSpecs, openAPIRouteHandler, resolver, validator } from "hono-openapi"
@@ -95,6 +96,21 @@ export namespace Server {
   const app = new Hono()
   export const App = lazy(() =>
     app
+      .use(
+        cors({
+          origin: process.env.OPENCODE_CORS_ORIGINS?.split(",") || [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+          ],
+          credentials: true,
+          allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+          allowHeaders: ["Content-Type", "Authorization", "X-Opencode-Directory"],
+          exposeHeaders: ["Content-Length"],
+          maxAge: 600,
+        }),
+      )
       .onError((err, c) => {
         log.error("failed", {
           error: err,
@@ -130,9 +146,33 @@ export namespace Server {
       })
       .route("/global/event", globalEventRoutes())
       .use(async (c, next) => {
-        const directory = c.req.query("directory") ?? c.req.header("x-opencode-directory") ?? process.cwd()
+        const rawDirectory = c.req.query("directory") ?? c.req.header("x-opencode-directory") ?? process.cwd()
+
+        // Validate directory to prevent path traversal attacks
+        const resolved = path.resolve(rawDirectory)
+        const allowedBaseDirs = process.env.OPENCODE_ALLOWED_DIRECTORIES?.split(",").map((d) => path.resolve(d.trim()))
+
+        // If allowlist is configured, validate against it
+        if (allowedBaseDirs && allowedBaseDirs.length > 0) {
+          const isAllowed = allowedBaseDirs.some((base) => resolved === base || resolved.startsWith(base + path.sep))
+          if (!isAllowed) {
+            return c.json({ error: "Directory not in allowlist" }, 403)
+          }
+        } else {
+          // Default: only allow directories under user's home or current working directory
+          const homeDir = process.env.HOME || process.env.USERPROFILE || ""
+          const cwd = process.cwd()
+          const isUnderHome = homeDir && (resolved === homeDir || resolved.startsWith(homeDir + path.sep))
+          const isUnderCwd = resolved === cwd || resolved.startsWith(cwd + path.sep)
+
+          if (!isUnderHome && !isUnderCwd) {
+            log.warn("directory_traversal_blocked", { attempted: rawDirectory, resolved })
+            return c.json({ error: "Directory access denied" }, 403)
+          }
+        }
+
         return Instance.provide({
-          directory,
+          directory: resolved,
           init: InstanceBootstrap,
           async fn() {
             return next()

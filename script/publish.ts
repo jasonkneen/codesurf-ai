@@ -14,25 +14,36 @@ if (!Script.preview) {
       if (!res.ok) return null
       return res.json()
     })
-    .then((data: any) => data?.version)
+    .then((data: any) => {
+      const version = data?.version
+      // Validate version format to prevent command injection
+      if (version && !/^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/.test(version)) {
+        console.warn(`Invalid version format from npm: ${version}, using fallback`)
+        return null
+      }
+      return version
+    })
     .catch(() => null)
 
-  // Get the most recent tag if npm version tag doesn't exist
-  let logCmd: string
+  // Get commits for changelog - using safe Bun template strings (no raw shell execution)
+  const packages = "packages/opencode packages/sdk packages/plugin"
+  let log: string
+
   if (previous) {
-    const tagExists = await $`git rev-parse v${previous} 2>/dev/null`.nothrow()
+    const tagExists = await $`git rev-parse v${previous}`.nothrow()
     if (tagExists.exitCode === 0) {
-      logCmd = `git log v${previous}..HEAD --oneline --format="%h %s" -- packages/opencode packages/sdk packages/plugin`
+      // Safe: Bun's $ template handles escaping, and previous is validated
+      log = await $`git log v${previous}..HEAD --oneline --format=%h %s -- ${packages}`.text()
     } else {
       // Fall back to last 50 commits if tag doesn't exist
-      logCmd = `git log -50 --oneline --format="%h %s" -- packages/opencode packages/sdk packages/plugin`
+      console.warn(`Git tag v${previous} not found, using last 50 commits`)
+      log = await $`git log -50 --oneline --format=%h %s -- ${packages}`.text()
     }
   } else {
     // No previous version on npm, use last 50 commits
-    logCmd = `git log -50 --oneline --format="%h %s" -- packages/opencode packages/sdk packages/plugin`
+    console.warn("No previous version on npm, using last 50 commits")
+    log = await $`git log -50 --oneline --format=%h %s -- ${packages}`.text()
   }
-
-  const log = await $`${{ raw: logCmd }}`.text()
 
   const commits = log
     .split("\n")
