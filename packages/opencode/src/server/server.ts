@@ -45,7 +45,6 @@ import { Snapshot } from "@/snapshot"
 import { SessionSummary } from "@/session/summary"
 import { GlobalBus } from "@/bus/global"
 import { SessionStatus } from "@/session/status"
-import { ShareNext } from "@/share/share-next"
 
 import { eventRoutes, globalEventRoutes, favoriteToolsRoutes } from "./routes"
 import { authRoutes } from "./routes"

@@ -1,36 +1,36 @@
-id = "opencode"
-name = "OpenCode"
-description = "The AI coding agent built for the terminal"
-version = "0.0.0-dev-codesurf-202511261259"
+id = "codesurf"
+name = "CodeSurf"
+description = "AI coding agent for the terminal with advanced UI, parallel workflows, and deep Anthropic integration"
+version = "1.0.126"
 schema_version = 1
 authors = ["Anomaly"]
-repository = "https://github.com/sst/opencode"
+repository = "https://github.com/jkneen/codesurf"
 
-[agent_servers.opencode]
-name = "OpenCode"
+[agent_servers.codesurf]
+name = "CodeSurf"
 icon = "./icons/opencode.svg"
 
-[agent_servers.opencode.targets.darwin-aarch64]
-archive = "https://github.com/sst/opencode/releases/download/v0.0.0-dev-codesurf-202511261259/opencode-darwin-arm64.zip"
+[agent_servers.codesurf.targets.darwin-aarch64]
+archive = "https://github.com/sst/opencode/releases/download/v1.0.126/opencode-darwin-arm64.zip"
 cmd = "./opencode"
 args = ["acp"]
 
-[agent_servers.opencode.targets.darwin-x86_64]
-archive = "https://github.com/sst/opencode/releases/download/v0.0.0-dev-codesurf-202511261259/opencode-darwin-x64.zip"
+[agent_servers.codesurf.targets.darwin-x86_64]
+archive = "https://github.com/sst/opencode/releases/download/v1.0.126/opencode-darwin-x64.zip"
 cmd = "./opencode"
 args = ["acp"]
 
-[agent_servers.opencode.targets.linux-aarch64]
-archive = "https://github.com/sst/opencode/releases/download/v0.0.0-dev-codesurf-202511261259/opencode-linux-arm64.zip"
+[agent_servers.codesurf.targets.linux-aarch64]
+archive = "https://github.com/sst/opencode/releases/download/v1.0.126/opencode-linux-arm64.zip"
 cmd = "./opencode"
 args = ["acp"]
 
-[agent_servers.opencode.targets.linux-x86_64]
-archive = "https://github.com/sst/opencode/releases/download/v0.0.0-dev-codesurf-202511261259/opencode-linux-x64.zip"
+[agent_servers.codesurf.targets.linux-x86_64]
+archive = "https://github.com/sst/opencode/releases/download/v1.0.126/opencode-linux-x64.zip"
 cmd = "./opencode"
 args = ["acp"]
 
-[agent_servers.opencode.targets.windows-x86_64]
-archive = "https://github.com/sst/opencode/releases/download/v0.0.0-dev-codesurf-202511261259/opencode-windows-x64.zip"
+[agent_servers.codesurf.targets.windows-x86_64]
+archive = "https://github.com/sst/opencode/releases/download/v1.0.126/opencode-windows-x64.zip"
 cmd = "./opencode.exe"
 args = ["acp"]

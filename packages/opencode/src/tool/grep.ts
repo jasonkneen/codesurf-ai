@@ -6,6 +6,8 @@ import DESCRIPTION from "./grep.txt"
 import { Instance } from "../project/instance"
 import { assertValidRegex, withTimeout } from "../util/regex-validator"
 
+const MAX_LINE_LENGTH = 2000
+
 export const GrepTool = Tool.define("grep", {
   description: DESCRIPTION,
   parameters: z.object({
@@ -117,7 +119,9 @@ export const GrepTool = Tool.define("grep", {
         currentFile = match.path
         outputLines.push(`${match.path}:`)
       }
-      outputLines.push(`  Line ${match.lineNum}: ${match.lineText}`)
+      const truncatedLineText =
+        match.lineText.length > MAX_LINE_LENGTH ? match.lineText.substring(0, MAX_LINE_LENGTH) + "..." : match.lineText
+      outputLines.push(`  Line ${match.lineNum}: ${truncatedLineText}`)
     }
 
     if (truncated) {

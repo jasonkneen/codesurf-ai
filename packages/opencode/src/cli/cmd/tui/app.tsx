@@ -35,9 +35,10 @@ import { Session as SessionApi } from "@/session"
 import { TuiEvent } from "./event"
 import { KVProvider, useKV } from "./context/kv"
 import { UIExtensionsProvider, useUIExtensions } from "./context/ui-extensions"
-import { ArgsProvider } from "./context/args"
+import { ArgsProvider, useArgs, type Args } from "./context/args"
 import { TransitionAnimation } from "./component/transition-animation"
 import { ContextProvider } from "./context/context"
+import open from "open"
 // Wallpaper removed - z-index not supported in Ghostty yet
 // import { setWallpaper, clearWallpaper, generateGradientWallpaper } from "@/util/kitty-wallpaper"
 
@@ -405,6 +406,15 @@ function App() {
     //     dialog.replace(() => <DialogKbManager />)
     //   },
     // },
+    {
+      title: "Open docs",
+      value: "docs.open",
+      onSelect: () => {
+        open("https://opencode.ai/docs").catch(() => {})
+        dialog.clear()
+      },
+      category: "System",
+    },
     {
       title: "Exit the app",
       value: "app.exit",

@@ -116,7 +116,6 @@ export namespace Agent {
     )
 
     const result = createDefaultAgents(defaultTools, agentPermission, planPermission)
-
     for (const [key, value] of Object.entries(cfg.agent ?? {})) {
       if (value.disable) {
         delete result[key]

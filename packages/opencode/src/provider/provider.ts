@@ -24,6 +24,7 @@ import { createVertexAnthropic } from "@ai-sdk/google-vertex/anthropic"
 import { createOpenAI } from "@ai-sdk/openai"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
+import { createOpenaiCompatible as createGitHubCopilotOpenAICompatible } from "./sdk/openai-compatible/src"
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
@@ -38,6 +39,8 @@ export namespace Provider {
     "@ai-sdk/openai": createOpenAI,
     "@ai-sdk/openai-compatible": createOpenAICompatible,
     "@openrouter/ai-sdk-provider": createOpenRouter,
+    // @ts-ignore (TODO: kill this code so we dont have to maintain it)
+    "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible,
   }
 
   /**
@@ -175,6 +178,30 @@ export namespace Provider {
             throw new Error("OpenAI SDK does not support responses method")
           }
           return sdk.responses(modelID)
+        },
+        options: {},
+      }
+    },
+    "github-copilot": async () => {
+      return {
+        autoload: false,
+        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+          if (modelID.includes("codex")) {
+            return sdk.responses(modelID)
+          }
+          return sdk.chat(modelID)
+        },
+        options: {},
+      }
+    },
+    "github-copilot-enterprise": async () => {
+      return {
+        autoload: false,
+        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+          if (modelID.includes("codex")) {
+            return sdk.responses(modelID)
+          }
+          return sdk.chat(modelID)
         },
         options: {},
       }
@@ -807,15 +834,6 @@ export namespace Provider {
       }
     }
 
-    // load custom
-    for (const [providerID, fn] of Object.entries(CUSTOM_LOADERS)) {
-      if (disabled.has(providerID)) continue
-      const result = await fn(database[providerID])
-      if (result && (result.autoload || providers[providerID])) {
-        mergeProvider(providerID, result.options ?? {}, "custom", result.getModel)
-      }
-    }
-
     for (const plugin of await Plugin.list()) {
       if (!plugin.auth) continue
       const providerID = plugin.auth.provider
@@ -857,12 +875,24 @@ export namespace Provider {
       }
     }
 
+    for (const [providerID, fn] of Object.entries(CUSTOM_LOADERS)) {
+      if (disabled.has(providerID)) continue
+      const result = await fn(database[providerID])
+      if (result && (result.autoload || providers[providerID])) {
+        mergeProvider(providerID, result.options ?? {}, "custom", result.getModel)
+      }
+    }
+
     // load config
     for (const [providerID, provider] of configProviders) {
       mergeProvider(providerID, provider.options ?? {}, "config")
     }
 
     for (const [providerID, provider] of Object.entries(providers)) {
+      if (providerID === "github-copilot") {
+        provider.info.npm = "@ai-sdk/github-copilot"
+      }
+
       const filteredModels = Object.fromEntries(
         Object.entries(provider.info.models)
           // Filter out blacklisted models
@@ -1023,6 +1053,21 @@ export namespace Provider {
           { cause: e },
         )
       throw e
+    }
+  }
+
+  export async function closest(providerID: string, query: string[]) {
+    const s = await state()
+    const provider = s.providers[providerID]
+    if (!provider) return undefined
+    for (const item of query) {
+      for (const modelID of Object.keys(provider.info.models)) {
+        if (modelID.includes(item))
+          return {
+            providerID,
+            modelID,
+          }
+      }
     }
   }
 
