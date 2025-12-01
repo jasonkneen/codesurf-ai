@@ -42,3 +42,7 @@ packages/opencode/cs-test/
 packages/opencode/.env.local
 /.git-backup
 .beads/
+.beads/README.md
+.beads/metadata.json
+.beads/issues.jsonl
+.beads/config.yaml
