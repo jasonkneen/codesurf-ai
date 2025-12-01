@@ -3,9 +3,6 @@
   "plugin": [
     "opencode-openai-codex-auth"
   ],
-  "enterprise": {
-    "url": "https://enterprise.dev.opencode.ai"
-  },
   "provider": {
     "opencode": {
       "options": {}
