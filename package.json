@@ -71,7 +71,8 @@
     "openai": "6.8.1",
     "typescript": "catalog:",
     "ulid": "3.0.1",
-    "yaml": "2.8.1"
+    "yaml": "2.8.1",
+    "zig": "0.3.0"
   },
   "repository": {
     "type": "git",
