@@ -15,7 +15,10 @@
     },
     "morph": {
       "type": "local",
-      "command": ["bunx", "@morphllm/morphmcp"],
+      "command": [
+        "bunx",
+        "@morphllm/morphmcp"
+      ],
       "environment": {
         "ENABLED_TOOLS": "warp_grep"
       }
@@ -31,7 +34,7 @@
     "todowrite",
     "cc_write",
     "cc_glob",
-    "grep",
-    "read"
+    "read",
+    "ripgrep"
   ]
 }
