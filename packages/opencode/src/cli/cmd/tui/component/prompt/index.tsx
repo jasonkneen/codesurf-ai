@@ -9,7 +9,18 @@ import {
   fg,
   type KeyBinding,
 } from "@opentui/core"
-import { createEffect, createMemo, Match, Switch, Show, type JSX, batch, onMount, createSignal, onCleanup } from "solid-js"
+import {
+  createEffect,
+  createMemo,
+  Match,
+  Switch,
+  Show,
+  type JSX,
+  batch,
+  onMount,
+  createSignal,
+  onCleanup,
+} from "solid-js"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
 import { SplitBorder, EmptyBorder } from "@tui/component/border"
@@ -925,14 +936,12 @@ export function Prompt(props: PromptProps) {
                     const parsed = local.model.parsed()
                     const provider = parsed?.provider ?? "Provider"
                     const model = parsed?.model ?? "Model"
-                    const latest = parsed?.model ? " (latest)" : ""
 
                     return (
                       <>
                         <span style={{ fg: agentColor }}>{agentName}</span>
                         <span style={{ fg: theme.textMuted }}> {provider} </span>
                         <span style={{ fg: theme.text, bold: true }}>{model}</span>
-                        <span style={{ fg: theme.textMuted }}>{latest}</span>
                       </>
                     )
                   })()}

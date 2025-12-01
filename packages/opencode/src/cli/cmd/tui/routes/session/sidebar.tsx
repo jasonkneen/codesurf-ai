@@ -27,7 +27,6 @@ import { Todo } from "@/session/todo"
 import { Perf } from "@/util/perf"
 import { ContextIntelligence } from "@/session/context-intelligence"
 import { DialogContextTimeline } from "./dialog-context-timeline"
-import { useServerStatus } from "../../context/server-status"
 import { useContextManager } from "../../context/context"
 import { SidebarWidthBar } from "../../component/sidebar-width-bar"
 type TabType = "files" | "todos" | "tools" | "subagents"
@@ -173,43 +172,6 @@ interface WorkerState {
   lastUpdated: number
 }
 
-interface WorkerState {
-  todos: Array<{
-    id: string
-    content: string
-    status: "pending" | "in_progress" | "completed"
-  }>
-  gitStatus: {
-    branch: string
-    ahead: number
-    behind: number
-    modified: number
-    staged: number
-    untracked: number
-  }
-  context: Array<{
-    id: string
-    name: string
-    type: string
-    active: boolean
-  }>
-  systemPromptTokens: number
-  messageStats: {
-    totalCost: number
-    savedCost: number
-    toolCounts: Record<string, number>
-    lastTokenUsage: number
-    lastTokenLimit: number
-  }
-  diffStats: {
-    totalFiles: number
-    additions: number
-    deletions: number
-    modified: number
-  }
-  lastUpdated: number
-}
-
 export function Sidebar(props: {
   sessionID: string
   onToggle: () => void
@@ -228,36 +190,7 @@ export function Sidebar(props: {
   const toast = useToast()
   const sdk = useSDK()
   const dialog = useDialog()
-  const serverStatus = useServerStatus()
   const [activeTab, setActiveTab] = createSignal<TabType>("tools")
-
-  const showServerDialog = () => {
-    const options: DialogSelectOption<string>[] = [
-      {
-        title: "Restart Server",
-        value: "restart",
-        description: "Restart the OpenCode server",
-        onSelect: async (ctx) => {
-          ctx.clear()
-          try {
-            await fetch(`${sdk.url}/server/restart`, { method: "POST" })
-          } catch (error) {
-            console.error("Failed to restart server:", error)
-          }
-        },
-      },
-      {
-        title: "Copy Server URL",
-        value: "copy",
-        description: `Copy ${serverStatus.url()} to clipboard`,
-        onSelect: (ctx) => {
-          Promise.resolve(serverStatus.copyUrl()).finally(() => ctx.clear())
-        },
-      },
-    ]
-
-    dialog.replace(() => <DialogSelect title="Server Management" options={options} />)
-  }
   const [expandedMcpServers, setExpandedMcpServers] = createSignal<Set<string>>(new Set())
   const [mcpTools, setMcpTools] = createSignal<Record<string, Record<string, unknown>>>({})
   const [expandedPlugins, setExpandedPlugins] = createSignal<Set<string>>(new Set())
@@ -847,14 +780,6 @@ export function Sidebar(props: {
     dialog.replace(() => <DialogSubagentAdd sessionID={props.sessionID} />)
   }
 
-  // Debug: Log UI extensions data (commented out to reduce logging)
-  // createMemo(() => {
-  //   const extensions = uiExtensions.extensions()
-  //   console.log("[Sidebar] UI Extensions:", extensions)
-  //   console.log("[Sidebar] Widgets:", extensions?.widgets)
-  //   console.log("[Sidebar] Panels:", extensions?.panels)
-  // })
-
   // Sort MCP servers alphabetically for consistent display order
   const mcpEntries = createMemo(() => Object.entries(sync.data.mcp).sort(([a], [b]) => a.localeCompare(b)))
 
@@ -919,58 +844,31 @@ export function Sidebar(props: {
   return (
     <Show when={session()}>
       <box flexShrink={0} gap={1} width={props.width}>
-        {/* Width indicator bar */}
-        <SidebarWidthBar
-          width={props.width}
-          minWidth={props.minWidth}
-          maxWidth={props.maxWidth}
-          onShrink={() => props.onResize(-props.widthStep)}
-          onGrow={() => props.onResize(props.widthStep)}
-          side="right"
-        />
-
-        <box flexDirection="row" justifyContent="space-between" paddingRight={1} alignItems="center">
-          <text
-            fg={theme.textMuted}
-            onMouseUp={() => {
-              if (renderer.getSelection()?.getSelectedText()) return
-              props.onToggle()
-            }}
-          >
-            ▶
-          </text>
-          <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-            OPENCODE
-          </text>
-        </box>
-
+        {/* Width indicator bar + header row */}
         <box>
-          <text
-            fg={theme.textMuted}
-            onMouseUp={() => {
-              if (renderer.getSelection()?.getSelectedText()) return
-              showServerDialog()
-            }}
-          >
-            server:{serverStatus.port()}
-          </text>
-        </box>
-
-        <Show when={props.workerState?.gitStatus}>
-          <box flexDirection="row" gap={1}>
-            <text fg={theme.textMuted}>{props.workerState!.gitStatus!.branch}</text>
-            <Show when={props.workerState!.gitStatus!.ahead > 0 || props.workerState!.gitStatus!.behind > 0}>
-              <text fg={theme.warning}>
-                ↑{props.workerState!.gitStatus!.ahead} ↓{props.workerState!.gitStatus!.behind}
-              </text>
-            </Show>
-            <Show when={props.workerState!.gitStatus!.modified > 0 || props.workerState!.gitStatus!.staged > 0}>
-              <text fg={theme.accent}>
-                M:{props.workerState!.gitStatus!.modified} S:{props.workerState!.gitStatus!.staged}
-              </text>
-            </Show>
+          <SidebarWidthBar
+            width={props.width}
+            minWidth={props.minWidth}
+            maxWidth={props.maxWidth}
+            onShrink={() => props.onResize(-props.widthStep)}
+            onGrow={() => props.onResize(props.widthStep)}
+            side="right"
+          />
+          <box flexDirection="row" justifyContent="space-between" paddingRight={1} alignItems="center">
+            <text
+              fg={theme.textMuted}
+              onMouseUp={() => {
+                if (renderer.getSelection()?.getSelectedText()) return
+                props.onToggle()
+              }}
+            >
+              ▶
+            </text>
+            <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+              CODESURF
+            </text>
           </box>
-        </Show>
+        </box>
 
         <box>
           <box flexDirection="row" alignItems="flex-start" justifyContent="space-between" gap={1}>

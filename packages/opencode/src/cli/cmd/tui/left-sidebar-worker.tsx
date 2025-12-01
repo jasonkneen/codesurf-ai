@@ -2,6 +2,7 @@ import { createSignal, createEffect, onCleanup } from "solid-js"
 import { LeftSidebar } from "./routes/session/left-sidebar"
 import { Rpc } from "@/util/rpc"
 import { useSDK } from "./context/sdk"
+import { useSync } from "./context/sync"
 import type { rpc as LeftSidebarRpc } from "./workers/left-sidebar.worker"
 
 interface WorkerState {

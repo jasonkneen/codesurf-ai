@@ -252,16 +252,19 @@ export function LeftSidebar(props: {
     return categories
   })
 
-  // Toggle category expansion
+  // Toggle category expansion using accordion pattern (mutually exclusive).
+  // Only one date category can be expanded at a time to reduce visual clutter
+  // and improve focus when navigating sessions. This replaces the previous
+  // multi-select behavior where multiple categories could be open simultaneously.
   const toggleCategory = (category: string) => {
     setExpandedCategories((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(category)) {
-        newSet.delete(category)
+      if (prev.has(category)) {
+        // Clicking expanded category collapses it
+        return new Set<string>()
       } else {
-        newSet.add(category)
+        // Clicking collapsed category expands only that one
+        return new Set<string>([category])
       }
-      return newSet
     })
   }
 
@@ -348,7 +351,6 @@ export function LeftSidebar(props: {
           gap={1}
           paddingLeft={1}
           paddingRight={1}
-          paddingBottom={1}
           border={["bottom"]}
           borderColor={theme.border}
           backgroundColor={theme.backgroundPanel}
@@ -376,7 +378,7 @@ export function LeftSidebar(props: {
           </Show>
         </box>
 
-        <scrollbox flexGrow={1} height="100%" scrollbarOptions={{ visible: false }} paddingTop={1} paddingBottom={1}>
+        <scrollbox flexGrow={1} height="100%" scrollbarOptions={{ visible: false }} paddingBottom={1}>
           <For each={allCategories()}>
             {(category) => {
               const isExpanded = () => expandedCategories().has(category)
@@ -392,7 +394,7 @@ export function LeftSidebar(props: {
               }
 
               return (
-                <box marginBottom={1}>
+                <box>
                   <text
                     fg={theme.textMuted}
                     attributes={TextAttributes.BOLD}
