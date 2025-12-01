@@ -39,6 +39,7 @@ packages/opencode/test-kitty-simple.ts
 packages/opencode/test-kitty-red-pixel.ts
 packages/opencode/test-kitty-graphics.ts
 packages/opencode/cs-test/
+<<<<<<< Updated upstream
 packages/opencode/.env.local
 /.git-backup
 .beads/
@@ -46,3 +47,15 @@ packages/opencode/.env.local
 .beads/metadata.json
 .beads/issues.jsonl
 .beads/config.yaml
+=======
+.beads/daemon.pid
+.beads/daemon.log
+.beads/daemon.lock
+.beads/beads.left.meta.json
+.beads/beads.left.jsonl
+.beads/beads.db-wal
+.beads/beads.db-shm
+.beads/beads.db
+>>>>>>> Stashed changes
+/.git-backup
+/.beads
