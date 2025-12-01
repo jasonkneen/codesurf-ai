@@ -11,6 +11,7 @@ import { useToast } from "../ui/toast"
 import { Provider } from "@/provider/provider"
 import { useArgs } from "./args"
 import { RGBA } from "@opentui/core"
+import { Flag } from "@/flag/flag"
 
 export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
   name: "Local",
@@ -304,9 +305,100 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       }
     })
 
+    // Intelligent Context Settings
+    const contextSettings = iife(() => {
+      const [contextStore, setContextStore] = createStore<{
+        ready: boolean
+        enabled: boolean
+        threshold: number // 0.0 - 1.0
+        decayRate: number // 0.0 - 1.0
+        cacheTTL: number // ms
+      }>({
+        ready: false,
+        enabled: Flag.OPENCODE_INTELLIGENT_CONTEXT,
+        threshold: Flag.OPENCODE_CONTEXT_THRESHOLD,
+        decayRate: Flag.OPENCODE_CONTEXT_DECAY_RATE,
+        cacheTTL: Flag.OPENCODE_CONTEXT_CACHE_TTL,
+      })
+
+      const file = Bun.file(path.join(Global.Path.state, "context-settings.json"))
+
+      function save() {
+        Bun.write(
+          file,
+          JSON.stringify({
+            enabled: contextStore.enabled,
+            threshold: contextStore.threshold,
+            decayRate: contextStore.decayRate,
+            cacheTTL: contextStore.cacheTTL,
+          }),
+        )
+      }
+
+      file
+        .json()
+        .then((x) => {
+          if (typeof x.enabled === "boolean") setContextStore("enabled", x.enabled)
+          if (typeof x.threshold === "number") setContextStore("threshold", x.threshold)
+          if (typeof x.decayRate === "number") setContextStore("decayRate", x.decayRate)
+          if (typeof x.cacheTTL === "number") setContextStore("cacheTTL", x.cacheTTL)
+        })
+        .catch(() => {})
+        .finally(() => {
+          setContextStore("ready", true)
+        })
+
+      return {
+        get ready() {
+          return contextStore.ready
+        },
+        enabled() {
+          return contextStore.enabled
+        },
+        threshold() {
+          return contextStore.threshold
+        },
+        decayRate() {
+          return contextStore.decayRate
+        },
+        cacheTTL() {
+          return contextStore.cacheTTL
+        },
+        setEnabled(value: boolean) {
+          setContextStore("enabled", value)
+          save()
+        },
+        setThreshold(value: number) {
+          const clamped = Math.max(0.1, Math.min(0.95, value))
+          setContextStore("threshold", clamped)
+          save()
+        },
+        setDecayRate(value: number) {
+          const clamped = Math.max(0.01, Math.min(0.5, value))
+          setContextStore("decayRate", clamped)
+          save()
+        },
+        setCacheTTL(value: number) {
+          const clamped = Math.max(60000, Math.min(1800000, value))
+          setContextStore("cacheTTL", clamped)
+          save()
+        },
+        reset() {
+          batch(() => {
+            setContextStore("enabled", true)
+            setContextStore("threshold", 0.7)
+            setContextStore("decayRate", 0.1)
+            setContextStore("cacheTTL", 300000)
+          })
+          save()
+        },
+      }
+    })
+
     const result = {
       model,
       agent,
+      contextSettings,
     }
     return result
   },

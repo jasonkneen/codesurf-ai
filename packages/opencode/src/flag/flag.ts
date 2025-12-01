@@ -25,8 +25,8 @@ export namespace Flag {
   export const OPENCODE_EXPERIMENTAL = truthy("OPENCODE_EXPERIMENTAL")
   export const OPENCODE_EXPERIMENTAL_WATCHER = OPENCODE_EXPERIMENTAL || truthy("OPENCODE_EXPERIMENTAL_WATCHER")
 
-  // Intelligent Context Management
-  export const OPENCODE_INTELLIGENT_CONTEXT = truthy("OPENCODE_INTELLIGENT_CONTEXT")
+  // Intelligent Context Management (enabled by default - use env var to disable)
+  export const OPENCODE_INTELLIGENT_CONTEXT = process.env["OPENCODE_INTELLIGENT_CONTEXT"]?.toLowerCase() === "false" ? false : true
   export const OPENCODE_CONTEXT_THRESHOLD = parseFloat(process.env["OPENCODE_CONTEXT_THRESHOLD"] ?? "0.7") // 70% default
   export const OPENCODE_CONTEXT_DECAY_RATE = parseFloat(process.env["OPENCODE_CONTEXT_DECAY_RATE"] ?? "0.1") // 10% decay per turn
   export const OPENCODE_CONTEXT_CACHE_TTL = parseInt(process.env["OPENCODE_CONTEXT_CACHE_TTL"] ?? "300000", 10) // 5 min default

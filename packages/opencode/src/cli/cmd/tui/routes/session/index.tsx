@@ -78,6 +78,7 @@ import { iife } from "@/util/iife"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { DialogTimeline } from "./dialog-timeline"
+import { DialogContextSettings } from "@tui/component/dialog-context-settings"
 import { Sidebar } from "./sidebar"
 import { LeftSidebar } from "./left-sidebar"
 import SidebarWorker from "../../sidebar-worker.tsx"
@@ -729,6 +730,7 @@ export function Session() {
 
   const command = useCommandDialog()
   command.register(() => [
+    // Session commands
     {
       title: "Jump to message",
       value: "session.timeline",
@@ -872,182 +874,7 @@ export function Session() {
       },
     },
     {
-      title: showSimpleMessageList() ? "Hide simple messagelist" : "Show simple messagelist",
-      value: "session.message.simple",
-      category: "Session",
-      onSelect: (dialog) => {
-        const next = !showSimpleMessageList()
-        setShowSimpleMessageList(next)
-        kv.set("showSimpleMessageList", next)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Toggle left sidebar",
-      value: "session.sidebar.left.toggle",
-      keybind: "sidebar_left_toggle" as any,
-      category: "Session",
-      onSelect: (dialog) => {
-        toggleLeftSidebar()
-        dialog.clear()
-      },
-    },
-    {
-      title: "Toggle right sidebar",
-      value: "session.sidebar.right.toggle",
-      keybind: "sidebar_right_toggle" as any,
-      category: "Session",
-      onSelect: (dialog) => {
-        toggleRightSidebar()
-        dialog.clear()
-      },
-    },
-    {
-      title: "Toggle both sidebars",
-      value: "session.sidebar.both.toggle",
-      keybind: "sidebar_both_toggle" as any,
-      category: "Session",
-      onSelect: (dialog) => {
-        toggleBothSidebars()
-        dialog.clear()
-      },
-    },
-    {
-      title: "Narrow left sidebar",
-      value: "session.sidebar.left.narrow",
-      keybind: "sidebar_left_narrow" as any,
-      category: "Session",
-      onSelect: (dialog) => {
-        adjustLeftSidebarWidth(-SIDEBAR_WIDTH_STEP)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Widen left sidebar",
-      value: "session.sidebar.left.widen",
-      keybind: "sidebar_left_widen" as any,
-      category: "Session",
-      onSelect: (dialog) => {
-        adjustLeftSidebarWidth(SIDEBAR_WIDTH_STEP)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Narrow right sidebar",
-      value: "session.sidebar.right.narrow",
-      keybind: "sidebar_right_narrow" as any,
-      category: "Session",
-      onSelect: (dialog) => {
-        adjustRightSidebarWidth(-SIDEBAR_WIDTH_STEP)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Widen right sidebar",
-      value: "session.sidebar.right.widen",
-      keybind: "sidebar_right_widen" as any,
-      category: "Session",
-      onSelect: (dialog) => {
-        adjustRightSidebarWidth(SIDEBAR_WIDTH_STEP)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Toggle legacy sidebar",
-      value: "session.sidebar.toggle",
-      keybind: "sidebar_toggle",
-      category: "Session",
-      onSelect: (dialog) => {
-        setSidebar((prev) => {
-          if (prev === "auto") return sidebarVisible() ? "hide" : "show"
-          if (prev === "show") return "hide"
-          return "show"
-        })
-        if (sidebar() === "show") kv.set("sidebar", "auto")
-        if (sidebar() === "hide") kv.set("sidebar", "hide")
-        dialog.clear()
-      },
-    },
-    {
-      title: "Toggle code concealment",
-      value: "session.toggle.conceal",
-      keybind: "messages_toggle_conceal" as any,
-      category: "Session",
-      onSelect: (dialog) => {
-        setConceal((prev) => !prev)
-        dialog.clear()
-      },
-    },
-    {
-      showThinking,
-      showTimestamps,
-      title: "Page up",
-      value: "session.page.up",
-      keybind: "messages_page_up",
-      category: "Session",
-      disabled: true,
-      onSelect: (dialog) => {
-        scroll.scrollBy(-scroll.height / 2)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Page down",
-      value: "session.page.down",
-      keybind: "messages_page_down",
-      category: "Session",
-      disabled: true,
-      onSelect: (dialog) => {
-        scroll.scrollBy(scroll.height / 2)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Half page up",
-      value: "session.half.page.up",
-      keybind: "messages_half_page_up",
-      category: "Session",
-      disabled: true,
-      onSelect: (dialog) => {
-        scroll.scrollBy(-scroll.height / 4)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Half page down",
-      value: "session.half.page.down",
-      keybind: "messages_half_page_down",
-      category: "Session",
-      disabled: true,
-      onSelect: (dialog) => {
-        scroll.scrollBy(scroll.height / 4)
-        dialog.clear()
-      },
-    },
-    {
-      title: "First message",
-      value: "session.first",
-      keybind: "messages_first",
-      category: "Session",
-      disabled: true,
-      onSelect: (dialog) => {
-        scroll.scrollTo(0)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Last message",
-      value: "session.last",
-      keybind: "messages_last",
-      category: "Session",
-      disabled: true,
-      onSelect: (dialog) => {
-        scroll.scrollTo(scroll.scrollHeight)
-        dialog.clear()
-      },
-    },
-    {
-      title: "Copy last assistant message",
+      title: "Copy last message",
       value: "messages.copy",
       keybind: "messages_copy",
       category: "Session",
@@ -1080,7 +907,6 @@ export function Session() {
           return
         }
 
-        console.log(text)
         const base64 = Buffer.from(text).toString("base64")
         const osc52 = `\x1b]52;c;${base64}\x07`
         const finalOsc52 = process.env["TMUX"] ? `\x1bPtmux;\x1b${osc52}\x1b\\` : osc52
@@ -1092,7 +918,6 @@ export function Session() {
         dialog.clear()
       },
     },
-
     {
       title: "Next child session",
       value: "session.child.next",
@@ -1111,6 +936,48 @@ export function Session() {
       onSelect: (dialog) => {
         moveChild(-1)
         dialog.clear()
+      },
+    },
+
+    // View commands
+    {
+      title: "Toggle left sidebar",
+      value: "session.sidebar.left.toggle",
+      keybind: "sidebar_left_toggle" as any,
+      category: "View",
+      onSelect: (dialog) => {
+        toggleLeftSidebar()
+        dialog.clear()
+      },
+    },
+    {
+      title: "Toggle right sidebar",
+      value: "session.sidebar.right.toggle",
+      keybind: "sidebar_right_toggle" as any,
+      category: "View",
+      onSelect: (dialog) => {
+        toggleRightSidebar()
+        dialog.clear()
+      },
+    },
+    {
+      title: "Toggle code concealment",
+      value: "session.toggle.conceal",
+      keybind: "messages_toggle_conceal" as any,
+      category: "View",
+      onSelect: (dialog) => {
+        setConceal((prev) => !prev)
+        dialog.clear()
+      },
+    },
+
+    // Settings
+    {
+      title: "Context settings",
+      value: "session.context.settings",
+      category: "Settings",
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogContextSettings />)
       },
     },
   ])
