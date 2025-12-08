@@ -38,3 +38,13 @@ packages/opencode/test-wallpaper-simple.ts
 packages/opencode/test-kitty-simple.ts
 packages/opencode/test-kitty-red-pixel.ts
 packages/opencode/test-kitty-graphics.ts
+/packages/opencode/cs-test
+.opencode/kanban.json
+/.opencode/context
+.beads/metadata.json
+.beads/issues.jsonl
+.beads/daemon.log
+.beads/daemon.lock
+.beads/beads.left.meta.json
+.beads/beads.left.jsonl
+.beads/beads.db
