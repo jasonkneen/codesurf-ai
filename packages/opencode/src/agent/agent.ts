@@ -9,6 +9,7 @@ import { Instance } from "../project/instance"
 import { mergeDeep } from "remeda"
 import { Log } from "../util/log"
 import { createDefaultAgents } from "./defaults"
+import { Permission } from "../permission"
 
 export namespace Agent {
   export const Info = z
@@ -21,11 +22,11 @@ export namespace Agent {
       temperature: z.number().optional(),
       color: z.string().optional(),
       permission: z.object({
-        edit: Config.Permission,
-        bash: z.record(z.string(), Config.Permission),
-        webfetch: Config.Permission.optional(),
-        doom_loop: Config.Permission.optional(),
-        external_directory: Config.Permission.optional(),
+        edit: Permission.Level.optional(),
+        bash: z.record(z.string(), Permission.Level),
+        webfetch: Permission.Level.optional(),
+        doom_loop: Permission.Level.optional(),
+        external_directory: Permission.Level.optional(),
       }),
       model: z
         .object({
@@ -190,14 +191,15 @@ export namespace Agent {
     const cfg = await Config.get()
     const defaultModel = await Provider.defaultModel()
     const model = await Provider.getModel(defaultModel.providerID, defaultModel.modelID)
-    const language = await Provider.getLanguage(model)
+    // FIX: Pass providerID and modelID to getLanguage
+    const language = await Provider.getLanguage(defaultModel.providerID, defaultModel.modelID)
     const system = SystemPrompt.header(defaultModel.providerID)
     system.push(PROMPT_GENERATE)
     const existing = await list()
 
     try {
       const result = await generateObject({
-        experimental_telemetry: { isEnabled: cfg.experimental?.openTelemetry },
+        //experimental_telemetry: { isEnabled: cfg.experimental?.openTelemetry },
         temperature: 0.3,
         prompt: [
           ...system.map(

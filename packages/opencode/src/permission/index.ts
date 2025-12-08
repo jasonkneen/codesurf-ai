@@ -37,6 +37,9 @@ export namespace Permission {
     })
   export type Info = z.infer<typeof Info>
 
+  export const Level = z.enum(["allow", "deny", "ask"])
+  export type Level = z.infer<typeof Level>
+
   export const Event = {
     Updated: Bus.event("permission.updated", Info),
     Replied: Bus.event(
