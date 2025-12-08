@@ -13,6 +13,19 @@
       "type": "remote",
       "url": "https://mcp.exa.ai/mcp"
     },
+    "mgrep": {
+      "type": "local",
+      "command": [
+        "/Users/jkneen/Documents/GitHub/flows/ai-cluso/packages/mgrep-local/dist/mcp/cli.js"
+      ]
+    },
+    "bread": {
+      "type": "remote",
+      "url": "https://mcp.bread.com.ai",
+      "headers": {
+        "Authorization": "Bearer sk-iuXbELV4oNMzjYMF9W4Vrg"
+      }
+    },
     "morph": {
       "type": "local",
       "command": [
@@ -34,7 +47,7 @@
     "todowrite",
     "cc_write",
     "cc_glob",
-    "read",
-    "ripgrep"
+    "ripgrep",
+    "mgrep_index_status"
   ]
 }
