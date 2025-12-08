@@ -24,6 +24,9 @@ export namespace Flag {
   // Experimental
   export const OPENCODE_EXPERIMENTAL = truthy("OPENCODE_EXPERIMENTAL")
   export const OPENCODE_EXPERIMENTAL_WATCHER = OPENCODE_EXPERIMENTAL || truthy("OPENCODE_EXPERIMENTAL_WATCHER")
+  export const OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT = truthy("OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT")
+  export const OPENCODE_ENABLE_EXA =
+    truthy("OPENCODE_ENABLE_EXA") || OPENCODE_EXPERIMENTAL || truthy("OPENCODE_EXPERIMENTAL_EXA")
 
   // Intelligent Context Management (enabled by default - use env var to disable)
   export const OPENCODE_INTELLIGENT_CONTEXT = process.env["OPENCODE_INTELLIGENT_CONTEXT"]?.toLowerCase() === "false" ? false : true
