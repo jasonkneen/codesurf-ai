@@ -13,20 +13,14 @@ import type {
   ConfigUpdateData,
   ConfigUpdateResponses,
   ConfigUpdateErrors,
-  ConfigProvidersData,
-  ConfigProvidersResponses,
-  FavoriteToolsListData,
-  FavoriteToolsListResponses,
-  FavoriteToolsCycleData,
-  FavoriteToolsCycleResponses,
-  FavoriteToolsCycleErrors,
-  FavoriteToolsGetLevelData,
-  FavoriteToolsGetLevelResponses,
   ToolIdsData,
   ToolIdsResponses,
   ToolIdsErrors,
   ToolListData,
   ToolListResponses,
+  ToolListErrors,
+  InstanceDisposeData,
+  InstanceDisposeResponses,
   PathGetData,
   PathGetResponses,
   VcsGetData,
@@ -36,6 +30,9 @@ import type {
   SessionCreateData,
   SessionCreateResponses,
   SessionCreateErrors,
+  SessionStatusData,
+  SessionStatusResponses,
+  SessionStatusErrors,
   SessionDeleteData,
   SessionDeleteResponses,
   SessionDeleteErrors,
@@ -48,12 +45,9 @@ import type {
   SessionChildrenData,
   SessionChildrenResponses,
   SessionChildrenErrors,
-  SessionGetTodoData,
-  SessionGetTodoResponses,
-  SessionGetTodoErrors,
-  SessionUpdateTodoData,
-  SessionUpdateTodoResponses,
-  SessionUpdateTodoErrors,
+  SessionTodoData,
+  SessionTodoResponses,
+  SessionTodoErrors,
   SessionInitData,
   SessionInitResponses,
   SessionInitErrors,
@@ -70,6 +64,7 @@ import type {
   SessionShareErrors,
   SessionDiffData,
   SessionDiffResponses,
+  SessionDiffErrors,
   SessionSummarizeData,
   SessionSummarizeResponses,
   SessionSummarizeErrors,
@@ -82,12 +77,6 @@ import type {
   SessionMessageData,
   SessionMessageResponses,
   SessionMessageErrors,
-  SessionSetMessagePriorityData,
-  SessionSetMessagePriorityResponses,
-  SessionSetMessagePriorityErrors,
-  SessionCompactMessageData,
-  SessionCompactMessageResponses,
-  SessionCompactMessageErrors,
   SessionPromptAsyncData,
   SessionPromptAsyncResponses,
   SessionPromptAsyncErrors,
@@ -108,6 +97,18 @@ import type {
   PostSessionIdPermissionsPermissionIdErrors,
   CommandListData,
   CommandListResponses,
+  ConfigProvidersData,
+  ConfigProvidersResponses,
+  ProviderListData,
+  ProviderListResponses,
+  ProviderAuthData,
+  ProviderAuthResponses,
+  ProviderOauthAuthorizeData,
+  ProviderOauthAuthorizeResponses,
+  ProviderOauthAuthorizeErrors,
+  ProviderOauthCallbackData,
+  ProviderOauthCallbackResponses,
+  ProviderOauthCallbackErrors,
   FindTextData,
   FindTextResponses,
   FindFilesData,
@@ -123,8 +124,6 @@ import type {
   AppLogData,
   AppLogResponses,
   AppLogErrors,
-  GitStatusData,
-  GitStatusResponses,
   AppAgentsData,
   AppAgentsResponses,
   McpStatusData,
@@ -132,27 +131,10 @@ import type {
   McpAddData,
   McpAddResponses,
   McpAddErrors,
-  McpDiscoverData,
-  McpDiscoverResponses,
-  McpServerToolsData,
-  McpServerToolsResponses,
-  McpServerUpdateData,
-  McpServerUpdateResponses,
-  McpServerUpdateErrors,
   LspStatusData,
   LspStatusResponses,
   FormatterStatusData,
   FormatterStatusResponses,
-  PluginsStatusData,
-  PluginsStatusResponses,
-  UiExtensionsData,
-  UiExtensionsResponses,
-  UiRenderData,
-  UiRenderResponses,
-  UiRenderErrors,
-  UiActionData,
-  UiActionResponses,
-  UiActionErrors,
   TuiAppendPromptData,
   TuiAppendPromptResponses,
   TuiAppendPromptErrors,
@@ -185,6 +167,13 @@ import type {
   AuthSetErrors,
   EventSubscribeData,
   EventSubscribeResponses,
+  FavoriteToolsListData,
+  FavoriteToolsListResponses,
+  FavoriteToolsCycleData,
+  FavoriteToolsCycleResponses,
+  FavoriteToolsCycleErrors,
+  FavoriteToolsGetLevelData,
+  FavoriteToolsGetLevelResponses,
 } from "./types.gen.js"
 import { client as _heyApiClient } from "./client.gen.js"
 
@@ -285,42 +274,6 @@ class Config extends _HeyApiClient {
   }
 }
 
-class FavoriteTools extends _HeyApiClient {
-  /**
-   * Get project and global favorite tool IDs
-   */
-  public list<ThrowOnError extends boolean = false>(options?: Options<FavoriteToolsListData, ThrowOnError>) {
-    return (options?.client ?? this._client).get<FavoriteToolsListResponses, unknown, ThrowOnError>({
-      url: "/favorite-tools",
-      ...options,
-    })
-  }
-
-  /**
-   * Cycle tool favorite status: none → project → global → none
-   */
-  public cycle<ThrowOnError extends boolean = false>(options?: Options<FavoriteToolsCycleData, ThrowOnError>) {
-    return (options?.client ?? this._client).post<FavoriteToolsCycleResponses, FavoriteToolsCycleErrors, ThrowOnError>({
-      url: "/favorite-tools/cycle",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
-    })
-  }
-
-  /**
-   * Get favorite level for a specific tool
-   */
-  public getLevel<ThrowOnError extends boolean = false>(options: Options<FavoriteToolsGetLevelData, ThrowOnError>) {
-    return (options.client ?? this._client).get<FavoriteToolsGetLevelResponses, unknown, ThrowOnError>({
-      url: "/favorite-tools/{toolId}/level",
-      ...options,
-    })
-  }
-}
-
 class Tool extends _HeyApiClient {
   /**
    * List all tool IDs for a provider/model (including built-in and dynamically registered)
@@ -336,8 +289,20 @@ class Tool extends _HeyApiClient {
    * List tools with JSON schema parameters for a provider/model
    */
   public list<ThrowOnError extends boolean = false>(options: Options<ToolListData, ThrowOnError>) {
-    return (options.client ?? this._client).get<ToolListResponses, unknown, ThrowOnError>({
+    return (options.client ?? this._client).get<ToolListResponses, ToolListErrors, ThrowOnError>({
       url: "/experimental/tool",
+      ...options,
+    })
+  }
+}
+
+class Instance extends _HeyApiClient {
+  /**
+   * Dispose the current instance
+   */
+  public dispose<ThrowOnError extends boolean = false>(options?: Options<InstanceDisposeData, ThrowOnError>) {
+    return (options?.client ?? this._client).post<InstanceDisposeResponses, unknown, ThrowOnError>({
+      url: "/instance/dispose",
       ...options,
     })
   }
@@ -393,6 +358,16 @@ class Session extends _HeyApiClient {
   }
 
   /**
+   * Get session status
+   */
+  public status<ThrowOnError extends boolean = false>(options?: Options<SessionStatusData, ThrowOnError>) {
+    return (options?.client ?? this._client).get<SessionStatusResponses, SessionStatusErrors, ThrowOnError>({
+      url: "/session/status",
+      ...options,
+    })
+  }
+
+  /**
    * Delete a session and all its data
    */
   public delete<ThrowOnError extends boolean = false>(options: Options<SessionDeleteData, ThrowOnError>) {
@@ -439,24 +414,10 @@ class Session extends _HeyApiClient {
   /**
    * Get the todo list for a session
    */
-  public getTodo<ThrowOnError extends boolean = false>(options: Options<SessionGetTodoData, ThrowOnError>) {
-    return (options.client ?? this._client).get<SessionGetTodoResponses, SessionGetTodoErrors, ThrowOnError>({
+  public todo<ThrowOnError extends boolean = false>(options: Options<SessionTodoData, ThrowOnError>) {
+    return (options.client ?? this._client).get<SessionTodoResponses, SessionTodoErrors, ThrowOnError>({
       url: "/session/{id}/todo",
       ...options,
-    })
-  }
-
-  /**
-   * Update the todo list for a session
-   */
-  public updateTodo<ThrowOnError extends boolean = false>(options: Options<SessionUpdateTodoData, ThrowOnError>) {
-    return (options.client ?? this._client).post<SessionUpdateTodoResponses, SessionUpdateTodoErrors, ThrowOnError>({
-      url: "/session/{id}/todo",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
     })
   }
 
@@ -519,10 +480,10 @@ class Session extends _HeyApiClient {
   }
 
   /**
-   * Get the diff that resulted from this user message
+   * Get the diff for this session
    */
   public diff<ThrowOnError extends boolean = false>(options: Options<SessionDiffData, ThrowOnError>) {
-    return (options.client ?? this._client).get<SessionDiffResponses, unknown, ThrowOnError>({
+    return (options.client ?? this._client).get<SessionDiffResponses, SessionDiffErrors, ThrowOnError>({
       url: "/session/{id}/diff",
       ...options,
     })
@@ -543,7 +504,7 @@ class Session extends _HeyApiClient {
   }
 
   /**
-   * List messages for a session with optional pagination
+   * List messages for a session
    */
   public messages<ThrowOnError extends boolean = false>(options: Options<SessionMessagesData, ThrowOnError>) {
     return (options.client ?? this._client).get<SessionMessagesResponses, SessionMessagesErrors, ThrowOnError>({
@@ -577,26 +538,6 @@ class Session extends _HeyApiClient {
   }
 
   /**
-   * Set priority level for a message
-   */
-  public setMessagePriority<ThrowOnError extends boolean = false>(
-    options: Options<SessionSetMessagePriorityData, ThrowOnError>,
-  ) {
-    return (options.client ?? this._client).patch<
-      SessionSetMessagePriorityResponses,
-      SessionSetMessagePriorityErrors,
-      ThrowOnError
-    >({
-      url: "/session/{id}/message/{messageID}/priority",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    })
-  }
-
-  /**
    * Create and send a new message to a session, start if needed and return immediately
    */
   public promptAsync<ThrowOnError extends boolean = false>(options: Options<SessionPromptAsyncData, ThrowOnError>) {
@@ -607,22 +548,6 @@ class Session extends _HeyApiClient {
         "Content-Type": "application/json",
         ...options.headers,
       },
-    })
-  }
-
-  /**
-   * Summarize and compact a single message
-   */
-  public compactMessage<ThrowOnError extends boolean = false>(
-    options: Options<SessionCompactMessageData, ThrowOnError>,
-  ) {
-    return (options.client ?? this._client).post<
-      SessionCompactMessageResponses,
-      SessionCompactMessageErrors,
-      ThrowOnError
-    >({
-      url: "/session/{id}/message/{messageID}/compact",
-      ...options,
     })
   }
 
@@ -689,6 +614,67 @@ class Command extends _HeyApiClient {
       ...options,
     })
   }
+}
+
+class Oauth extends _HeyApiClient {
+  /**
+   * Authorize a provider using OAuth
+   */
+  public authorize<ThrowOnError extends boolean = false>(options: Options<ProviderOauthAuthorizeData, ThrowOnError>) {
+    return (options.client ?? this._client).post<
+      ProviderOauthAuthorizeResponses,
+      ProviderOauthAuthorizeErrors,
+      ThrowOnError
+    >({
+      url: "/provider/{id}/oauth/authorize",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    })
+  }
+
+  /**
+   * Handle OAuth callback for a provider
+   */
+  public callback<ThrowOnError extends boolean = false>(options: Options<ProviderOauthCallbackData, ThrowOnError>) {
+    return (options.client ?? this._client).post<
+      ProviderOauthCallbackResponses,
+      ProviderOauthCallbackErrors,
+      ThrowOnError
+    >({
+      url: "/provider/{id}/oauth/callback",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    })
+  }
+}
+
+class Provider extends _HeyApiClient {
+  /**
+   * List all providers
+   */
+  public list<ThrowOnError extends boolean = false>(options?: Options<ProviderListData, ThrowOnError>) {
+    return (options?.client ?? this._client).get<ProviderListResponses, unknown, ThrowOnError>({
+      url: "/provider",
+      ...options,
+    })
+  }
+
+  /**
+   * Get provider authentication methods
+   */
+  public auth<ThrowOnError extends boolean = false>(options?: Options<ProviderAuthData, ThrowOnError>) {
+    return (options?.client ?? this._client).get<ProviderAuthResponses, unknown, ThrowOnError>({
+      url: "/provider/auth",
+      ...options,
+    })
+  }
+  oauth = new Oauth({ client: this._client })
 }
 
 class Find extends _HeyApiClient {
@@ -781,44 +767,6 @@ class App extends _HeyApiClient {
   }
 }
 
-class Git extends _HeyApiClient {
-  /**
-   * Get git repository status
-   */
-  public status<ThrowOnError extends boolean = false>(options?: Options<GitStatusData, ThrowOnError>) {
-    return (options?.client ?? this._client).get<GitStatusResponses, unknown, ThrowOnError>({
-      url: "/git/status",
-      ...options,
-    })
-  }
-}
-
-class Server extends _HeyApiClient {
-  /**
-   * Get tools for a specific MCP server
-   */
-  public tools<ThrowOnError extends boolean = false>(options: Options<McpServerToolsData, ThrowOnError>) {
-    return (options.client ?? this._client).get<McpServerToolsResponses, unknown, ThrowOnError>({
-      url: "/mcp/{serverName}/tools",
-      ...options,
-    })
-  }
-
-  /**
-   * Update MCP server configuration
-   */
-  public update<ThrowOnError extends boolean = false>(options: Options<McpServerUpdateData, ThrowOnError>) {
-    return (options.client ?? this._client).patch<McpServerUpdateResponses, McpServerUpdateErrors, ThrowOnError>({
-      url: "/mcp/{serverName}",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    })
-  }
-}
-
 class Mcp extends _HeyApiClient {
   /**
    * Get MCP server status
@@ -843,17 +791,6 @@ class Mcp extends _HeyApiClient {
       },
     })
   }
-
-  /**
-   * Discover available MCP servers from registry
-   */
-  public discover<ThrowOnError extends boolean = false>(options?: Options<McpDiscoverData, ThrowOnError>) {
-    return (options?.client ?? this._client).get<McpDiscoverResponses, unknown, ThrowOnError>({
-      url: "/mcp/discover",
-      ...options,
-    })
-  }
-  server = new Server({ client: this._client })
 }
 
 class Lsp extends _HeyApiClient {
@@ -876,58 +813,6 @@ class Formatter extends _HeyApiClient {
     return (options?.client ?? this._client).get<FormatterStatusResponses, unknown, ThrowOnError>({
       url: "/formatter",
       ...options,
-    })
-  }
-}
-
-class Plugins extends _HeyApiClient {
-  /**
-   * Get loaded plugins status
-   */
-  public status<ThrowOnError extends boolean = false>(options?: Options<PluginsStatusData, ThrowOnError>) {
-    return (options?.client ?? this._client).get<PluginsStatusResponses, unknown, ThrowOnError>({
-      url: "/plugins",
-      ...options,
-    })
-  }
-}
-
-class Ui extends _HeyApiClient {
-  /**
-   * Get all registered UI extensions from plugins
-   */
-  public extensions<ThrowOnError extends boolean = false>(options?: Options<UiExtensionsData, ThrowOnError>) {
-    return (options?.client ?? this._client).get<UiExtensionsResponses, unknown, ThrowOnError>({
-      url: "/ui/extensions",
-      ...options,
-    })
-  }
-
-  /**
-   * Render a specific UI component by ID
-   */
-  public render<ThrowOnError extends boolean = false>(options: Options<UiRenderData, ThrowOnError>) {
-    return (options.client ?? this._client).post<UiRenderResponses, UiRenderErrors, ThrowOnError>({
-      url: "/ui/render/{componentId}",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    })
-  }
-
-  /**
-   * Trigger an action on a UI component
-   */
-  public action<ThrowOnError extends boolean = false>(options: Options<UiActionData, ThrowOnError>) {
-    return (options.client ?? this._client).post<UiActionResponses, UiActionErrors, ThrowOnError>({
-      url: "/ui/action/{componentId}",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
     })
   }
 }
@@ -1105,6 +990,42 @@ class Event extends _HeyApiClient {
   }
 }
 
+class FavoriteTools extends _HeyApiClient {
+  /**
+   * Get project and global favorite tool IDs
+   */
+  public list<ThrowOnError extends boolean = false>(options?: Options<FavoriteToolsListData, ThrowOnError>) {
+    return (options?.client ?? this._client).get<FavoriteToolsListResponses, unknown, ThrowOnError>({
+      url: "/favorite-tools",
+      ...options,
+    })
+  }
+
+  /**
+   * Cycle tool favorite status: none → project → global → none
+   */
+  public cycle<ThrowOnError extends boolean = false>(options?: Options<FavoriteToolsCycleData, ThrowOnError>) {
+    return (options?.client ?? this._client).post<FavoriteToolsCycleResponses, FavoriteToolsCycleErrors, ThrowOnError>({
+      url: "/favorite-tools/cycle",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    })
+  }
+
+  /**
+   * Get favorite level for a specific tool
+   */
+  public getLevel<ThrowOnError extends boolean = false>(options: Options<FavoriteToolsGetLevelData, ThrowOnError>) {
+    return (options.client ?? this._client).get<FavoriteToolsGetLevelResponses, unknown, ThrowOnError>({
+      url: "/favorite-tools/{toolId}/level",
+      ...options,
+    })
+  }
+}
+
 export class OpencodeClient extends _HeyApiClient {
   /**
    * Respond to a permission request
@@ -1128,22 +1049,21 @@ export class OpencodeClient extends _HeyApiClient {
   global = new Global({ client: this._client })
   project = new Project({ client: this._client })
   config = new Config({ client: this._client })
-  favoriteTools = new FavoriteTools({ client: this._client })
   tool = new Tool({ client: this._client })
+  instance = new Instance({ client: this._client })
   path = new Path({ client: this._client })
   vcs = new Vcs({ client: this._client })
   session = new Session({ client: this._client })
   command = new Command({ client: this._client })
+  provider = new Provider({ client: this._client })
   find = new Find({ client: this._client })
   file = new File({ client: this._client })
   app = new App({ client: this._client })
-  git = new Git({ client: this._client })
   mcp = new Mcp({ client: this._client })
   lsp = new Lsp({ client: this._client })
   formatter = new Formatter({ client: this._client })
-  plugins = new Plugins({ client: this._client })
-  ui = new Ui({ client: this._client })
   tui = new Tui({ client: this._client })
   auth = new Auth({ client: this._client })
   event = new Event({ client: this._client })
+  favoriteTools = new FavoriteTools({ client: this._client })
 }

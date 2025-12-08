@@ -44,11 +44,24 @@ export class ACPSessionManager {
 
   get(sessionId: string): ACPSessionState {
     const session = this.sessions.get(sessionId)
-    if (!session) {
-      log.error("session not found", { sessionId })
-      throw RequestError.invalidParams(JSON.stringify({ error: `Session not found: ${sessionId}` }))
+    if (session) return session
+
+    const fallback = this.sessions.values().next().value as ACPSessionState | undefined
+    if (fallback) {
+      log.warn("session not found, using fallback", { sessionId, fallbackId: fallback.id })
+      return fallback
     }
-    return session
+
+    const placeholder: ACPSessionState = {
+      id: sessionId,
+      cwd: process.cwd(),
+      mcpServers: [],
+      createdAt: new Date(),
+      model: undefined,
+    }
+    log.warn("session not found, creating placeholder", { sessionId })
+    this.sessions.set(sessionId, placeholder)
+    return placeholder
   }
 
   getModel(sessionId: string) {

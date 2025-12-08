@@ -118,7 +118,24 @@ export namespace SessionProcessor {
                   break
 
                 case "tool-call": {
-                  const match = toolcalls[value.toolCallId]
+                  let match = toolcalls[value.toolCallId]
+                  // Create tool part if tool-input-start wasn't received (non-fine-grained streaming providers)
+                  if (!match) {
+                    match = await Session.updatePart({
+                      id: Identifier.ascending("part"),
+                      messageID: input.assistantMessage.id,
+                      sessionID: input.assistantMessage.sessionID,
+                      type: "tool",
+                      tool: value.toolName,
+                      callID: value.toolCallId,
+                      state: {
+                        status: "pending",
+                        input: {},
+                        raw: "",
+                      },
+                    }) as MessageV2.ToolPart
+                    toolcalls[value.toolCallId] = match
+                  }
                   if (match) {
                     const part = await Session.updatePart({
                       ...match,
@@ -178,8 +195,27 @@ export namespace SessionProcessor {
                   break
                 }
                 case "tool-result": {
-                  const match = toolcalls[value.toolCallId]
-                  if (match && match.state.status === "running") {
+                  let match = toolcalls[value.toolCallId]
+                  // Create tool part if somehow tool-result came without tool-call (edge case fallback)
+                  if (!match) {
+                    match = await Session.updatePart({
+                      id: Identifier.ascending("part"),
+                      messageID: input.assistantMessage.id,
+                      sessionID: input.assistantMessage.sessionID,
+                      type: "tool",
+                      tool: value.toolName ?? "unknown",
+                      callID: value.toolCallId,
+                      state: {
+                        status: "running",
+                        input: value.input,
+                        time: {
+                          start: Date.now(),
+                        },
+                      },
+                    }) as MessageV2.ToolPart
+                    toolcalls[value.toolCallId] = match
+                  }
+                  if (match && (match.state.status === "running" || match.state.status === "pending")) {
                     await Session.updatePart({
                       ...match,
                       state: {
@@ -189,7 +225,7 @@ export namespace SessionProcessor {
                         metadata: value.output.metadata,
                         title: value.output.title,
                         time: {
-                          start: match.state.time.start,
+                          start: match.state.status === "running" ? match.state.time.start : Date.now(),
                           end: Date.now(),
                         },
                         attachments: value.output.attachments,
@@ -202,8 +238,27 @@ export namespace SessionProcessor {
                 }
 
                 case "tool-error": {
-                  const match = toolcalls[value.toolCallId]
-                  if (match && match.state.status === "running") {
+                  let match = toolcalls[value.toolCallId]
+                  // Create tool part if tool-error came without prior tool-call (edge case fallback)
+                  if (!match) {
+                    match = await Session.updatePart({
+                      id: Identifier.ascending("part"),
+                      messageID: input.assistantMessage.id,
+                      sessionID: input.assistantMessage.sessionID,
+                      type: "tool",
+                      tool: value.toolName ?? "unknown",
+                      callID: value.toolCallId,
+                      state: {
+                        status: "running",
+                        input: value.input,
+                        time: {
+                          start: Date.now(),
+                        },
+                      },
+                    }) as MessageV2.ToolPart
+                    toolcalls[value.toolCallId] = match
+                  }
+                  if (match && (match.state.status === "running" || match.state.status === "pending")) {
                     await Session.updatePart({
                       ...match,
                       state: {
@@ -212,7 +267,7 @@ export namespace SessionProcessor {
                         error: (value.error as any).toString(),
                         metadata: value.error instanceof Permission.RejectedError ? value.error.metadata : undefined,
                         time: {
-                          start: match.state.time.start,
+                          start: match.state.status === "running" ? match.state.time.start : Date.now(),
                           end: Date.now(),
                         },
                       },

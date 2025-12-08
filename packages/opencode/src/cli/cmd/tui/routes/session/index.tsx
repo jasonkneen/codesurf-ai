@@ -584,6 +584,8 @@ export function Session() {
       () => route.sessionID,
       async (sessionID) => {
         await sync.session.sync(sessionID).catch(() => {
+          setOpenTabs([])
+          kv.set("openTabs", [])
           toast.show({
             message: `Session not found: ${sessionID}`,
             variant: "error",
@@ -1059,7 +1061,7 @@ export function Session() {
         {/* Main Content */}
         <box flexGrow={1} flexShrink={1} gap={1} justifyContent="flex-start" maxWidth={undefined}>
           <Show when={session()}>
-            <Show when={session().parentID}>
+            <Show when={session()!.parentID}>
               <box
                 backgroundColor={theme.backgroundPanel}
                 justifyContent="space-between"
@@ -1078,7 +1080,7 @@ export function Session() {
                       if (renderer.getSelection()?.getSelectedText()) return
                       navigate({
                         type: "session",
-                        sessionID: session().parentID!,
+                        sessionID: session()!.parentID!,
                       })
                     }}
                   >
@@ -1350,9 +1352,6 @@ export function Session() {
                 sessionID={route.sessionID}
               />
             </box>
-            <Show when={!sidebarVisible()}>
-              <Footer />
-            </Show>
           </Show>
           <Toast />
         </box>
@@ -1504,13 +1503,14 @@ function PriorityCircles(props: {
     if (!messages) return
     const index = messages.findIndex((m) => m.id === props.messageID)
     if (index === -1) return
-    sync.set("message", props.sessionID, index, "priority", priority)
+    sync.set("message" as any, props.sessionID as any, index as any, "priority" as any, priority as any)
   }
 
   const setPriority = async (e: any, priority: "red" | "amber" | "green" | "none") => {
     e.stopPropagation()
     try {
-      await sdk.client.session.setMessagePriority({
+      const client = sdk.client as any
+      await client.session.setMessagePriority({
         path: {
           id: props.sessionID,
           messageID: props.messageID,
@@ -1655,13 +1655,14 @@ function MessageControls(props: {
     if (!messages) return
     const index = messages.findIndex((m) => m.id === props.messageID)
     if (index === -1) return
-    sync.set("message", props.sessionID, index, "priority", priority)
+    sync.set("message" as any, props.sessionID as any, index as any, "priority" as any, priority as any)
   }
 
   const setPriority = async (event: any, priority: "red" | "amber" | "green" | "none") => {
     event.stopPropagation?.()
     try {
-      await sdk.client.session.setMessagePriority({
+      const client = sdk.client as any
+      await client.session.setMessagePriority({
         path: {
           id: props.sessionID,
           messageID: props.messageID,
@@ -2711,10 +2712,11 @@ type ToolTitleProps = {
   when: any
   collapsed?: boolean
   onToggle?: () => void
-  toolName: string
-  input: Record<string, unknown>
+  toolName?: string
+  input?: Record<string, unknown>
   output?: string
   trailing?: JSX.Element
+  icon?: string
   children: JSX.Element
 }
 

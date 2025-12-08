@@ -648,30 +648,123 @@ export function Sidebar(props: {
     }
   }
 
+  function mcpDisabledTools(serverName: string) {
+    const entry = sync.data.config.mcp?.[serverName] as { disabledTools?: string[] } | undefined
+    const disabled = entry?.disabledTools
+    if (!disabled) return []
+    return Array.isArray(disabled) ? disabled : []
+  }
+
+  async function refreshMcpState() {
+    const status = await sdk.client.mcp.status().catch(() => undefined)
+    if (status?.data) sync.set("mcp", status.data)
+    const cfg = await sdk.client.config.get().catch(() => undefined)
+    if (cfg?.data) sync.set("config", cfg.data)
+  }
+
   async function toggleMcpServer(serverName: string) {
     const expanded = expandedMcpServers()
-    const newExpanded = new Set(expanded)
+    const nextExpanded = new Set(expanded)
 
     if (expanded.has(serverName)) {
-      newExpanded.delete(serverName)
-    } else {
-      newExpanded.add(serverName)
-      // Load tools if not already loaded
-      if (!mcpTools()[serverName]) {
-        try {
-          const response = await fetch(`${sdk.url}/mcp/${encodeURIComponent(serverName)}/tools`)
-          if (response.ok) {
-            const tools = await response.json()
-            setMcpTools((prev) => ({ ...prev, [serverName]: tools }))
-          }
-        } catch (error) {
-          console.error(`Failed to load tools for ${serverName}:`, error)
-          setMcpTools((prev) => ({ ...prev, [serverName]: {} }))
-        }
-      }
+      nextExpanded.delete(serverName)
+      setExpandedMcpServers(nextExpanded)
+      return
     }
 
-    setExpandedMcpServers(newExpanded)
+    nextExpanded.add(serverName)
+    if (!mcpTools()[serverName]) {
+      const response = await fetch(`${sdk.url}/mcp/${encodeURIComponent(serverName)}/tools`).catch((error) => {
+        console.error("failed to fetch mcp tools", { serverName, error })
+        return undefined
+      })
+      if (!response?.ok) {
+        const statusText = response ? `${response.status} ${response.statusText}` : "no response"
+        const body = await response?.text().catch(() => "")
+        console.error("mcp tools response not ok", { serverName, status: statusText, body })
+        setMcpTools((prev) => ({ ...prev, [serverName]: {} }))
+        setExpandedMcpServers(nextExpanded)
+        return
+      }
+
+      const text = await response.text().catch((error) => {
+        console.error("failed to read mcp tools body", { serverName, error })
+        return ""
+      })
+      if (!text) {
+        console.error("empty mcp tools body", { serverName })
+        setMcpTools((prev) => ({ ...prev, [serverName]: {} }))
+        setExpandedMcpServers(nextExpanded)
+        return
+      }
+
+      let tools: Record<string, Record<string, unknown>> = {}
+      try {
+        const parsed = JSON.parse(text)
+        if (Array.isArray(parsed)) {
+          tools = parsed.reduce<Record<string, Record<string, unknown>>>((acc, item: any) => {
+            const name = item?.name || item?.id || item?.title
+            if (name && typeof name === "string") acc[name] = item as Record<string, unknown>
+            return acc
+          }, {})
+        } else if (parsed && typeof parsed === "object") {
+          const maybeTools = (parsed as any).tools
+          if (Array.isArray(maybeTools)) {
+            tools = maybeTools.reduce<Record<string, Record<string, unknown>>>((acc, item: any) => {
+              const name = item?.name || item?.id || item?.title
+              if (name && typeof name === "string") acc[name] = item as Record<string, unknown>
+              return acc
+            }, {})
+          } else {
+            tools = parsed as Record<string, Record<string, unknown>>
+          }
+        }
+      } catch (error) {
+        console.error("failed to parse mcp tools", { serverName, error, body: text })
+        setMcpTools((prev) => ({ ...prev, [serverName]: {} }))
+        setExpandedMcpServers(nextExpanded)
+        return
+      }
+      const keys = Object.keys(tools)
+      console.info("loaded mcp tools", { serverName, keys })
+      setMcpTools((prev) => ({ ...prev, [serverName]: tools }))
+    }
+    setExpandedMcpServers(nextExpanded)
+  }
+
+  async function toggleMcpServerEnabled(serverName: string) {
+    const entry = sync.data.config.mcp?.[serverName]
+    if (!entry) return
+    const isEnabled = entry.enabled === false ? false : true
+    const next = !isEnabled
+    const response = await fetch(`${sdk.url}/mcp/${encodeURIComponent(serverName)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    }).catch(() => undefined)
+    if (!response?.ok) {
+      toast.show({ variant: "error", message: "Failed to update MCP" })
+      return
+    }
+    await refreshMcpState()
+    toast.show({ variant: "info", message: next ? "MCP enabled" : "MCP disabled" })
+  }
+
+  async function toggleMcpTool(serverName: string, toolName: string) {
+    const disabled = new Set(mcpDisabledTools(serverName))
+    if (disabled.has(toolName)) disabled.delete(toolName)
+    else disabled.add(toolName)
+    const response = await fetch(`${sdk.url}/mcp/${encodeURIComponent(serverName)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ disabledTools: Array.from(disabled) }),
+    }).catch(() => undefined)
+    if (!response?.ok) {
+      toast.show({ variant: "error", message: "Failed to update tool" })
+      return
+    }
+    await refreshMcpState()
+    toast.show({ variant: "info", message: disabled.has(toolName) ? "Tool disabled" : "Tool enabled" })
   }
 
   function toggleSection(sectionId: string) {
@@ -874,7 +967,7 @@ export function Sidebar(props: {
           <box flexDirection="row" alignItems="flex-start" justifyContent="space-between" gap={1}>
             <box flexGrow={1}>
               <text fg={theme.text} wrapMode="word" attributes={TextAttributes.BOLD}>
-                {session().title}
+                {session()?.title || ""}
               </text>
             </box>
             <text
@@ -889,8 +982,8 @@ export function Sidebar(props: {
               Rename
             </text>
           </box>
-          <Show when={session().share?.url}>
-            <text fg={theme.textMuted}>{session().share!.url}</text>
+          <Show when={session()?.share?.url}>
+            <text fg={theme.textMuted}>{session()?.share?.url}</text>
           </Show>
         </box>
         <box>
@@ -899,11 +992,10 @@ export function Sidebar(props: {
           </text>
           {(() => {
             const agentColor = createMemo<RGBA>(() => {
-              const color = local.agent.color("assistant")
-              if (color instanceof RGBA) return color
-              if (typeof color === "string") {
-                return color.startsWith("#") ? RGBA.fromHex(color) : RGBA.fromHex(`#${color}`)
-              }
+              const raw = local.agent.color("assistant") as unknown
+              if (raw instanceof RGBA) return raw
+              const str = typeof raw === "string" ? raw : String(raw ?? "")
+              if (str.startsWith("#")) return RGBA.fromHex(str)
               return resolveThemeColor(theme.accent)
             })
 
@@ -1096,12 +1188,22 @@ export function Sidebar(props: {
                             <Match when={item.status === "disabled"}>Disabled</Match>
                           </Switch>
                         </text>
+                        <text
+                          fg={theme.accent}
+                          onMouseUp={() => {
+                            if (renderer.getSelection()?.getSelectedText()) return
+                            toggleMcpServerEnabled(key)
+                          }}
+                        >
+                          [{(sync.data.config.mcp?.[key]?.enabled === false ? false : true) ? "on" : "off"}]
+                        </text>
                       </box>
                       <Show when={expandedMcpServers().has(key) && mcpTools()[key]}>
                         <box marginLeft={3} flexDirection="column">
                           <For each={Object.entries(mcpTools()[key] || {})}>
                             {([toolName]) => {
                               const star = createMemo(() => getStarIcon(toolName))
+                              const disabled = createMemo(() => mcpDisabledTools(key).includes(toolName))
                               return (
                                 <box flexDirection="row" gap={1}>
                                   <text
@@ -1113,15 +1215,14 @@ export function Sidebar(props: {
                                   >
                                     {star().icon}
                                   </text>
-
                                   <text
-                                    fg={theme.textMuted}
+                                    fg={disabled() ? theme.textMuted : theme.text}
                                     onMouseUp={() => {
                                       if (renderer.getSelection()?.getSelectedText()) return
-                                      cycleFavorite(toolName)
+                                      toggleMcpTool(key, toolName)
                                     }}
                                   >
-                                    {toolName}
+                                    [{disabled() ? "off" : "on"}] {toolName}
                                   </text>
                                 </box>
                               )
@@ -1410,7 +1511,8 @@ export function Sidebar(props: {
                     <Show when={expandedAgentGroups().has(group.agent)}>
                       <For each={group.items}>
                         {(child) => {
-                          const status = child.orchestration?.status ?? "unknown"
+                          const orchestration = (child as { orchestration?: { status?: string } }).orchestration
+                          const status = orchestration?.status ?? "unknown"
                           const isWorking = () => {
                             const s = sync.session.status(child.id)
                             return s === "working" || s === "compacting"

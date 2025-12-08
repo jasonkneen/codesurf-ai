@@ -510,6 +510,10 @@ export type Todo = {
    * Unique identifier for the todo item
    */
   id: string
+  /**
+   * ID of parent task if this is a subtask
+   */
+  parentId?: string
 }
 
 export type EventTodoUpdated = {
@@ -556,6 +560,22 @@ export type Session = {
     partID?: string
     snapshot?: string
     diff?: string
+  }
+  orchestration?: {
+    depth: number
+    status: "active" | "paused" | "completed" | "failed"
+    pausedMode?: string
+    pausedAt?: number
+    completedAt?: number
+    result?: string
+    rootAgent?: string
+    currentAgent?: string
+    subtaskResults?: Array<{
+      sessionID: string
+      summary: string
+      result: string
+      completedAt: number
+    }>
   }
 }
 
@@ -733,6 +753,34 @@ export type KeybindsConfig = {
    */
   sidebar_toggle?: string
   /**
+   * Toggle left sidebar
+   */
+  sidebar_left_toggle?: string
+  /**
+   * Toggle right sidebar
+   */
+  sidebar_right_toggle?: string
+  /**
+   * Toggle both sidebars
+   */
+  sidebar_both_toggle?: string
+  /**
+   * Decrease left sidebar width
+   */
+  sidebar_left_narrow?: string
+  /**
+   * Increase left sidebar width
+   */
+  sidebar_left_widen?: string
+  /**
+   * Decrease right sidebar width
+   */
+  sidebar_right_narrow?: string
+  /**
+   * Increase right sidebar width
+   */
+  sidebar_right_widen?: string
+  /**
    * View status
    */
   status_view?: string
@@ -892,10 +940,6 @@ export type AgentConfig = {
    */
   description?: string
   mode?: "subagent" | "primary" | "all"
-  /**
-   * Hex color code for the agent (e.g., #FF5733)
-   */
-  color?: string
   permission?: {
     edit?: "ask" | "allow" | "deny"
     bash?:
@@ -904,8 +948,6 @@ export type AgentConfig = {
           [key: string]: "ask" | "allow" | "deny"
         }
     webfetch?: "ask" | "allow" | "deny"
-    doom_loop?: "ask" | "allow" | "deny"
-    external_directory?: "ask" | "allow" | "deny"
   }
   [key: string]:
     | unknown
@@ -924,8 +966,6 @@ export type AgentConfig = {
               [key: string]: "ask" | "allow" | "deny"
             }
         webfetch?: "ask" | "allow" | "deny"
-        doom_loop?: "ask" | "allow" | "deny"
-        external_directory?: "ask" | "allow" | "deny"
       }
     | undefined
 }
@@ -950,6 +990,10 @@ export type McpLocalConfig = {
    */
   enabled?: boolean
   /**
+   * List of tool names to disable from this MCP server
+   */
+  disabledTools?: Array<string>
+  /**
    * Timeout in ms for fetching tools from the MCP server. Defaults to 5000 (5 seconds) if not specified.
    */
   timeout?: number
@@ -968,6 +1012,10 @@ export type McpRemoteConfig = {
    * Enable or disable the MCP server on startup
    */
   enabled?: boolean
+  /**
+   * List of tool names to disable from this MCP server
+   */
+  disabledTools?: Array<string>
   /**
    * Headers to send with the request
    */
@@ -1033,6 +1081,52 @@ export type Config = {
     ignore?: Array<string>
   }
   plugin?: Array<string>
+  /**
+   * Background validation worker configuration
+   */
+  backgroundValidation?: {
+    /**
+     * Enable background validation on file changes
+     */
+    enabled?: boolean
+    /**
+     * Commands to run for validation
+     */
+    commands?: Array<string>
+    /**
+     * Debounce delay in milliseconds
+     */
+    debounceMs?: number
+    /**
+     * File patterns to include for validation
+     */
+    include?: Array<string>
+    /**
+     * File patterns to exclude from validation
+     */
+    exclude?: Array<string>
+  }
+  /**
+   * Prefetch worker configuration
+   */
+  prefetchWorker?: {
+    /**
+     * Enable file prefetch based on context patterns
+     */
+    enabled?: boolean
+    /**
+     * Maximum concurrent prefetch operations
+     */
+    maxConcurrent?: number
+    /**
+     * Maximum cache size in bytes (100MB default)
+     */
+    maxCacheSize?: number
+    /**
+     * Prefetch strategies to use
+     */
+    strategies?: Array<"import" | "test" | "component" | "related">
+  }
   snapshot?: boolean
   /**
    * Control sharing behavior:'manual' allows manual sharing via commands, 'auto' enables automatic sharing, 'disabled' disables all sharing
@@ -1050,10 +1144,6 @@ export type Config = {
    * Disable providers that are loaded automatically
    */
   disabled_providers?: Array<string>
-  /**
-   * When set, ONLY these providers will be enabled. All other providers will be ignored
-   */
-  enabled_providers?: Array<string>
   /**
    * Model to use in the format of provider/model, eg anthropic/claude-2
    */
@@ -1207,17 +1297,9 @@ export type Config = {
           [key: string]: "ask" | "allow" | "deny"
         }
     webfetch?: "ask" | "allow" | "deny"
-    doom_loop?: "ask" | "allow" | "deny"
-    external_directory?: "ask" | "allow" | "deny"
   }
   tools?: {
     [key: string]: boolean
-  }
-  enterprise?: {
-    /**
-     * Enterprise URL
-     */
-    url?: string
   }
   experimental?: {
     hook?: {
@@ -1246,10 +1328,83 @@ export type Config = {
      */
     batch_tool?: boolean
   }
+  /**
+   * Anthropic-specific feature flags and settings
+   */
+  anthropic?: {
+    /**
+     * Enable prompt caching to reduce costs and latency (default: true)
+     */
+    promptCaching?: boolean
+    /**
+     * Report cache savings in session usage stats (default: true)
+     */
+    reportCacheSavings?: boolean
+    /**
+     * Enable context editing for compact/compressing context (default: true)
+     */
+    contextEditing?: boolean
+    /**
+     * Enable extended thinking for complex reasoning tasks (default: true)
+     */
+    extendedThinking?: boolean
+    /**
+     * Enable citations feature for source attribution (default: true)
+     */
+    citations?: boolean
+    /**
+     * Enable token efficient tool use to reduce token consumption (default: true)
+     */
+    tokenEfficientToolUse?: boolean
+    /**
+     * Enable fine-grained tool streaming for better progress tracking (default: true)
+     */
+    fineGrainedToolStreaming?: boolean
+    /**
+     * Enable code execution tool for running code snippets (default: true)
+     */
+    codeExecutionTool?: boolean
+    /**
+     * Enable computer use tool for desktop automation (requires special setup) (default: false)
+     */
+    computerUseTool?: boolean
+    /**
+     * Enable text editor tool for file manipulation (default: true)
+     */
+    textEditorTool?: boolean
+    /**
+     * Enable web fetch tool for retrieving web content (default: true)
+     */
+    webFetchTool?: boolean
+    /**
+     * Enable web search tool for searching the internet (default: true)
+     */
+    webSearchTool?: boolean
+    /**
+     * Enable memory tool for persistent knowledge storage (default: true)
+     */
+    memoryTool?: boolean
+    /**
+     * Enable pre-fill assistant messages for guidance and role-playing (default: true)
+     */
+    prefillAssistantMessages?: boolean
+    /**
+     * Enable chaining long prompts for complex multi-step tasks (default: true)
+     */
+    chainLongPrompts?: boolean
+  }
+  /**
+   * Directories outside the project that agents can access
+   */
+  allowedDirectories?: Array<string>
+  /**
+   * List of favorite tool IDs that will be prioritized and shown at the top
+   */
+  favoriteTools?: Array<string>
 }
 
 export type BadRequestError = {
-  data: unknown
+  data: unknown | null
   errors: Array<{
     [key: string]: unknown
   }>
@@ -1473,6 +1628,16 @@ export type Agent = {
   options: {
     [key: string]: unknown
   }
+  roleDefinition?: string
+  fileTypeRestrictions?: Array<string>
+  canSwitchFrom?: Array<string>
+  requiresApproval?: boolean
+  capabilities?: {
+    canCreateSubtasks: boolean
+    canSwitchModes: boolean
+    canModifyFiles: boolean
+    canExecuteCommands: boolean
+  }
 }
 
 export type McpStatusConnected = {
@@ -1624,8 +1789,10 @@ export type ConfigUpdateResponse = ConfigUpdateResponses[keyof ConfigUpdateRespo
 export type ToolIdsData = {
   body?: never
   path?: never
-  query?: {
+  query: {
     directory?: string
+    provider: string
+    model: string
   }
   url: "/experimental/tool/ids"
 }
@@ -3343,6 +3510,82 @@ export type EventSubscribeResponses = {
 }
 
 export type EventSubscribeResponse = EventSubscribeResponses[keyof EventSubscribeResponses]
+
+export type FavoriteToolsListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/favorite-tools"
+}
+
+export type FavoriteToolsListResponses = {
+  /**
+   * Lists of project and global favorite tool IDs
+   */
+  200: {
+    project: Array<string>
+    global: Array<string>
+  }
+}
+
+export type FavoriteToolsListResponse = FavoriteToolsListResponses[keyof FavoriteToolsListResponses]
+
+export type FavoriteToolsCycleData = {
+  body?: {
+    toolId: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/favorite-tools/cycle"
+}
+
+export type FavoriteToolsCycleErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type FavoriteToolsCycleError = FavoriteToolsCycleErrors[keyof FavoriteToolsCycleErrors]
+
+export type FavoriteToolsCycleResponses = {
+  /**
+   * Successfully cycled favorite status
+   */
+  200: {
+    toolId: string
+    level: "none" | "project" | "global"
+  }
+}
+
+export type FavoriteToolsCycleResponse = FavoriteToolsCycleResponses[keyof FavoriteToolsCycleResponses]
+
+export type FavoriteToolsGetLevelData = {
+  body?: never
+  path: {
+    toolId: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/favorite-tools/{toolId}/level"
+}
+
+export type FavoriteToolsGetLevelResponses = {
+  /**
+   * Favorite level for the tool
+   */
+  200: {
+    toolId: string
+    level: "none" | "project" | "global"
+  }
+}
+
+export type FavoriteToolsGetLevelResponse = FavoriteToolsGetLevelResponses[keyof FavoriteToolsGetLevelResponses]
 
 export type ClientOptions = {
   baseUrl: `${string}://${string}` | (string & {})
