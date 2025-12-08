@@ -59,3 +59,4 @@ packages/opencode/.env.local
 >>>>>>> Stashed changes
 /.git-backup
 /.beads
+.opencode/opencode.jsonc
