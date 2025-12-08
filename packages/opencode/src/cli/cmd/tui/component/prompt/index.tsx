@@ -34,7 +34,7 @@ import { usePromptHistory, type PromptInfo } from "./history"
 import { type AutocompleteRef, Autocomplete } from "./autocomplete"
 import { LoadingBar } from "./loading-bar"
 import { useCommandDialog } from "../dialog-command"
-import { useRenderer } from "@opentui/solid"
+import { useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Editor } from "@tui/util/editor"
 import { useExit } from "../../context/exit"
 import { Clipboard } from "../../util/clipboard"
@@ -58,6 +58,7 @@ export type PromptProps = {
   showPlaceholder?: boolean
   onScrollToBottom?: () => void
   showLatestIndicator?: boolean
+  width?: number
 }
 
 export type PromptRef = {
@@ -88,6 +89,7 @@ export function Prompt(props: PromptProps) {
   const toast = useToast()
   const contextManager = useContextManager(true)
   const selectedContexts = createMemo(() => contextManager?.selectedContexts() ?? [])
+  const dimensions = useTerminalDimensions()
   let aborting = false
   let dropProcessing = false
 
@@ -416,14 +418,14 @@ export function Prompt(props: PromptProps) {
           messageID,
           agent: currentAgent.name,
           model: currentModel,
-          context:
-            activeContexts.length > 0
-              ? activeContexts.map((ctx) => ({
-                  id: ctx.id,
-                  name: ctx.name,
-                  content: ctx.content,
-                }))
-              : undefined,
+          // context:
+          //   activeContexts.length > 0
+          //     ? activeContexts.map((ctx) => ({
+          //         id: ctx.id,
+          //         name: ctx.name,
+          //         content: ctx.content,
+          //       }))
+          //     : undefined,
           parts: [
             {
               id: Identifier.ascending("part"),
@@ -694,6 +696,11 @@ export function Prompt(props: PromptProps) {
     }
   }
 
+  const leftBorderColor = createMemo(() => local.agent.color(local.agent.current()?.name ?? ""))
+  const rightBorderColor = createMemo(() =>
+    keybind.leader ? theme.accent : store.mode === "shell" ? theme.secondary : theme.border,
+  )
+
   return (
     <>
       <Autocomplete
@@ -717,239 +724,258 @@ export function Prompt(props: PromptProps) {
         promptPartTypeId={() => promptPartTypeId}
       />
       <box ref={(r) => (anchor = r)}>
-        <box
-          flexDirection="row"
-          border={["right"]}
-          customBorderChars={SplitBorder.customBorderChars}
-          borderColor={keybind.leader ? theme.accent : store.mode === "shell" ? theme.secondary : theme.border}
-          justifyContent="space-evenly"
-        >
-          <box width={1} height="100%">
-            <text
-              fg={(() => {
-                const agent = local.agent.current()
-                return local.agent.color(agent?.name ?? "")
-              })()}
-            >
-              {Array(5).fill("┃").join("\n")}
-            </text>
+        <box flexDirection="row" justifyContent="space-evenly">
+          <box width={1} flexDirection="column">
+            <box height={1}>
+              <text fg={leftBorderColor()}>╷</text>
+            </box>
+            <box
+              flexGrow={1}
+              border={["left"]}
+              borderColor={leftBorderColor()}
+              customBorderChars={SplitBorder.customBorderChars}
+            />
+            <box height={1}>
+              <text fg={leftBorderColor()}>╵</text>
+            </box>
           </box>
-          <box
-            paddingLeft={1}
-            paddingTop={1}
-            paddingBottom={1}
-            backgroundColor={theme.backgroundElement}
-            flexDirection="column"
-            width="100%"
-          >
-            <textarea
-              placeholder={
-                props.showPlaceholder
-                  ? t`${dim(fg(theme.primary)("  → up/down"))} ${dim(fg("#64748b")("history"))} ${dim(fg("#a78bfa")("•"))} ${dim(fg(theme.primary)(keybind.print("input_newline")))} ${dim(fg("#64748b")("newline"))} ${dim(fg("#a78bfa")("•"))} ${dim(fg(theme.primary)(keybind.print("input_submit")))} ${dim(fg("#64748b")("submit"))}`
-                  : undefined
-              }
-              textColor={theme.text}
-              focusedTextColor={theme.text}
-              minHeight={1}
-              maxHeight={10}
-              onContentChange={() => {
-                let value = input.plainText
-                // Filter out mouse wheel escape sequences
-                const mouseWheelPattern = /\[<[\d;]+[mM]/g
-                if (mouseWheelPattern.test(value)) {
-                  value = value.replace(mouseWheelPattern, "")
-                  input.setText(value, { history: false })
-                  return
+          <box flexDirection="column" flexGrow={1}>
+            <box height={1} width="100%">
+              <text fg={theme.backgroundElement}>
+                {"▄".repeat(Math.max(0, (props.width ?? dimensions().width) - 2))}
+              </text>
+            </box>
+            <box paddingLeft={1} backgroundColor={theme.backgroundElement} flexDirection="column" width="100%">
+              <textarea
+                height={Math.min(10, Math.max(1, store.prompt.input.split("\n").length))}
+                placeholder={
+                  props.showPlaceholder
+                    ? t`${dim(fg(theme.primary)("  → up/down"))} ${dim(fg("#64748b")("history"))} ${dim(fg("#a78bfa")("•"))} ${dim(fg(theme.primary)(keybind.print("input_newline")))} ${dim(fg("#64748b")("newline"))} ${dim(fg("#a78bfa")("•"))} ${dim(fg(theme.primary)(keybind.print("input_submit")))} ${dim(fg("#64748b")("submit"))}`
+                    : undefined
                 }
-                setStore("prompt", "input", value)
-
-                // Check if this input contains drop file tokens to avoid showing autocomplete during file drops
-                const dropPattern = /(^|\s)((?:file:\/\/|[~.]?\/|[A-Za-z]:[\\\/])[^\s[]*)\[(?:Image|File) \d+\]/g
-                const hasDropTokens = dropPattern.test(value)
-
-                // Only show autocomplete if not processing drop tokens
-                if (!hasDropTokens && !dropProcessing) {
-                  autocomplete.onInput(value)
-                }
-
-                syncExtmarksDebounced() // Use debounced version during typing
-                void handleDropFileTokens(value)
-              }}
-              keyBindings={textareaKeybindings()}
-              onKeyDown={async (e) => {
-                if (props.disabled) {
-                  e.preventDefault()
-                  return
-                }
-                if (keybind.match("input_clear", e) && store.prompt.input !== "") {
-                  input.clear()
-                  input.extmarks.clear()
-                  setStore("prompt", {
-                    input: "",
-                    parts: [],
-                  })
-                  setStore("extmarkToPartIndex", new Map())
-                  return
-                }
-                if (keybind.match("input_forward_delete", e) && store.prompt.input !== "") {
-                  const cursorOffset = input.cursorOffset
-                  if (cursorOffset < input.plainText.length) {
-                    const text = input.plainText
-                    const newText = text.slice(0, cursorOffset) + text.slice(cursorOffset + 1)
-                    input.setText(newText)
-                    input.cursorOffset = cursorOffset
+                textColor={theme.text}
+                focusedTextColor={theme.text}
+                minHeight={1}
+                maxHeight={10}
+                onContentChange={() => {
+                  let value = input.plainText
+                  // Filter out mouse wheel escape sequences
+                  const mouseWheelPattern = /\[<[\d;]+[mM]/g
+                  if (mouseWheelPattern.test(value)) {
+                    value = value.replace(mouseWheelPattern, "")
+                    input.setText(value, { history: false })
+                    return
                   }
-                  e.preventDefault()
-                  return
-                }
-                if (keybind.match("app_exit", e)) {
-                  await exit()
-                  return
-                }
-                if (e.name === "!" && input.visualCursor.offset === 0) {
-                  setStore("mode", "shell")
-                  e.preventDefault()
-                  return
-                }
-                if (store.mode === "shell") {
-                  if ((e.name === "backspace" && input.visualCursor.offset === 0) || e.name === "escape") {
-                    setStore("mode", "normal")
+                  setStore("prompt", "input", value)
+
+                  // Check if this input contains drop file tokens to avoid showing autocomplete during file drops
+                  const dropPattern = /(^|\s)((?:file:\/\/|[~.]?\/|[A-Za-z]:[\\\/])[^\s[]*)\[(?:Image|File) \d+\]/g
+                  const hasDropTokens = dropPattern.test(value)
+
+                  // Only show autocomplete if not processing drop tokens
+                  if (!hasDropTokens && !dropProcessing) {
+                    autocomplete.onInput(value)
+                  }
+
+                  syncExtmarksDebounced() // Use debounced version during typing
+                  void handleDropFileTokens(value)
+                }}
+                keyBindings={textareaKeybindings()}
+                onKeyDown={async (e) => {
+                  if (props.disabled) {
                     e.preventDefault()
                     return
                   }
-                }
-                if (store.mode === "normal") autocomplete.onKeyDown(e)
-                if (!autocomplete.visible) {
-                  if (
-                    (keybind.match("history_previous", e) && input.cursorOffset === 0) ||
-                    (keybind.match("history_next", e) && input.cursorOffset === input.plainText.length)
-                  ) {
-                    const direction = keybind.match("history_previous", e) ? -1 : 1
-                    const item = history.move(direction, input.plainText)
-
-                    if (item) {
-                      input.setText(item.input, { history: false })
-                      setStore("prompt", item)
-                      restoreExtmarksFromParts(item.parts)
+                  if (keybind.match("input_clear", e) && store.prompt.input !== "") {
+                    input.clear()
+                    input.extmarks.clear()
+                    setStore("prompt", {
+                      input: "",
+                      parts: [],
+                    })
+                    setStore("extmarkToPartIndex", new Map())
+                    return
+                  }
+                  if (keybind.match("input_forward_delete", e) && store.prompt.input !== "") {
+                    const cursorOffset = input.cursorOffset
+                    if (cursorOffset < input.plainText.length) {
+                      const text = input.plainText
+                      const newText = text.slice(0, cursorOffset) + text.slice(cursorOffset + 1)
+                      input.setText(newText)
+                      input.cursorOffset = cursorOffset
+                    }
+                    e.preventDefault()
+                    return
+                  }
+                  if (keybind.match("app_exit", e)) {
+                    await exit()
+                    return
+                  }
+                  if (e.name === "!" && input.visualCursor.offset === 0) {
+                    setStore("mode", "shell")
+                    e.preventDefault()
+                    return
+                  }
+                  if (store.mode === "shell") {
+                    if ((e.name === "backspace" && input.visualCursor.offset === 0) || e.name === "escape") {
+                      setStore("mode", "normal")
                       e.preventDefault()
-                      if (direction === -1) input.cursorOffset = 0
-                      if (direction === 1) input.cursorOffset = input.plainText.length
+                      return
+                    }
+                  }
+                  if (store.mode === "normal") autocomplete.onKeyDown(e)
+                  if (!autocomplete.visible) {
+                    if (
+                      (keybind.match("history_previous", e) && input.cursorOffset === 0) ||
+                      (keybind.match("history_next", e) && input.cursorOffset === input.plainText.length)
+                    ) {
+                      const direction = keybind.match("history_previous", e) ? -1 : 1
+                      const item = history.move(direction, input.plainText)
+
+                      if (item) {
+                        input.setText(item.input, { history: false })
+                        setStore("prompt", item)
+                        restoreExtmarksFromParts(item.parts)
+                        e.preventDefault()
+                        if (direction === -1) input.cursorOffset = 0
+                        if (direction === 1) input.cursorOffset = input.plainText.length
+                      }
+                      return
+                    }
+
+                    if (keybind.match("history_previous", e) && input.visualCursor.visualRow === 0)
+                      input.cursorOffset = 0
+                    if (keybind.match("history_next", e) && input.visualCursor.visualRow === input.height - 1)
+                      input.cursorOffset = input.plainText.length
+                  }
+                }}
+                onSubmit={submit}
+                onPaste={async (event: PasteEvent) => {
+                  if (props.disabled) {
+                    event.preventDefault()
+                    return
+                  }
+
+                  const rawContent = event.text
+                  const pastedContent = rawContent.trim()
+                  if (!pastedContent) {
+                    command.trigger("prompt.paste")
+                    return
+                  }
+
+                  const fileCandidates = extractFilePathCandidates(pastedContent)
+                  if (fileCandidates.length) {
+                    // Prevent default BEFORE async operation to avoid race condition
+                    event.preventDefault()
+                    const attached = await attachFilesFromCandidates(fileCandidates)
+                    if (!attached) {
+                      // If attachment failed, manually insert the original text
+                      input.insertText(pastedContent)
                     }
                     return
                   }
 
-                  if (keybind.match("history_previous", e) && input.visualCursor.visualRow === 0) input.cursorOffset = 0
-                  if (keybind.match("history_next", e) && input.visualCursor.visualRow === input.height - 1)
-                    input.cursorOffset = input.plainText.length
-                }
-              }}
-              onSubmit={submit}
-              onPaste={async (event: PasteEvent) => {
-                if (props.disabled) {
-                  event.preventDefault()
-                  return
-                }
+                  const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
+                  if (
+                    (lineCount >= 3 || pastedContent.length > 150) &&
+                    !sync.data.config.experimental?.disable_paste_summary
+                  ) {
+                    event.preventDefault()
+                    const currentOffset = input.visualCursor.offset
+                    const virtualText = `[Pasted ~${lineCount} lines]`
+                    const textToInsert = virtualText + " "
+                    const extmarkStart = currentOffset
+                    const extmarkEnd = extmarkStart + virtualText.length
 
-                const rawContent = event.text
-                const pastedContent = rawContent.trim()
-                if (!pastedContent) {
-                  command.trigger("prompt.paste")
-                  return
-                }
+                    input.insertText(textToInsert)
 
-                const fileCandidates = extractFilePathCandidates(pastedContent)
-                if (fileCandidates.length) {
-                  // Prevent default BEFORE async operation to avoid race condition
-                  event.preventDefault()
-                  const attached = await attachFilesFromCandidates(fileCandidates)
-                  if (!attached) {
-                    // If attachment failed, manually insert the original text
-                    input.insertText(pastedContent)
-                  }
-                  return
-                }
+                    const extmarkId = input.extmarks.create({
+                      start: extmarkStart,
+                      end: extmarkEnd,
+                      virtual: true,
+                      styleId: pasteStyleId,
+                      typeId: promptPartTypeId,
+                    })
 
-                const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
-                if (
-                  (lineCount >= 3 || pastedContent.length > 150) &&
-                  !sync.data.config.experimental?.disable_paste_summary
-                ) {
-                  event.preventDefault()
-                  const currentOffset = input.visualCursor.offset
-                  const virtualText = `[Pasted ~${lineCount} lines]`
-                  const textToInsert = virtualText + " "
-                  const extmarkStart = currentOffset
-                  const extmarkEnd = extmarkStart + virtualText.length
-
-                  input.insertText(textToInsert)
-
-                  const extmarkId = input.extmarks.create({
-                    start: extmarkStart,
-                    end: extmarkEnd,
-                    virtual: true,
-                    styleId: pasteStyleId,
-                    typeId: promptPartTypeId,
-                  })
-
-                  const part = {
-                    type: "text" as const,
-                    text: pastedContent,
-                    source: {
-                      text: {
-                        start: extmarkStart,
-                        end: extmarkEnd,
-                        value: virtualText,
+                    const part = {
+                      type: "text" as const,
+                      text: pastedContent,
+                      source: {
+                        text: {
+                          start: extmarkStart,
+                          end: extmarkEnd,
+                          value: virtualText,
+                        },
                       },
-                    },
-                  }
+                    }
 
-                  setStore(
-                    produce((draft) => {
-                      const partIndex = draft.prompt.parts.length
-                      draft.prompt.parts.push(part)
-                      draft.extmarkToPartIndex.set(extmarkId, partIndex)
-                    }),
-                  )
-                  return
-                }
-              }}
-              ref={(r: TextareaRenderable) => (input = r)}
-              onMouseDown={(r: MouseEvent) => r.target?.focus()}
-              focusedBackgroundColor={theme.backgroundElement}
-              cursorColor={highlight()}
-              syntaxStyle={syntax()}
-            />
-            <box paddingTop={2} height={1} flexDirection="row" alignItems="center" gap={2}>
-              <Show when={store.mode === "shell"}>
-                <text>
-                  <span style={{ fg: theme.secondary, bold: true }}>⚡ SHELL</span>
-                  <span style={{ fg: theme.textMuted }}> (ESC to exit)</span>
-                </text>
-              </Show>
-              <Show when={store.mode !== "shell"}>
-                <text>
-                  {(() => {
-                    const agent = local.agent.current()
-                    const rawName = agent?.name ?? "Agent"
-                    const agentName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
-                    const agentColor = local.agent.color(rawName)
-                    const parsed = local.model.parsed()
-                    const provider = parsed?.provider ?? "Provider"
-                    const model = parsed?.model ?? "Model"
-
-                    return (
-                      <>
-                        <span style={{ fg: agentColor }}>{agentName}</span>
-                        <span style={{ fg: theme.textMuted }}> {provider} </span>
-                        <span style={{ fg: theme.text, bold: true }}>{model}</span>
-                      </>
+                    setStore(
+                      produce((draft) => {
+                        const partIndex = draft.prompt.parts.length
+                        draft.prompt.parts.push(part)
+                        draft.extmarkToPartIndex.set(extmarkId, partIndex)
+                      }),
                     )
-                  })()}
-                </text>
-              </Show>
+                    return
+                  }
+                }}
+                ref={(r: TextareaRenderable) => (input = r)}
+                onMouseDown={(r: MouseEvent) => r.target?.focus()}
+                focusedBackgroundColor={theme.backgroundElement}
+                cursorColor={highlight()}
+                syntaxStyle={syntax()}
+              />
+              <box height={1} />
+              <box height={1} flexDirection="row" alignItems="center" gap={2}>
+                <Show when={store.mode === "shell"}>
+                  <text>
+                    <span style={{ fg: theme.secondary, bold: true }}>⚡ SHELL</span>
+                    <span style={{ fg: theme.textMuted }}> (ESC to exit)</span>
+                  </text>
+                </Show>
+                <Show when={store.mode !== "shell"}>
+                  <text>
+                    {(() => {
+                      const agent = local.agent.current()
+                      const rawName = agent?.name ?? "Agent"
+                      const agentName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
+                      const agentColor = local.agent.color(rawName)
+                      const parsed = local.model.parsed()
+                      const provider = parsed?.provider ?? "Provider"
+                      const model = parsed?.model ?? "Model"
+
+                      return (
+                        <>
+                          <span style={{ fg: agentColor }}>{agentName}</span>
+                          <span style={{ fg: theme.textMuted }}> {provider} </span>
+                          <span style={{ fg: theme.text, bold: true }}>{model}</span>
+                        </>
+                      )
+                    })()}
+                  </text>
+                </Show>
+              </box>
+            </box>
+            <box height={1} width="100%">
+              <text fg={theme.backgroundElement}>
+                {"▀".repeat(Math.max(0, (props.width ?? dimensions().width) - 2))}
+              </text>
             </box>
           </box>
-          <box backgroundColor={theme.backgroundElement} width={1} justifyContent="center" alignItems="center"></box>
+          <box width={1} flexDirection="column">
+            <box height={1}>
+              <text fg={rightBorderColor()}>╷</text>
+            </box>
+            <box
+              flexGrow={1}
+              border={["left"]}
+              borderColor={rightBorderColor()}
+              customBorderChars={SplitBorder.customBorderChars}
+            />
+            <box height={1}>
+              <text fg={rightBorderColor()}>╵</text>
+            </box>
+          </box>
         </box>
         <box flexDirection="row" justifyContent="space-between">
           <Switch>

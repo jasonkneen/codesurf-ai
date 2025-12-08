@@ -565,8 +565,8 @@ export function Session() {
   })
 
   const contentWidth = createMemo(() => {
-    const leftWidth = leftSidebarVisible() ? leftSidebarWidth() : 0
-    const rightWidth = rightSidebarVisible() ? rightSidebarWidth() : 0
+    const leftWidth = leftSidebarVisible() ? leftSidebarWidth() + 2 : 0
+    const rightWidth = rightSidebarVisible() ? rightSidebarWidth() + 2 : 0
     return dimensions().width - leftWidth - rightWidth - 4
   })
 
@@ -1342,15 +1342,18 @@ export function Session() {
                   <text fg={theme.accent}>↓</text>
                 </box>
               </Show>
-              <Prompt
-                ref={(r) => (prompt = r)}
-                disabled={permissions().length > 0}
-                onSubmit={() => {
-                  toBottom()
-                }}
-                onScrollToBottom={toBottom}
-                sessionID={route.sessionID}
-              />
+              <box>
+                <Prompt
+                  ref={(r) => (prompt = r)}
+                  disabled={permissions().length > 0}
+                  onSubmit={() => {
+                    toBottom()
+                  }}
+                  onScrollToBottom={toBottom}
+                  sessionID={route.sessionID}
+                  width={contentWidth()}
+                />
+              </box>
             </box>
           </Show>
           <Toast />

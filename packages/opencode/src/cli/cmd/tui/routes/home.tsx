@@ -9,12 +9,15 @@ import { useSync } from "../context/sync"
 import { Toast } from "../ui/toast"
 import { useArgs } from "../context/args"
 
+import { useTerminalDimensions } from "@opentui/solid"
+
 // TODO: what is the best way to do this?
 let once = false
 
 export function Home() {
   const sync = useSync()
   const { theme } = useTheme()
+  const dimensions = useTerminalDimensions()
   const mcpError = createMemo(() => {
     return Object.values(sync.data.mcp).some((x) => x.status === "failed")
   })
@@ -58,7 +61,7 @@ export function Home() {
         <HelpRow keybind="agent_cycle">Switch agent</HelpRow>
       </box>
       <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1}>
-        <Prompt ref={(r) => (prompt = r)} hint={Hint} />
+        <Prompt ref={(r) => (prompt = r)} hint={Hint} width={Math.min(dimensions().width - 4, 75)} />
       </box>
       <Toast />
     </box>

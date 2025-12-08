@@ -99,27 +99,24 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     const flushPartUpdates = () => {
       if (pendingPartUpdates.size === 0) return
-      batch(() => {
-        for (const [key, part] of pendingPartUpdates.entries()) {
-          const parts = store.part[part.messageID]
-          if (!parts) {
-            setStore("part", part.messageID, [part])
-            continue
+      setStore(
+        "part",
+        produce((draft) => {
+          for (const part of pendingPartUpdates.values()) {
+            const parts = draft[part.messageID]
+            if (!parts) {
+              draft[part.messageID] = [part]
+              continue
+            }
+            const index = parts.findIndex((p) => p.id === part.id)
+            if (index !== -1) {
+              parts[index] = part
+            } else {
+              parts.push(part)
+            }
           }
-          const result = Binary.search(parts, part.id, (p) => p.id)
-          if (result.found) {
-            setStore("part", part.messageID, result.index, reconcile(part))
-          } else {
-            setStore(
-              "part",
-              part.messageID,
-              produce((draft) => {
-                draft.splice(result.index, 0, part)
-              }),
-            )
-          }
-        }
-      })
+        }),
+      )
       pendingPartUpdates.clear()
     }
 
