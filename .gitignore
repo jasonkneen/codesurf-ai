@@ -6,7 +6,6 @@ node_modules
 .idea
 .vscode
 *~
-openapi.json
 playground
 tmp
 dist
@@ -48,3 +47,5 @@ packages/opencode/test-kitty-graphics.ts
 .beads/beads.left.meta.json
 .beads/beads.left.jsonl
 .beads/beads.db
+a.out
+target
