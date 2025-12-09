@@ -4,10 +4,8 @@
     "opencode-openai-codex-auth"
   ],
   "provider": {
-    "anthropic": {
-      "options": {
-        "apiKey": "$ANTHROPIC_API_KEY"
-      }
+    "opencode": {
+      "options": {}
     }
   },
   "mcp": {
