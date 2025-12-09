@@ -224,50 +224,6 @@ export namespace SessionCompaction {
     return "continue"
   }
 
-  export const run = fn(
-    z.object({
-      sessionID: Identifier.schema("session"),
-      providerID: z.string(),
-      modelID: z.string(),
-      signal: z.custom<AbortSignal>().optional(),
-    }),
-    async (input) => {
-      await Session.update(input.sessionID, (draft) => {
-        draft.time.compacting = Date.now()
-      })
-      try {
-        await prune({ sessionID: input.sessionID })
-        const msgs = await MessageV2.filterCompacted(MessageV2.stream(input.sessionID))
-        const parent = msgs.at(-1)
-        await process({
-          parentID: parent ? parent.info.id : Identifier.ascending("message"),
-          messages: msgs,
-          sessionID: input.sessionID,
-          model: {
-            providerID: input.providerID,
-            modelID: input.modelID,
-          },
-          abort: input.signal ?? new AbortController().signal,
-        })
-        const all = await Session.messages({ sessionID: input.sessionID })
-        const summary =
-          all.findLast((msg) => msg.info.role === "assistant" && msg.info.summary === true) ?? parent ?? all.at(-1)
-        Bus.publish(Event.Compacted, {
-          sessionID: input.sessionID,
-        })
-        await Session.update(input.sessionID, (draft) => {
-          draft.time.compacting = undefined
-        })
-        return summary
-      } catch (error) {
-        await Session.update(input.sessionID, (draft) => {
-          draft.time.compacting = undefined
-        })
-        throw error
-      }
-    },
-  )
-
   export const create = fn(
     z.object({
       sessionID: Identifier.schema("session"),
