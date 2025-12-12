@@ -36,14 +36,6 @@ export namespace Pty {
     return spawn
   })
 
-  export function isSupported() {
-    return (
-      process.platform === "darwin" ||
-      process.platform === "linux" ||
-      (process.platform === "win32" && process.arch === "x64")
-    )
-  }
-
   export const Info = z
     .object({
       id: Identifier.schema("pty"),
