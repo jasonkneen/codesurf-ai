@@ -1,8 +1,8 @@
 import z from "zod"
-import fuzzysort from "fuzzysort"
+import path from "path"
 import { Config } from "../config/config"
-import { mapValues, mergeDeep, sortBy } from "remeda"
-import { NoSuchModelError, type Provider as SDK } from "ai"
+import { mergeDeep, sortBy, mapValues } from "remeda"
+import { NoSuchModelError, type LanguageModel, type Provider as AIProvider } from "ai"
 import { Log } from "../util/log"
 import { BunProc } from "../bun"
 import { Plugin } from "../plugin"
@@ -11,6 +11,7 @@ import { NamedError } from "@opencode-ai/util/error"
 import { Auth } from "../auth"
 import { Env } from "../env"
 import { Instance } from "../project/instance"
+import { Global } from "../global"
 import { Flag } from "../flag/flag"
 import { iife } from "@/util/iife"
 
@@ -29,7 +30,7 @@ import { createOpenaiCompatible as createGitHubCopilotOpenAICompatible } from ".
 export namespace Provider {
   const log = Log.create({ service: "provider" })
 
-  const BUNDLED_PROVIDERS: Record<string, (options: any) => SDK> = {
+  const BUNDLED_PROVIDERS: Record<string, (options: any) => AIProvider> = {
     "@ai-sdk/amazon-bedrock": createAmazonBedrock,
     "@ai-sdk/anthropic": createAnthropic,
     "@ai-sdk/azure": createAzure,
@@ -43,22 +44,109 @@ export namespace Provider {
     "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible,
   }
 
-  type CustomModelLoader = (sdk: any, modelID: string, options?: Record<string, any>) => Promise<any>
-  type CustomLoader = (provider: Info) => Promise<{
+  /**
+   * Extended SDK interface that accounts for provider-specific methods.
+   * Different AI SDK providers expose different methods:
+   * - Standard: `sdk.languageModel(id)`
+   * - OpenAI: `sdk.responses(id)` or `sdk.chat(id)`
+   * - OpenRouter: Callable as `sdk(id)`
+   */
+  interface ProviderSDK extends AIProvider {
+    /** OpenAI-specific: Returns response-based language model */
+    responses?: (modelId: string) => LanguageModel
+    /** OpenAI-specific: Returns chat-based language model */
+    chat?: (modelId: string) => LanguageModel
+    /** Some providers are callable directly (e.g., OpenRouter) */
+    (modelId: string): LanguageModel
+  }
+
+  /**
+   * Common options passed to provider SDK initialization and model retrieval.
+   */
+  interface ProviderOptions {
+    apiKey?: string
+    baseURL?: string
+    timeout?: number | false
+    headers?: Record<string, string>
+    cacheControl?: boolean
+    region?: string
+    project?: string
+    location?: string
+    credentialProvider?: () => Promise<unknown>
+    includeUsage?: boolean
+    fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    useCompletionUrls?: boolean
+    [key: string]: unknown
+  }
+
+  /**
+   * Return type for custom provider loaders.
+   */
+  interface CustomLoaderResult {
     autoload: boolean
-    getModel?: CustomModelLoader
-    options?: Record<string, any>
-  }>
+    getModel?: (sdk: ProviderSDK, modelID: string, options?: ProviderOptions) => Promise<LanguageModel>
+    options?: ProviderOptions
+  }
+
+  type CustomLoader = (provider: Info) => Promise<CustomLoaderResult>
 
   const CUSTOM_LOADERS: Record<string, CustomLoader> = {
     async anthropic() {
+      const config = await Config.get()
+      const anthropicConfig = config.anthropic ?? {}
+
+      // Default all flags to true if not explicitly set
+      const promptCaching = anthropicConfig.promptCaching ?? true
+      const contextEditing = anthropicConfig.contextEditing ?? true
+      const extendedThinking = anthropicConfig.extendedThinking ?? true
+      const citations = anthropicConfig.citations ?? true
+      const tokenEfficientToolUse = anthropicConfig.tokenEfficientToolUse ?? true
+      const fineGrainedToolStreaming = anthropicConfig.fineGrainedToolStreaming ?? true
+
+      // Build beta headers array based on enabled features
+      const betaFeatures: string[] = []
+
+      // Always include the core claude-code beta
+      betaFeatures.push("claude-code-20250219")
+
+      if (promptCaching) betaFeatures.push("prompt-caching-2024-07-31")
+      if (contextEditing) betaFeatures.push("context-editing-2025-05-14")
+      if (extendedThinking) betaFeatures.push("interleaved-thinking-2025-05-14")
+      if (citations) betaFeatures.push("citations-2025-05-14")
+      if (tokenEfficientToolUse) betaFeatures.push("token-efficient-tool-use-2024-11-01")
+      if (fineGrainedToolStreaming) betaFeatures.push("fine-grained-tool-streaming-2025-05-14")
+
       return {
         autoload: false,
         options: {
           headers: {
-            "anthropic-beta":
-              "claude-code-20250219,interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14",
+            "anthropic-beta": betaFeatures.join(","),
           },
+          ...(promptCaching ? { cacheControl: true } : {}),
+        },
+      }
+    },
+    async codesurf() {
+      const { Freemium } = await import("./freemium")
+
+      return {
+        autoload: true, // Always autoload - no API key required
+        options: {
+          headers: {
+            "HTTP-Referer": "https://codesurf.ai/",
+            "X-Title": "Codesurf Auto",
+          },
+        },
+        async getModel(sdk: ProviderSDK, modelID: string): Promise<LanguageModel> {
+          log.info("codesurf routing", { modelID })
+
+          // All three auto models use smart free model selection from OpenRouter
+          const freeModels = await Freemium.getFreeModels()
+          const selected = Freemium.selectBestModel(freeModels)
+          if (!selected) throw new Error("No free models available")
+
+          log.info("codesurf selected model", { from: modelID, to: selected.id })
+          return sdk(selected.id)
         },
       }
     },
@@ -85,7 +173,10 @@ export namespace Provider {
     openai: async () => {
       return {
         autoload: false,
-        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+        async getModel(sdk: ProviderSDK, modelID: string, _options?: ProviderOptions): Promise<LanguageModel> {
+          if (!sdk.responses) {
+            throw new Error("OpenAI SDK does not support responses method")
+          }
           return sdk.responses(modelID)
         },
         options: {},
@@ -118,10 +209,16 @@ export namespace Provider {
     azure: async () => {
       return {
         autoload: false,
-        async getModel(sdk: any, modelID: string, options?: Record<string, any>) {
-          if (options?.["useCompletionUrls"]) {
+        async getModel(sdk: ProviderSDK, modelID: string, options?: ProviderOptions): Promise<LanguageModel> {
+          if (options?.useCompletionUrls) {
+            if (!sdk.chat) {
+              throw new Error("Azure SDK does not support chat method")
+            }
             return sdk.chat(modelID)
           } else {
+            if (!sdk.responses) {
+              throw new Error("Azure SDK does not support responses method")
+            }
             return sdk.responses(modelID)
           }
         },
@@ -162,7 +259,7 @@ export namespace Provider {
           region,
           credentialProvider: fromNodeProviderChain(),
         },
-        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+        async getModel(sdk: ProviderSDK, modelID: string, _options?: ProviderOptions): Promise<LanguageModel> {
           // Skip region prefixing if model already has global prefix
           if (modelID.startsWith("global.")) {
             return sdk.languageModel(modelID)
@@ -240,6 +337,27 @@ export namespace Provider {
         },
       }
     },
+    freemium: async () => {
+      const { Freemium } = await import("./freemium")
+
+      return {
+        autoload: true,
+        options: {
+          headers: {
+            "HTTP-Referer": "https://opencode.ai/",
+            "X-Title": "OpenCode Freemium",
+          },
+        },
+        async getModel(sdk: ProviderSDK, modelID: string): Promise<LanguageModel> {
+          const freeModels = await Freemium.getFreeModels()
+          const selected = Freemium.selectBestModel(freeModels)
+          if (!selected) throw new Error("No free models available")
+
+          log.info("freemium routing", { from: modelID, to: selected.id })
+          return sdk(selected.id)
+        },
+      }
+    },
     vercel: async () => {
       return {
         autoload: false,
@@ -262,7 +380,7 @@ export namespace Provider {
           project,
           location,
         },
-        async getModel(sdk: any, modelID: string) {
+        async getModel(sdk: ProviderSDK, modelID: string): Promise<LanguageModel> {
           const id = String(modelID).trim()
           return sdk.languageModel(id)
         },
@@ -279,10 +397,116 @@ export namespace Provider {
           project,
           location,
         },
-        async getModel(sdk: any, modelID) {
+        async getModel(sdk: ProviderSDK, modelID: string): Promise<LanguageModel> {
           const id = String(modelID).trim()
           return sdk.languageModel(id)
         },
+      }
+    },
+    kilocode: async (provider) => {
+      // Check for API key in env or auth
+      const auth = await Auth.get(provider.id)
+      const apiKey = process.env["KILOCODE_API_KEY"] || (auth?.type === "api" ? auth.key : undefined)
+      if (!apiKey) return { autoload: false }
+
+      try {
+        // Fetch models from kilocode API
+        const response = await fetch("https://api.kilocode.ai/api/openrouter/models", {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+          },
+          signal: AbortSignal.timeout(10 * 1000),
+        })
+
+        if (!response.ok) {
+          log.error("Failed to fetch kilocode models", { status: response.status })
+          return { autoload: false }
+        }
+
+        const data = (await response.json()) as {
+          data: Array<{
+            id: string
+            name: string
+            created: number
+            context_length: number
+            pricing: {
+              prompt: string
+              completion: string
+            }
+            top_provider?: {
+              max_completion_tokens?: number
+            }
+          }>
+        }
+
+        // Populate models from API
+        for (const model of data.data) {
+          provider.models[model.id] = {
+            id: model.id,
+            providerID: provider.id,
+            api: {
+              id: model.id,
+              url: "https://api.kilocode.ai/api/openrouter",
+              npm: provider.id,
+            },
+            name: model.name,
+            release_date: new Date(model.created * 1000).toISOString().split("T")[0],
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            status: "active",
+            cost: {
+              input: parseFloat(model.pricing.prompt) * 1000000, // Convert to per-million-token pricing
+              output: parseFloat(model.pricing.completion) * 1000000,
+              cache: {
+                read: 0,
+                write: 0,
+              },
+            },
+            limit: {
+              context: model.context_length,
+              output: model.top_provider?.max_completion_tokens || 4096,
+            },
+            capabilities: {
+              temperature: true,
+              reasoning: true,
+              attachment: true,
+              toolcall: true,
+              input: {
+                text: true,
+                audio: false,
+                image: false,
+                video: false,
+                pdf: false,
+              },
+              output: {
+                text: true,
+                audio: false,
+                image: false,
+                video: false,
+                pdf: false,
+              },
+            },
+            options: {},
+            headers: {},
+          }
+        }
+
+        return {
+          autoload: true,
+          options: {
+            apiKey,
+            baseURL: "https://api.kilocode.ai/api/openrouter",
+            headers: {
+              "HTTP-Referer": "https://opencode.ai/",
+              "X-Title": "OpenCode",
+            },
+          },
+        }
+      } catch (error) {
+        log.error("Error loading kilocode models", { error })
+        return { autoload: false }
       }
     },
     "sap-ai-core": async () => {
@@ -305,7 +529,7 @@ export namespace Provider {
         options: {
           headers: {
             "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "X-Title": "OpenCode",
           },
         },
       }
@@ -322,6 +546,12 @@ export namespace Provider {
         npm: z.string(),
       }),
       name: z.string(),
+      // Fields expected by ModelsDev.Model (to allow interoperability or manual population)
+      release_date: z.string().optional(),
+      attachment: z.boolean().optional(),
+      reasoning: z.boolean().optional(),
+      temperature: z.boolean().optional(),
+      tool_call: z.boolean().optional(),
       capabilities: z.object({
         temperature: z.boolean(),
         reasoning: z.boolean(),
@@ -463,23 +693,82 @@ export namespace Provider {
     const modelsDev = await ModelsDev.get()
     const database = mapValues(modelsDev, fromModelsDevProvider)
 
-    const disabled = new Set(config.disabled_providers ?? [])
-    const enabled = config.enabled_providers ? new Set(config.enabled_providers) : null
-
-    function isProviderAllowed(providerID: string): boolean {
-      if (enabled && !enabled.has(providerID)) return false
-      if (disabled.has(providerID)) return false
-      return true
+    // Add Claude Sonnet 4.5 1M context model variants
+    if (database["anthropic"]?.models["claude-sonnet-4-5-20250929"]) {
+      const baseModel = database["anthropic"].models["claude-sonnet-4-5-20250929"]
+      // Add versioned 1M model (maps [1m] suffix to base model ID for API)
+      database["anthropic"].models["claude-sonnet-4-5-20250929[1m]"] = {
+        ...baseModel,
+        id: "claude-sonnet-4-5-20250929",
+        name: "Claude Sonnet 4.5 (1M context)",
+        limit: {
+          context: 1000000,
+          output: 64000,
+        },
+      }
+      // Add latest alias 1M model (maps [1m] suffix to base model ID for API)
+      database["anthropic"].models["claude-sonnet-4-5[1m]"] = {
+        ...baseModel,
+        id: "claude-sonnet-4-5-20250929",
+        name: "Claude Sonnet 4.5 latest (1M context)",
+        limit: {
+          context: 1000000,
+          output: 64000,
+        },
+      }
     }
 
-    const providers: { [providerID: string]: Info } = {}
-    const languages = new Map<string, LanguageModelV2>()
-    const modelLoaders: {
-      [providerID: string]: CustomModelLoader
-    } = {}
-    const sdk = new Map<number, SDK>()
+    /**
+     * Internal representation of a loaded provider with its configuration.
+     */
+    interface LoadedProvider {
+      source: "api" | "env" | "custom" | "config"
+      info: Info
+      getModel?: (sdk: ProviderSDK, modelID: string, options?: ProviderOptions) => Promise<LanguageModel>
+      options: ProviderOptions
+    }
+
+    const providers: Record<string, LoadedProvider> = {}
+    const models = new Map<
+      string,
+      {
+        providerID: string
+        modelID: string
+        info: Model
+        language: LanguageModel
+        npm?: string
+      }
+    >()
+    const sdk = new Map<number, AIProvider>()
+    // Maps `${provider}/${key}` to the provider's actual model ID for custom aliases.
+    const realIdByKey = new Map<string, string>()
 
     log.info("init")
+
+    function mergeProvider(
+      id: string,
+      options: ProviderOptions,
+      source: "api" | "env" | "custom" | "config",
+      getModel?: (sdk: ProviderSDK, modelID: string, options?: ProviderOptions) => Promise<LanguageModel>,
+    ): void {
+      const provider = providers[id]
+      if (!provider) {
+        const info = database[id]
+        if (!info) return
+        if (info.models && Object.values(info.models)[0]?.api.url && !options.baseURL)
+          options.baseURL = Object.values(info.models)[0].api.url
+        providers[id] = {
+          source,
+          info,
+          options,
+          getModel,
+        }
+        return
+      }
+      provider.options = mergeDeep(provider.options, options) as ProviderOptions
+      provider.source = source
+      provider.getModel = getModel ?? provider.getModel
+    }
 
     const configProviders = Object.entries(config.provider ?? {})
 
@@ -495,19 +784,6 @@ export namespace Provider {
           providerID: "github-copilot-enterprise",
         })),
       }
-    }
-
-    function mergeProvider(providerID: string, provider: Partial<Info>) {
-      const existing = providers[providerID]
-      if (existing) {
-        // @ts-expect-error
-        providers[providerID] = mergeDeep(existing, provider)
-        return
-      }
-      const match = database[providerID]
-      if (!match) return
-      // @ts-expect-error
-      providers[providerID] = mergeDeep(match, provider)
     }
 
     // extend database from config
@@ -580,26 +856,118 @@ export namespace Provider {
       database[providerID] = parsed
     }
 
+    const disabled = await Config.get().then((cfg) => new Set(cfg.disabled_providers ?? []))
+
+    // Add freemium provider synthetically
+    if (!disabled.has("freemium") && process.env["OPENROUTER_API_KEY"]) {
+      database["freemium"] = {
+        id: "freemium",
+        name: "Freemium",
+        source: "custom",
+        env: ["OPENROUTER_API_KEY"],
+        options: {},
+        models: {
+          auto: {
+            id: "auto",
+            providerID: "freemium",
+            api: {
+              id: "auto",
+              npm: "@ai-sdk/openai-compatible",
+              url: "https://openrouter.ai/api/v1",
+            },
+            name: "Freemium (Auto-Rotating Free Models)",
+            status: "active",
+            capabilities: {
+              temperature: true,
+              reasoning: false,
+              attachment: false,
+              toolcall: true,
+              input: { text: true, audio: false, image: false, video: false, pdf: false },
+              output: { text: true, audio: false, image: false, video: false, pdf: false },
+            },
+            cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+            limit: { context: 256000, output: 16000 },
+            options: {},
+            headers: {},
+          },
+        },
+      }
+    }
+
+    // Add Codesurf provider with Auto models
+    if (!disabled.has("codesurf")) {
+      database["codesurf"] = {
+        id: "codesurf",
+        name: "Codesurf",
+        source: "custom",
+        env: [], // No API key required - uses free models
+        options: {},
+        models: {
+          auto: {
+            id: "auto",
+            providerID: "codesurf",
+            api: {
+              id: "auto",
+              npm: "@ai-sdk/openai-compatible",
+              url: "https://openrouter.ai/api/v1",
+            },
+            name: "Auto (Smart Selection)",
+            status: "active",
+            capabilities: {
+              temperature: true,
+              reasoning: true,
+              attachment: true,
+              toolcall: true,
+              input: { text: true, audio: false, image: false, video: false, pdf: false },
+              output: { text: true, audio: false, image: false, video: false, pdf: false },
+            },
+            cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+            limit: { context: 256000, output: 16000 },
+            options: {},
+            headers: {},
+          },
+        },
+      }
+    }
+
+    // Add kilocode provider
+    if (!disabled.has("kilocode")) {
+      // We initialize with empty models, they get populated by the loader
+      database["kilocode"] = {
+        id: "kilocode",
+        name: "Kilocode",
+        source: "custom",
+        env: ["KILOCODE_API_KEY"],
+        options: {},
+        models: {},
+      }
+    }
+
     // load env
     const env = Env.all()
     for (const [providerID, provider] of Object.entries(database)) {
       if (disabled.has(providerID)) continue
-      const apiKey = provider.env.map((item) => env[item]).find(Boolean)
+      const apiKey = provider.env.map((item) => process.env[item]).find((item) => !!item)
       if (!apiKey) continue
-      mergeProvider(providerID, {
-        source: "env",
-        key: provider.env.length === 1 ? apiKey : undefined,
-      })
+      mergeProvider(
+        providerID,
+        // only include apiKey if there's only one potential option
+        provider.env.length === 1 || providerID === "google" ? { apiKey } : {},
+        "env",
+      )
     }
 
     // load apikeys
     for (const [providerID, provider] of Object.entries(await Auth.all())) {
       if (disabled.has(providerID)) continue
       if (provider.type === "api") {
-        mergeProvider(providerID, {
-          source: "api",
-          key: provider.key,
-        })
+        mergeProvider(
+          providerID,
+          {
+            apiKey: provider.key,
+          },
+          "api",
+        )
       }
     }
 
@@ -625,10 +993,7 @@ export namespace Provider {
       // Load for the main provider if auth exists
       if (auth) {
         const options = await plugin.auth.loader(() => Auth.get(providerID) as any, database[plugin.auth.provider])
-        mergeProvider(plugin.auth.provider, {
-          source: "custom",
-          options: options,
-        })
+        mergeProvider(plugin.auth.provider, options, "custom")
       }
 
       // If this is github-copilot plugin, also register for github-copilot-enterprise if auth exists
@@ -641,10 +1006,7 @@ export namespace Provider {
               () => Auth.get(enterpriseProviderID) as any,
               database[enterpriseProviderID],
             )
-            mergeProvider(enterpriseProviderID, {
-              source: "custom",
-              options: enterpriseOptions,
-            })
+            mergeProvider(enterpriseProviderID, enterpriseOptions, "custom")
           }
         }
       }
@@ -654,120 +1016,92 @@ export namespace Provider {
       if (disabled.has(providerID)) continue
       const result = await fn(database[providerID])
       if (result && (result.autoload || providers[providerID])) {
-        if (result.getModel) modelLoaders[providerID] = result.getModel
-        mergeProvider(providerID, {
-          source: "custom",
-          options: result.options,
-        })
+        mergeProvider(providerID, result.options ?? {}, "custom", result.getModel)
       }
     }
 
     // load config
     for (const [providerID, provider] of configProviders) {
-      const partial: Partial<Info> = { source: "config" }
-      if (provider.env) partial.env = provider.env
-      if (provider.name) partial.name = provider.name
-      if (provider.options) partial.options = provider.options
-      mergeProvider(providerID, partial)
+      mergeProvider(providerID, provider.options ?? {}, "config")
     }
 
     for (const [providerID, provider] of Object.entries(providers)) {
-      if (!isProviderAllowed(providerID)) {
+      if (providerID === "github-copilot") {
+        // provider.info.npm = "@ai-sdk/github-copilot"
+      }
+
+      const filteredModels = Object.fromEntries(
+        Object.entries(provider.info.models)
+          // Filter out blacklisted models
+          .filter(
+            ([modelID]) =>
+              modelID !== "gpt-5.1-chat-latest" && !(providerID === "openrouter" && modelID === "openai/gpt-5.1-chat"),
+          )
+          // Filter out experimental models
+          .filter(
+            ([, model]) =>
+              (!model.status || model.status === "active" || Flag.OPENCODE_ENABLE_EXPERIMENTAL_MODELS) &&
+              model.status !== "deprecated",
+          ),
+      )
+      provider.info.models = filteredModels
+
+      if (Object.keys(provider.info.models).length === 0) {
         delete providers[providerID]
         continue
       }
-
-      if (providerID === "github-copilot" || providerID === "github-copilot-enterprise") {
-        provider.models = mapValues(provider.models, (model) => ({
-          ...model,
-          api: {
-            ...model.api,
-            npm: "@ai-sdk/github-copilot",
-          },
-        }))
-      }
-
-      const configProvider = config.provider?.[providerID]
-
-      for (const [modelID, model] of Object.entries(provider.models)) {
-        model.api.id = model.api.id ?? model.id ?? modelID
-        if (modelID === "gpt-5-chat-latest" || (providerID === "openrouter" && modelID === "openai/gpt-5-chat"))
-          delete provider.models[modelID]
-        if (model.status === "alpha" && !Flag.OPENCODE_ENABLE_EXPERIMENTAL_MODELS) delete provider.models[modelID]
-        if (
-          (configProvider?.blacklist && configProvider.blacklist.includes(modelID)) ||
-          (configProvider?.whitelist && !configProvider.whitelist.includes(modelID))
-        )
-          delete provider.models[modelID]
-      }
-
-      if (Object.keys(provider.models).length === 0) {
-        delete providers[providerID]
-        continue
-      }
-
       log.info("found", { providerID })
     }
 
     return {
-      models: languages,
       providers,
+      models,
       sdk,
-      modelLoaders,
+      realIdByKey,
     }
   })
 
   export async function list() {
-    return state().then((state) => state.providers)
+    return state().then((state) => Object.values(state.providers).map((p) => p.info))
   }
 
-  async function getSDK(model: Model) {
-    try {
+  async function getSDK(provider: Info, model: Model): Promise<AIProvider> {
+    return (async () => {
       using _ = log.time("getSDK", {
         providerID: model.providerID,
       })
       const s = await state()
-      const provider = s.providers[model.providerID]
-      const options = { ...provider.options }
-
-      if (model.api.npm.includes("@ai-sdk/openai-compatible") && options["includeUsage"] !== false) {
-        options["includeUsage"] = true
+      const pkg = model.api.npm
+      const options: ProviderOptions = { ...s.providers[provider.id]?.options }
+      if (pkg.includes("@ai-sdk/openai-compatible") && options.includeUsage === undefined) {
+        options.includeUsage = true
       }
-
-      if (!options["baseURL"]) options["baseURL"] = model.api.url
-      if (options["apiKey"] === undefined && provider.key) options["apiKey"] = provider.key
-      if (model.headers)
-        options["headers"] = {
-          ...options["headers"],
-          ...model.headers,
-        }
-
-      const key = Bun.hash.xxHash32(JSON.stringify({ npm: model.api.npm, options }))
+      const key = Bun.hash.xxHash32(JSON.stringify({ pkg, options }))
       const existing = s.sdk.get(key)
       if (existing) return existing
 
-      const customFetch = options["fetch"]
+      // Setup custom fetch with timeout handling if needed
+      if (options.timeout !== undefined && options.timeout !== null) {
+        const customFetch = options.fetch
+        options.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+          const { signal, ...rest } = init ?? {}
 
-      options["fetch"] = async (input: any, init?: BunFetchRequestInit) => {
-        // Preserve custom fetch if it exists, wrap it with timeout logic
-        const fetchFn = customFetch ?? fetch
-        const opts = init ?? {}
-
-        if (options["timeout"] !== undefined && options["timeout"] !== null) {
           const signals: AbortSignal[] = []
-          if (opts.signal) signals.push(opts.signal)
-          if (options["timeout"] !== false) signals.push(AbortSignal.timeout(options["timeout"]))
+          if (signal) signals.push(signal)
+          if (options.timeout !== false && typeof options.timeout === "number") {
+            signals.push(AbortSignal.timeout(options.timeout))
+          }
 
           const combined = signals.length > 1 ? AbortSignal.any(signals) : signals[0]
 
-          opts.signal = combined
+          const fetchFn = customFetch ?? fetch
+          return fetchFn(input, {
+            ...rest,
+            signal: combined,
+            // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
+            timeout: false,
+          })
         }
-
-        return fetchFn(input, {
-          ...opts,
-          // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
-          timeout: false,
-        })
       }
 
       // Special case: google-vertex-anthropic uses a subpath import
@@ -781,7 +1115,7 @@ export namespace Provider {
           ...options,
         })
         s.sdk.set(key, loaded)
-        return loaded as SDK
+        return loaded as AIProvider
       }
 
       let installedPath: string
@@ -800,56 +1134,53 @@ export namespace Provider {
         ...options,
       })
       s.sdk.set(key, loaded)
-      return loaded as SDK
-    } catch (e) {
-      throw new InitError({ providerID: model.providerID }, { cause: e })
-    }
+      return loaded
+    })().catch((e) => {
+      throw new InitError({ providerID: provider.id }, { cause: e })
+    })
   }
 
   export async function getProvider(providerID: string) {
-    return state().then((s) => s.providers[providerID])
+    return state().then((s) => s.providers[providerID]?.info)
   }
 
   export async function getModel(providerID: string, modelID: string) {
     const s = await state()
     const provider = s.providers[providerID]
-    if (!provider) {
-      const availableProviders = Object.keys(s.providers)
-      const matches = fuzzysort.go(providerID, availableProviders, { limit: 3, threshold: -10000 })
-      const suggestions = matches.map((m) => m.target)
-      throw new ModelNotFoundError({ providerID, modelID, suggestions })
-    }
-
-    const info = provider.models[modelID]
-    if (!info) {
-      const availableModels = Object.keys(provider.models)
-      const matches = fuzzysort.go(modelID, availableModels, { limit: 3, threshold: -10000 })
-      const suggestions = matches.map((m) => m.target)
-      throw new ModelNotFoundError({ providerID, modelID, suggestions })
-    }
-    return info
-  }
-
-  export async function getLanguage(model: Model) {
-    const s = await state()
-    const key = `${model.providerID}/${model.id}`
-    if (s.models.has(key)) return s.models.get(key)!
-
-    const provider = s.providers[model.providerID]
-    const sdk = await getSDK(model)
+    if (!provider) throw new ModelNotFoundError({ providerID, modelID })
+    const info = provider.info.models[modelID]
+    if (!info) throw new ModelNotFoundError({ providerID, modelID })
+    const sdk = await getSDK(provider.info, info)
 
     try {
-      const language = s.modelLoaders[model.providerID]
-        ? await s.modelLoaders[model.providerID](sdk, model.api.id, provider.options)
-        : sdk.languageModel(model.api.id)
-      s.models.set(key, language)
-      return language
+      const keyReal = `${providerID}/${modelID}`
+      const realID = s.realIdByKey.get(keyReal) ?? info.api.id
+      const language = provider.getModel
+        ? await provider.getModel(sdk as ProviderSDK, realID, provider.options)
+        : sdk.languageModel(realID)
+      log.info("found", { providerID, modelID })
+
+      const key = `${providerID}/${modelID}`
+      s.models.set(key, {
+        providerID,
+        modelID,
+        info,
+        language,
+        npm: info.api.npm,
+      })
+      return {
+        modelID,
+        providerID,
+        info,
+        language,
+        npm: info.api.npm,
+      }
     } catch (e) {
       if (e instanceof NoSuchModelError)
         throw new ModelNotFoundError(
           {
-            modelID: model.id,
-            providerID: model.providerID,
+            modelID: info.id,
+            providerID: providerID,
           },
           { cause: e },
         )
@@ -857,12 +1188,17 @@ export namespace Provider {
     }
   }
 
+  export async function getLanguage(providerID: string, modelID: string) {
+    const { language } = await getModel(providerID, modelID)
+    return language
+  }
+
   export async function closest(providerID: string, query: string[]) {
     const s = await state()
     const provider = s.providers[providerID]
     if (!provider) return undefined
     for (const item of query) {
-      for (const modelID of Object.keys(provider.models)) {
+      for (const modelID of Object.keys(provider.info.models)) {
         if (modelID.includes(item))
           return {
             providerID,
@@ -872,14 +1208,43 @@ export namespace Provider {
     }
   }
 
+  /**
+   * Selects the most appropriate small/cheap model for cost-effective operations.
+   *
+   * Used for read-only agents (orchestrator, plan) that need reasoning but don't edit code.
+   * Small models cost ~80% less than flagship models while maintaining quality for coordination tasks.
+   *
+   * Selection Priority:
+   * 1. User-configured `small_model` from config (if set)
+   * 2. Auto-selection based on provider's available models:
+   *    - Claude Haiku 4.5 (anthropic)
+   *    - Gemini 2.5 Flash (google)
+   *    - GPT-5 Nano (openai)
+   *
+   * @param providerID - The provider to select a small model from
+   * @returns The selected small model, or undefined if no suitable model found
+   *
+   * @example
+   * ```typescript
+   * // With user config set: config.small_model = "anthropic/claude-haiku-4.5"
+   * const model = await getSmallModel("anthropic")
+   * // Returns: { providerID: "anthropic", modelID: "claude-haiku-4.5" }
+   *
+   * // Without config, auto-selects from available models
+   * const model = await getSmallModel("google")
+   * // Returns: { providerID: "google", modelID: "gemini-2.5-flash-latest" }
+   * ```
+   */
   export async function getSmallModel(providerID: string) {
     const cfg = await Config.get()
 
+    // Priority 1: Use explicitly configured small model
     if (cfg.small_model) {
       const parsed = parseModel(cfg.small_model)
       return getModel(parsed.providerID, parsed.modelID)
     }
 
+    // Priority 2: Auto-select from provider's available models
     const provider = await state().then((state) => state.providers[providerID])
     if (provider) {
       let priority = [
@@ -898,22 +1263,17 @@ export namespace Provider {
         priority = ["gpt-5-nano"]
       }
       for (const item of priority) {
-        for (const model of Object.keys(provider.models)) {
+        for (const model of Object.keys(provider.info.models)) {
           if (model.includes(item)) return getModel(providerID, model)
         }
       }
     }
 
-    // Check if opencode provider is available before using it
-    const opencodeProvider = await state().then((state) => state.providers["opencode"])
-    if (opencodeProvider && opencodeProvider.models["gpt-5-nano"]) {
-      return getModel("opencode", "gpt-5-nano")
-    }
-
+    // No small model found - caller should fall back to default
     return undefined
   }
 
-  const priority = ["gpt-5", "claude-sonnet-4", "big-pickle", "gemini-3-pro"]
+  const priority = ["gpt-5.1", "claude-sonnet-4.5[1m]", "big-pickle", "gemini-3-pro"]
   export function sort(models: Model[]) {
     return sortBy(
       models,
@@ -952,7 +1312,6 @@ export namespace Provider {
     z.object({
       providerID: z.string(),
       modelID: z.string(),
-      suggestions: z.array(z.string()).optional(),
     }),
   )
 
