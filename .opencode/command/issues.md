@@ -1,5 +1,5 @@
 ---
-description: "find issue(s) on github"
+description: "Find issue(s) on github"
 model: opencode/claude-haiku-4-5
 ---
 

@@ -24,7 +24,6 @@ export namespace Identifier {
     permission: "per",
     user: "usr",
     part: "prt",
-    pty: "pty",
   } as const
 
   // Map prefix keys to their branded types

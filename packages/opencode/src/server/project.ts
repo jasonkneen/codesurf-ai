@@ -8,8 +8,7 @@ export const ProjectRoute = new Hono()
   .get(
     "/",
     describeRoute({
-      summary: "List all projects",
-      description: "Get a list of projects that have been opened with OpenCode.",
+      description: "List all projects",
       operationId: "project.list",
       responses: {
         200: {
@@ -30,12 +29,11 @@ export const ProjectRoute = new Hono()
   .get(
     "/current",
     describeRoute({
-      summary: "Get current project",
-      description: "Retrieve the currently active project that OpenCode is working with.",
+      description: "Get the current project",
       operationId: "project.current",
       responses: {
         200: {
-          description: "Current project information",
+          description: "Current project",
           content: {
             "application/json": {
               schema: resolver(Project.Info),

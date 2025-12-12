@@ -4,12 +4,7 @@ import { Spinner } from "./spinner"
 import { useData } from "../context/data"
 import type { AssistantMessage as AssistantMessageType, ToolPart } from "@opencode-ai/sdk"
 
-export interface MessageProgressProps {
-  assistantMessages: () => AssistantMessageType[]
-  done?: boolean
-}
-
-export function MessageProgress(props: MessageProgressProps) {
+export function MessageProgress(props: { assistantMessages: () => AssistantMessageType[]; done?: boolean }) {
   const data = useData()
   const sanitizer = createMemo(() => (data.directory ? new RegExp(`${data.directory}/`, "g") : undefined))
   const parts = createMemo(() => props.assistantMessages().flatMap((m) => data.store.part[m.id]))

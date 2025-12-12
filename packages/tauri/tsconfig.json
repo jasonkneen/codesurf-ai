@@ -17,10 +17,7 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js"
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src"]
 }

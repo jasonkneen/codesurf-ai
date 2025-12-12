@@ -5,10 +5,8 @@ import { Installation } from "@/installation"
 import { Server } from "@/server/server"
 import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
-import { InstanceBootstrap } from "@/project/bootstrap"
 import { Rpc } from "@/util/rpc"
 import { upgrade } from "@/cli/upgrade"
-import type { BunWebSocketData } from "hono/bun"
 
 await Log.init({
   print: process.argv.includes("--print-logs"),
@@ -31,7 +29,7 @@ process.on("uncaughtException", (e) => {
   })
 })
 
-let server: Bun.Server<BunWebSocketData>
+let server: Bun.Server<undefined>
 export const rpc = {
   async server(input: { port: number; hostname: string }) {
     if (server) await server.stop(true)
@@ -48,7 +46,6 @@ export const rpc = {
   async checkUpgrade(input: { directory: string }) {
     await Instance.provide({
       directory: input.directory,
-      init: InstanceBootstrap,
       fn: async () => {
         await upgrade().catch(() => {})
       },
@@ -57,9 +54,7 @@ export const rpc = {
   async shutdown() {
     Log.Default.info("worker shutting down")
     await Instance.disposeAll()
-    // TODO: this should be awaited, but ws connections are
-    // causing this to hang, need to revisit this
-    server.stop(true)
+    await server.stop(true)
   },
 }
 

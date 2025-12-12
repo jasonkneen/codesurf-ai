@@ -14,7 +14,7 @@ import "./workspace-picker.css"
 const getWorkspaces = query(async () => {
   "use server"
   return withActor(async () => {
-    return Database.use((tx) =>
+    return Database.transaction((tx) =>
       tx
         .select({
           id: WorkspaceTable.id,

@@ -1,7 +1,7 @@
 import z from "zod"
 import path from "path"
 import { Config } from "../config/config"
-import { mergeDeep, sortBy, mapValues } from "remeda"
+import { mergeDeep, sortBy } from "remeda"
 import { NoSuchModelError, type LanguageModel, type Provider as AIProvider } from "ai"
 import { Log } from "../util/log"
 import { BunProc } from "../bun"
@@ -9,7 +9,6 @@ import { Plugin } from "../plugin"
 import { ModelsDev } from "./models"
 import { NamedError } from "@opencode-ai/util/error"
 import { Auth } from "../auth"
-import { Env } from "../env"
 import { Instance } from "../project/instance"
 import { Global } from "../global"
 import { Flag } from "../flag/flag"
@@ -24,13 +23,13 @@ import { createVertex } from "@ai-sdk/google-vertex"
 import { createVertexAnthropic } from "@ai-sdk/google-vertex/anthropic"
 import { createOpenAI } from "@ai-sdk/openai"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
-import { createOpenRouter, type LanguageModelV2 } from "@openrouter/ai-sdk-provider"
+import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { createOpenaiCompatible as createGitHubCopilotOpenAICompatible } from "./sdk/openai-compatible/src"
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
 
-  const BUNDLED_PROVIDERS: Record<string, (options: any) => AIProvider> = {
+  const BUNDLED_PROVIDERS: Record<string, (options: any) => SDK> = {
     "@ai-sdk/amazon-bedrock": createAmazonBedrock,
     "@ai-sdk/anthropic": createAnthropic,
     "@ai-sdk/azure": createAzure,
@@ -88,7 +87,9 @@ export namespace Provider {
     options?: ProviderOptions
   }
 
-  type CustomLoader = (provider: Info) => Promise<CustomLoaderResult>
+  type CustomLoader = (provider: ModelsDev.Provider) => Promise<CustomLoaderResult>
+
+  type Source = "env" | "config" | "custom" | "api"
 
   const CUSTOM_LOADERS: Record<string, CustomLoader> = {
     async anthropic() {
@@ -152,8 +153,7 @@ export namespace Provider {
     },
     async opencode(input) {
       const hasKey = await (async () => {
-        const env = Env.all()
-        if (input.env.some((item) => env[item])) return true
+        if (input.env.some((item) => process.env[item])) return true
         if (await Auth.get(input.id)) return true
         return false
       })()
@@ -225,32 +225,11 @@ export namespace Provider {
         options: {},
       }
     },
-    "azure-cognitive-services": async () => {
-      const resourceName = Env.get("AZURE_COGNITIVE_SERVICES_RESOURCE_NAME")
-      return {
-        autoload: false,
-        async getModel(sdk: any, modelID: string, options?: Record<string, any>) {
-          if (options?.["useCompletionUrls"]) {
-            return sdk.chat(modelID)
-          } else {
-            return sdk.responses(modelID)
-          }
-        },
-        options: {
-          baseURL: resourceName ? `https://${resourceName}.cognitiveservices.azure.com/openai` : undefined,
-        },
-      }
-    },
     "amazon-bedrock": async () => {
-      const [awsProfile, awsAccessKeyId, awsBearerToken, awsRegion] = await Promise.all([
-        Env.get("AWS_PROFILE"),
-        Env.get("AWS_ACCESS_KEY_ID"),
-        Env.get("AWS_BEARER_TOKEN_BEDROCK"),
-        Env.get("AWS_REGION"),
-      ])
-      if (!awsProfile && !awsAccessKeyId && !awsBearerToken) return { autoload: false }
+      if (!process.env["AWS_PROFILE"] && !process.env["AWS_ACCESS_KEY_ID"] && !process.env["AWS_BEARER_TOKEN_BEDROCK"])
+        return { autoload: false }
 
-      const region = awsRegion ?? "us-east-1"
+      const region = process.env["AWS_REGION"] ?? "us-east-1"
 
       const { fromNodeProviderChain } = await import(await BunProc.install("@aws-sdk/credential-providers"))
       return {
@@ -370,8 +349,8 @@ export namespace Provider {
       }
     },
     "google-vertex": async () => {
-      const project = Env.get("GOOGLE_CLOUD_PROJECT") ?? Env.get("GCP_PROJECT") ?? Env.get("GCLOUD_PROJECT")
-      const location = Env.get("GOOGLE_CLOUD_LOCATION") ?? Env.get("VERTEX_LOCATION") ?? "us-east5"
+      const project = process.env["GOOGLE_CLOUD_PROJECT"] ?? process.env["GCP_PROJECT"] ?? process.env["GCLOUD_PROJECT"]
+      const location = process.env["GOOGLE_CLOUD_LOCATION"] ?? process.env["VERTEX_LOCATION"] ?? "us-east5"
       const autoload = Boolean(project)
       if (!autoload) return { autoload: false }
       return {
@@ -387,8 +366,8 @@ export namespace Provider {
       }
     },
     "google-vertex-anthropic": async () => {
-      const project = Env.get("GOOGLE_CLOUD_PROJECT") ?? Env.get("GCP_PROJECT") ?? Env.get("GCLOUD_PROJECT")
-      const location = Env.get("GOOGLE_CLOUD_LOCATION") ?? Env.get("VERTEX_LOCATION") ?? "global"
+      const project = process.env["GOOGLE_CLOUD_PROJECT"] ?? process.env["GCP_PROJECT"] ?? process.env["GCLOUD_PROJECT"]
+      const location = process.env["GOOGLE_CLOUD_LOCATION"] ?? process.env["VERTEX_LOCATION"] ?? "global"
       const autoload = Boolean(project)
       if (!autoload) return { autoload: false }
       return {
@@ -443,53 +422,23 @@ export namespace Provider {
         for (const model of data.data) {
           provider.models[model.id] = {
             id: model.id,
-            providerID: provider.id,
-            api: {
-              id: model.id,
-              url: "https://api.kilocode.ai/api/openrouter",
-              npm: provider.id,
-            },
             name: model.name,
             release_date: new Date(model.created * 1000).toISOString().split("T")[0],
             attachment: true,
             reasoning: true,
             temperature: true,
             tool_call: true,
-            status: "active",
             cost: {
               input: parseFloat(model.pricing.prompt) * 1000000, // Convert to per-million-token pricing
               output: parseFloat(model.pricing.completion) * 1000000,
-              cache: {
-                read: 0,
-                write: 0,
-              },
+              cache_read: 0,
+              cache_write: 0,
             },
             limit: {
               context: model.context_length,
               output: model.top_provider?.max_completion_tokens || 4096,
             },
-            capabilities: {
-              temperature: true,
-              reasoning: true,
-              attachment: true,
-              toolcall: true,
-              input: {
-                text: true,
-                audio: false,
-                image: false,
-                video: false,
-                pdf: false,
-              },
-              output: {
-                text: true,
-                audio: false,
-                image: false,
-                video: false,
-                pdf: false,
-              },
-            },
             options: {},
-            headers: {},
           }
         }
 
@@ -509,189 +458,12 @@ export namespace Provider {
         return { autoload: false }
       }
     },
-    "sap-ai-core": async () => {
-      const auth = await Auth.get("sap-ai-core")
-      const serviceKey = Env.get("SAP_AI_SERVICE_KEY") || (auth?.type === "api" ? auth.key : undefined)
-      const deploymentId = Env.get("SAP_AI_DEPLOYMENT_ID") || "d65d81e7c077e583"
-      const resourceGroup = Env.get("SAP_AI_RESOURCE_GROUP") || "default"
-
-      return {
-        autoload: !!serviceKey,
-        options: serviceKey ? { serviceKey, deploymentId, resourceGroup } : {},
-        async getModel(sdk: any, modelID: string) {
-          return sdk(modelID)
-        },
-      }
-    },
-    zenmux: async () => {
-      return {
-        autoload: false,
-        options: {
-          headers: {
-            "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "OpenCode",
-          },
-        },
-      }
-    },
-  }
-
-  export const Model = z
-    .object({
-      id: z.string(),
-      providerID: z.string(),
-      api: z.object({
-        id: z.string(),
-        url: z.string(),
-        npm: z.string(),
-      }),
-      name: z.string(),
-      // Fields expected by ModelsDev.Model (to allow interoperability or manual population)
-      release_date: z.string().optional(),
-      attachment: z.boolean().optional(),
-      reasoning: z.boolean().optional(),
-      temperature: z.boolean().optional(),
-      tool_call: z.boolean().optional(),
-      capabilities: z.object({
-        temperature: z.boolean(),
-        reasoning: z.boolean(),
-        attachment: z.boolean(),
-        toolcall: z.boolean(),
-        input: z.object({
-          text: z.boolean(),
-          audio: z.boolean(),
-          image: z.boolean(),
-          video: z.boolean(),
-          pdf: z.boolean(),
-        }),
-        output: z.object({
-          text: z.boolean(),
-          audio: z.boolean(),
-          image: z.boolean(),
-          video: z.boolean(),
-          pdf: z.boolean(),
-        }),
-      }),
-      cost: z.object({
-        input: z.number(),
-        output: z.number(),
-        cache: z.object({
-          read: z.number(),
-          write: z.number(),
-        }),
-        experimentalOver200K: z
-          .object({
-            input: z.number(),
-            output: z.number(),
-            cache: z.object({
-              read: z.number(),
-              write: z.number(),
-            }),
-          })
-          .optional(),
-      }),
-      limit: z.object({
-        context: z.number(),
-        output: z.number(),
-      }),
-      status: z.enum(["alpha", "beta", "deprecated", "active"]),
-      options: z.record(z.string(), z.any()),
-      headers: z.record(z.string(), z.string()),
-    })
-    .meta({
-      ref: "Model",
-    })
-  export type Model = z.infer<typeof Model>
-
-  export const Info = z
-    .object({
-      id: z.string(),
-      name: z.string(),
-      source: z.enum(["env", "config", "custom", "api"]),
-      env: z.string().array(),
-      key: z.string().optional(),
-      options: z.record(z.string(), z.any()),
-      models: z.record(z.string(), Model),
-    })
-    .meta({
-      ref: "Provider",
-    })
-  export type Info = z.infer<typeof Info>
-
-  function fromModelsDevModel(provider: ModelsDev.Provider, model: ModelsDev.Model): Model {
-    return {
-      id: model.id,
-      providerID: provider.id,
-      name: model.name,
-      api: {
-        id: model.id,
-        url: provider.api!,
-        npm: model.provider?.npm ?? provider.npm ?? provider.id,
-      },
-      status: model.status ?? "active",
-      headers: model.headers ?? {},
-      options: model.options ?? {},
-      cost: {
-        input: model.cost?.input ?? 0,
-        output: model.cost?.output ?? 0,
-        cache: {
-          read: model.cost?.cache_read ?? 0,
-          write: model.cost?.cache_write ?? 0,
-        },
-        experimentalOver200K: model.cost?.context_over_200k
-          ? {
-              cache: {
-                read: model.cost.context_over_200k.cache_read ?? 0,
-                write: model.cost.context_over_200k.cache_write ?? 0,
-              },
-              input: model.cost.context_over_200k.input,
-              output: model.cost.context_over_200k.output,
-            }
-          : undefined,
-      },
-      limit: {
-        context: model.limit.context,
-        output: model.limit.output,
-      },
-      capabilities: {
-        temperature: model.temperature,
-        reasoning: model.reasoning,
-        attachment: model.attachment,
-        toolcall: model.tool_call,
-        input: {
-          text: model.modalities?.input?.includes("text") ?? false,
-          audio: model.modalities?.input?.includes("audio") ?? false,
-          image: model.modalities?.input?.includes("image") ?? false,
-          video: model.modalities?.input?.includes("video") ?? false,
-          pdf: model.modalities?.input?.includes("pdf") ?? false,
-        },
-        output: {
-          text: model.modalities?.output?.includes("text") ?? false,
-          audio: model.modalities?.output?.includes("audio") ?? false,
-          image: model.modalities?.output?.includes("image") ?? false,
-          video: model.modalities?.output?.includes("video") ?? false,
-          pdf: model.modalities?.output?.includes("pdf") ?? false,
-        },
-      },
-    }
-  }
-
-  export function fromModelsDevProvider(provider: ModelsDev.Provider): Info {
-    return {
-      id: provider.id,
-      source: "custom",
-      name: provider.name,
-      env: provider.env ?? [],
-      options: {},
-      models: mapValues(provider.models, (model) => fromModelsDevModel(provider, model)),
-    }
   }
 
   const state = Instance.state(async () => {
     using _ = log.time("state")
     const config = await Config.get()
-    const modelsDev = await ModelsDev.get()
-    const database = mapValues(modelsDev, fromModelsDevProvider)
+    const database = await ModelsDev.get()
 
     // Add Claude Sonnet 4.5 1M context model variants
     if (database["anthropic"]?.models["claude-sonnet-4-5-20250929"]) {
@@ -722,8 +494,8 @@ export namespace Provider {
      * Internal representation of a loaded provider with its configuration.
      */
     interface LoadedProvider {
-      source: "api" | "env" | "custom" | "config"
-      info: Info
+      source: Source
+      info: ModelsDev.Provider
       getModel?: (sdk: ProviderSDK, modelID: string, options?: ProviderOptions) => Promise<LanguageModel>
       options: ProviderOptions
     }
@@ -734,7 +506,7 @@ export namespace Provider {
       {
         providerID: string
         modelID: string
-        info: Model
+        info: ModelsDev.Model
         language: LanguageModel
         npm?: string
       }
@@ -748,15 +520,14 @@ export namespace Provider {
     function mergeProvider(
       id: string,
       options: ProviderOptions,
-      source: "api" | "env" | "custom" | "config",
+      source: Source,
       getModel?: (sdk: ProviderSDK, modelID: string, options?: ProviderOptions) => Promise<LanguageModel>,
     ): void {
       const provider = providers[id]
       if (!provider) {
         const info = database[id]
         if (!info) return
-        if (info.models && Object.values(info.models)[0]?.api.url && !options.baseURL)
-          options.baseURL = Object.values(info.models)[0].api.url
+        if (info.api && !options.baseURL) options.baseURL = info.api
         providers[id] = {
           source,
           info,
@@ -779,77 +550,70 @@ export namespace Provider {
         ...githubCopilot,
         id: "github-copilot-enterprise",
         name: "GitHub Copilot Enterprise",
-        models: mapValues(githubCopilot.models, (model) => ({
-          ...model,
-          providerID: "github-copilot-enterprise",
-        })),
+        // Enterprise uses a different API endpoint - will be set dynamically based on auth
+        api: undefined,
       }
     }
 
-    // extend database from config
     for (const [providerID, provider] of configProviders) {
       const existing = database[providerID]
-      const parsed: Info = {
+      const parsed: ModelsDev.Provider = {
         id: providerID,
+        npm: provider.npm ?? existing?.npm,
         name: provider.name ?? existing?.name ?? providerID,
         env: provider.env ?? existing?.env ?? [],
-        options: mergeDeep(existing?.options ?? {}, provider.options ?? {}),
-        source: "config",
+        api: provider.api ?? existing?.api,
         models: existing?.models ?? {},
       }
 
       for (const [modelID, model] of Object.entries(provider.models ?? {})) {
-        const existingModel = parsed.models[model.id ?? modelID]
+        const existing = parsed.models[model.id ?? modelID]
         const name = iife(() => {
           if (model.name) return model.name
           if (model.id && model.id !== modelID) return modelID
-          return existingModel?.name ?? modelID
+          return existing?.name ?? modelID
         })
-        const parsedModel: Model = {
+        const parsedModel: ModelsDev.Model = {
           id: modelID,
-          api: {
-            id: model.id ?? existingModel?.api.id ?? modelID,
-            npm:
-              model.provider?.npm ?? provider.npm ?? existingModel?.api.npm ?? modelsDev[providerID]?.npm ?? providerID,
-            url: provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api,
-          },
-          status: model.status ?? existingModel?.status ?? "active",
           name,
-          providerID,
-          capabilities: {
-            temperature: model.temperature ?? existingModel?.capabilities.temperature ?? false,
-            reasoning: model.reasoning ?? existingModel?.capabilities.reasoning ?? false,
-            attachment: model.attachment ?? existingModel?.capabilities.attachment ?? false,
-            toolcall: model.tool_call ?? existingModel?.capabilities.toolcall ?? true,
-            input: {
-              text: model.modalities?.input?.includes("text") ?? existingModel?.capabilities.input.text ?? true,
-              audio: model.modalities?.input?.includes("audio") ?? existingModel?.capabilities.input.audio ?? false,
-              image: model.modalities?.input?.includes("image") ?? existingModel?.capabilities.input.image ?? false,
-              video: model.modalities?.input?.includes("video") ?? existingModel?.capabilities.input.video ?? false,
-              pdf: model.modalities?.input?.includes("pdf") ?? existingModel?.capabilities.input.pdf ?? false,
-            },
-            output: {
-              text: model.modalities?.output?.includes("text") ?? existingModel?.capabilities.output.text ?? true,
-              audio: model.modalities?.output?.includes("audio") ?? existingModel?.capabilities.output.audio ?? false,
-              image: model.modalities?.output?.includes("image") ?? existingModel?.capabilities.output.image ?? false,
-              video: model.modalities?.output?.includes("video") ?? existingModel?.capabilities.output.video ?? false,
-              pdf: model.modalities?.output?.includes("pdf") ?? existingModel?.capabilities.output.pdf ?? false,
-            },
+          release_date: model.release_date ?? existing?.release_date,
+          attachment: model.attachment ?? existing?.attachment ?? false,
+          reasoning: model.reasoning ?? existing?.reasoning ?? false,
+          temperature: model.temperature ?? existing?.temperature ?? false,
+          tool_call: model.tool_call ?? existing?.tool_call ?? true,
+          cost:
+            !model.cost && !existing?.cost
+              ? {
+                  input: 0,
+                  output: 0,
+                  cache_read: 0,
+                  cache_write: 0,
+                }
+              : {
+                  cache_read: 0,
+                  cache_write: 0,
+                  ...existing?.cost,
+                  ...model.cost,
+                },
+          options: {
+            ...existing?.options,
+            ...model.options,
           },
-          cost: {
-            input: model?.cost?.input ?? existingModel?.cost?.input ?? 0,
-            output: model?.cost?.output ?? existingModel?.cost?.output ?? 0,
-            cache: {
-              read: model?.cost?.cache_read ?? existingModel?.cost?.cache.read ?? 0,
-              write: model?.cost?.cache_write ?? existingModel?.cost?.cache.write ?? 0,
+          limit: model.limit ??
+            existing?.limit ?? {
+              context: 0,
+              output: 0,
             },
-          },
-          options: mergeDeep(existingModel?.options ?? {}, model.options ?? {}),
-          limit: {
-            context: model.limit?.context ?? existingModel?.limit?.context ?? 0,
-            output: model.limit?.output ?? existingModel?.limit?.output ?? 0,
-          },
-          headers: mergeDeep(existingModel?.headers ?? {}, model.headers ?? {}),
+          modalities: model.modalities ??
+            existing?.modalities ?? {
+              input: ["text"],
+              output: ["text"],
+            },
+          headers: model.headers,
+          provider: model.provider ?? existing?.provider,
+        }
+        if (model.id && model.id !== modelID) {
+          realIdByKey.set(`${providerID}/${modelID}`, model.id)
         }
         parsed.models[modelID] = parsedModel
       }
@@ -863,32 +627,21 @@ export namespace Provider {
       database["freemium"] = {
         id: "freemium",
         name: "Freemium",
-        source: "custom",
+        npm: "@ai-sdk/openai-compatible",
         env: ["OPENROUTER_API_KEY"],
-        options: {},
+        api: "https://openrouter.ai/api/v1",
         models: {
           auto: {
             id: "auto",
-            providerID: "freemium",
-            api: {
-              id: "auto",
-              npm: "@ai-sdk/openai-compatible",
-              url: "https://openrouter.ai/api/v1",
-            },
             name: "Freemium (Auto-Rotating Free Models)",
-            status: "active",
-            capabilities: {
-              temperature: true,
-              reasoning: false,
-              attachment: false,
-              toolcall: true,
-              input: { text: true, audio: false, image: false, video: false, pdf: false },
-              output: { text: true, audio: false, image: false, video: false, pdf: false },
-            },
-            cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+            release_date: "2025-01-01",
+            attachment: false,
+            reasoning: false,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
             limit: { context: 256000, output: 16000 },
             options: {},
-            headers: {},
           },
         },
       }
@@ -899,32 +652,45 @@ export namespace Provider {
       database["codesurf"] = {
         id: "codesurf",
         name: "Codesurf",
-        source: "custom",
+        npm: "@ai-sdk/openai-compatible",
         env: [], // No API key required - uses free models
-        options: {},
+        api: "https://openrouter.ai/api/v1",
         models: {
           auto: {
             id: "auto",
-            providerID: "codesurf",
-            api: {
-              id: "auto",
-              npm: "@ai-sdk/openai-compatible",
-              url: "https://openrouter.ai/api/v1",
-            },
             name: "Auto (Smart Selection)",
-            status: "active",
-            capabilities: {
-              temperature: true,
-              reasoning: true,
-              attachment: true,
-              toolcall: true,
-              input: { text: true, audio: false, image: false, video: false, pdf: false },
-              output: { text: true, audio: false, image: false, video: false, pdf: false },
-            },
-            cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
             limit: { context: 256000, output: 16000 },
             options: {},
-            headers: {},
+          },
+          "auto-free": {
+            id: "auto-free",
+            name: "Auto-Free (Only Free Models)",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+            limit: { context: 256000, output: 16000 },
+            options: {},
+          },
+          "auto-hybrid": {
+            id: "auto-hybrid",
+            name: "Auto-Hybrid (Mostly Free, Paid When Needed)",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.0005, output: 0.0015, cache_read: 0, cache_write: 0 },
+            limit: { context: 256000, output: 16000 },
+            options: {},
           },
         },
       }
@@ -932,19 +698,122 @@ export namespace Provider {
 
     // Add kilocode provider
     if (!disabled.has("kilocode")) {
-      // We initialize with empty models, they get populated by the loader
       database["kilocode"] = {
         id: "kilocode",
         name: "Kilocode",
-        source: "custom",
+        npm: "@ai-sdk/openai-compatible",
         env: ["KILOCODE_API_KEY"],
-        options: {},
-        models: {},
+        api: "https://api.kilocode.ai/api/openrouter",
+        models: {
+          "anthropic/claude-sonnet-4.5": {
+            id: "anthropic/claude-sonnet-4.5",
+            name: "Claude Sonnet 4.5",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.000003, output: 0.000015, cache_read: 0.0000003, cache_write: 0.00000375 },
+            limit: { context: 1000000, output: 64000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+            options: {},
+          },
+          "anthropic/claude-haiku-4.5": {
+            id: "anthropic/claude-haiku-4.5",
+            name: "Claude Haiku 4.5",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.000001, output: 0.000005, cache_read: 0.0000001, cache_write: 0.00000125 },
+            limit: { context: 200000, output: 64000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+            options: {},
+          },
+          "openai/gpt-5.1": {
+            id: "openai/gpt-5.1",
+            name: "GPT-5.1",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.00000125, output: 0.00001, cache_read: 0.000000125, cache_write: 0 },
+            limit: { context: 400000, output: 128000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+            options: {},
+          },
+          "openai/gpt-5.1-codex": {
+            id: "openai/gpt-5.1-codex",
+            name: "GPT-5.1 Codex",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.00000125, output: 0.00001, cache_read: 0.000000125, cache_write: 0 },
+            limit: { context: 400000, output: 128000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+            options: {},
+          },
+          "google/gemini-3-pro-preview": {
+            id: "google/gemini-3-pro-preview",
+            name: "Gemini 3 Pro Preview",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.000002, output: 0.000012, cache_read: 0.0000002, cache_write: 0.000002375 },
+            limit: { context: 1048576, output: 65536 },
+            modalities: { input: ["text", "image", "audio", "video"], output: ["text"] },
+            options: {},
+          },
+          "google/gemini-2.5-flash": {
+            id: "google/gemini-2.5-flash",
+            name: "Gemini 2.5 Flash",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0.0000003, output: 0.0000025, cache_read: 0.00000003, cache_write: 0.0000003833 },
+            limit: { context: 1048576, output: 65535 },
+            modalities: { input: ["text", "image", "audio", "video"], output: ["text"] },
+            options: {},
+          },
+          "x-ai/grok-code-fast-1": {
+            id: "x-ai/grok-code-fast-1",
+            name: "Grok Code Fast 1 (free)",
+            release_date: "2025-01-01",
+            attachment: false,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+            limit: { context: 256000, output: 10000 },
+            modalities: { input: ["text"], output: ["text"] },
+            options: {},
+          },
+          "x-ai/grok-4.1-fast": {
+            id: "x-ai/grok-4.1-fast",
+            name: "Grok 4.1 Fast (free)",
+            release_date: "2025-01-01",
+            attachment: true,
+            reasoning: true,
+            temperature: true,
+            tool_call: true,
+            cost: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+            limit: { context: 2000000, output: 30000 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+            options: {},
+          },
+        },
       }
     }
 
     // load env
-    const env = Env.all()
     for (const [providerID, provider] of Object.entries(database)) {
       if (disabled.has(providerID)) continue
       const apiKey = provider.env.map((item) => process.env[item]).find((item) => !!item)
@@ -961,13 +830,7 @@ export namespace Provider {
     for (const [providerID, provider] of Object.entries(await Auth.all())) {
       if (disabled.has(providerID)) continue
       if (provider.type === "api") {
-        mergeProvider(
-          providerID,
-          {
-            apiKey: provider.key,
-          },
-          "api",
-        )
+        mergeProvider(providerID, { apiKey: provider.key }, "api")
       }
     }
 
@@ -993,7 +856,7 @@ export namespace Provider {
       // Load for the main provider if auth exists
       if (auth) {
         const options = await plugin.auth.loader(() => Auth.get(providerID) as any, database[plugin.auth.provider])
-        mergeProvider(plugin.auth.provider, options, "custom")
+        mergeProvider(plugin.auth.provider, options ?? {}, "custom")
       }
 
       // If this is github-copilot plugin, also register for github-copilot-enterprise if auth exists
@@ -1006,7 +869,7 @@ export namespace Provider {
               () => Auth.get(enterpriseProviderID) as any,
               database[enterpriseProviderID],
             )
-            mergeProvider(enterpriseProviderID, enterpriseOptions, "custom")
+            mergeProvider(enterpriseProviderID, enterpriseOptions ?? {}, "custom")
           }
         }
       }
@@ -1027,7 +890,7 @@ export namespace Provider {
 
     for (const [providerID, provider] of Object.entries(providers)) {
       if (providerID === "github-copilot") {
-        // provider.info.npm = "@ai-sdk/github-copilot"
+        provider.info.npm = "@ai-sdk/github-copilot"
       }
 
       const filteredModels = Object.fromEntries(
@@ -1040,7 +903,7 @@ export namespace Provider {
           // Filter out experimental models
           .filter(
             ([, model]) =>
-              (!model.status || model.status === "active" || Flag.OPENCODE_ENABLE_EXPERIMENTAL_MODELS) &&
+              ((!model.experimental && model.status !== "alpha") || Flag.OPENCODE_ENABLE_EXPERIMENTAL_MODELS) &&
               model.status !== "deprecated",
           ),
       )
@@ -1050,28 +913,28 @@ export namespace Provider {
         delete providers[providerID]
         continue
       }
-      log.info("found", { providerID })
+      log.info("found", { providerID, npm: provider.info.npm })
     }
 
     return {
-      providers,
       models,
+      providers,
       sdk,
       realIdByKey,
     }
   })
 
   export async function list() {
-    return state().then((state) => Object.values(state.providers).map((p) => p.info))
+    return state().then((state) => state.providers)
   }
 
-  async function getSDK(provider: Info, model: Model): Promise<AIProvider> {
+  async function getSDK(provider: ModelsDev.Provider, model: ModelsDev.Model): Promise<AIProvider> {
     return (async () => {
       using _ = log.time("getSDK", {
-        providerID: model.providerID,
+        providerID: provider.id,
       })
       const s = await state()
-      const pkg = model.api.npm
+      const pkg = model.provider?.npm ?? provider.npm ?? provider.id
       const options: ProviderOptions = { ...s.providers[provider.id]?.options }
       if (pkg.includes("@ai-sdk/openai-compatible") && options.includeUsage === undefined) {
         options.includeUsage = true
@@ -1105,32 +968,31 @@ export namespace Provider {
       }
 
       // Special case: google-vertex-anthropic uses a subpath import
-      const bundledKey =
-        model.providerID === "google-vertex-anthropic" ? "@ai-sdk/google-vertex/anthropic" : model.api.npm
+      const bundledKey = provider.id === "google-vertex-anthropic" ? "@ai-sdk/google-vertex/anthropic" : pkg
       const bundledFn = BUNDLED_PROVIDERS[bundledKey]
       if (bundledFn) {
-        log.info("using bundled provider", { providerID: model.providerID, pkg: bundledKey })
+        log.info("using bundled provider", { providerID: provider.id, pkg: bundledKey })
         const loaded = bundledFn({
-          name: model.providerID,
+          name: provider.id,
           ...options,
         })
         s.sdk.set(key, loaded)
-        return loaded as AIProvider
+        return loaded as SDK
       }
 
       let installedPath: string
-      if (!model.api.npm.startsWith("file://")) {
-        installedPath = await BunProc.install(model.api.npm, "latest")
+      if (!pkg.startsWith("file://")) {
+        installedPath = await BunProc.install(pkg, "latest")
       } else {
-        log.info("loading local provider", { pkg: model.api.npm })
-        installedPath = model.api.npm
+        log.info("loading local provider", { pkg })
+        installedPath = pkg
       }
 
       const mod = await import(installedPath)
 
       const fn = mod[Object.keys(mod).find((key) => key.startsWith("create"))!]
-      const loaded = await fn({
-        name: model.providerID,
+      const loaded = fn({
+        name: provider.id,
         ...options,
       })
       s.sdk.set(key, loaded)
@@ -1141,11 +1003,19 @@ export namespace Provider {
   }
 
   export async function getProvider(providerID: string) {
-    return state().then((s) => s.providers[providerID]?.info)
+    return state().then((s) => s.providers[providerID])
   }
 
   export async function getModel(providerID: string, modelID: string) {
+    const key = `${providerID}/${modelID}`
     const s = await state()
+    if (s.models.has(key)) return s.models.get(key)!
+
+    log.info("getModel", {
+      providerID,
+      modelID,
+    })
+
     const provider = s.providers[providerID]
     if (!provider) throw new ModelNotFoundError({ providerID, modelID })
     const info = provider.info.models[modelID]
@@ -1154,43 +1024,36 @@ export namespace Provider {
 
     try {
       const keyReal = `${providerID}/${modelID}`
-      const realID = s.realIdByKey.get(keyReal) ?? info.api.id
+      const realID = s.realIdByKey.get(keyReal) ?? info.id
       const language = provider.getModel
         ? await provider.getModel(sdk as ProviderSDK, realID, provider.options)
         : sdk.languageModel(realID)
       log.info("found", { providerID, modelID })
-
-      const key = `${providerID}/${modelID}`
       s.models.set(key, {
         providerID,
         modelID,
         info,
         language,
-        npm: info.api.npm,
+        npm: info.provider?.npm ?? provider.info.npm,
       })
       return {
         modelID,
         providerID,
         info,
         language,
-        npm: info.api.npm,
+        npm: info.provider?.npm ?? provider.info.npm,
       }
     } catch (e) {
       if (e instanceof NoSuchModelError)
         throw new ModelNotFoundError(
           {
-            modelID: info.id,
-            providerID: providerID,
+            modelID: modelID,
+            providerID,
           },
           { cause: e },
         )
       throw e
     }
-  }
-
-  export async function getLanguage(providerID: string, modelID: string) {
-    const { language } = await getModel(providerID, modelID)
-    return language
   }
 
   export async function closest(providerID: string, query: string[]) {
@@ -1274,7 +1137,7 @@ export namespace Provider {
   }
 
   const priority = ["gpt-5.1", "claude-sonnet-4.5[1m]", "big-pickle", "gemini-3-pro"]
-  export function sort(models: Model[]) {
+  export function sort(models: ModelsDev.Model[]) {
     return sortBy(
       models,
       [(model) => priority.findIndex((filter) => model.id.includes(filter)), "desc"],
@@ -1289,12 +1152,12 @@ export namespace Provider {
 
     const provider = await list()
       .then((val) => Object.values(val))
-      .then((x) => x.find((p) => !cfg.provider || Object.keys(cfg.provider).includes(p.id)))
+      .then((x) => x.find((p) => !cfg.provider || Object.keys(cfg.provider).includes(p.info.id)))
     if (!provider) throw new Error("no providers found")
-    const [model] = sort(Object.values(provider.models))
+    const [model] = sort(Object.values(provider.info.models))
     if (!model) throw new Error("no models found")
     return {
-      providerID: provider.id,
+      providerID: provider.info.id,
       modelID: model.id,
     }
   }

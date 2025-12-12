@@ -338,11 +338,6 @@ body {
     }
   }
 
-  [data-slot="installation-instructions"] {
-    color: var(--color-text-strong);
-    margin-bottom: 8px;
-  }
-
   [data-slot="installation"] {
     width: 100%;
     max-width: 100%;
@@ -351,11 +346,6 @@ body {
     @media (max-width: 550px) {
       width: calc(100vw - 48px);
     }
-  }
-
-  [data-slot="installation-options"] {
-    font-size: 13px;
-    margin-top: 12px;
   }
 
   [data-component="tabs"] {
@@ -490,10 +480,10 @@ body {
     }
 
     h1 {
-      font-size: 38px;
+      font-size: 28px;
       color: var(--color-text-strong);
       font-weight: 500;
-      margin-bottom: 8px;
+      margin-bottom: 16px;
 
       @media (max-width: 60rem) {
         font-size: 22px;
@@ -502,7 +492,7 @@ body {
 
     p {
       color: var(--color-text);
-      margin-bottom: 40px;
+      margin-bottom: 24px;
       max-width: 82%;
 
       @media (max-width: 50rem) {
@@ -616,25 +606,6 @@ body {
     border-top: 1px solid var(--color-border-weak);
     padding: var(--vertical-padding) var(--padding);
     color: var(--color-text);
-
-    a {
-      background: var(--color-background-strong);
-      padding: 8px 12px 8px 20px;
-      color: var(--color-text-inverted);
-      border: none;
-      border-radius: 4px;
-      font-weight: 500;
-      cursor: pointer;
-      margin-top: 40px;
-      display: flex;
-      width: fit-content;
-      gap: 12px;
-      text-decoration: none;
-    }
-
-    a:hover {
-      background: var(--color-background-strong-hover);
-    }
 
     ul {
       padding: 0;

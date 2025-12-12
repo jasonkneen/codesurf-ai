@@ -11,7 +11,7 @@ export namespace Account {
       id: z.string().optional(),
     }),
     async (input) =>
-      Database.use(async (tx) => {
+      Database.transaction(async (tx) => {
         const id = input.id ?? Identifier.create("account")
         await tx.insert(AccountTable).values({
           id,
@@ -21,12 +21,13 @@ export namespace Account {
   )
 
   export const fromID = fn(z.string(), async (id) =>
-    Database.use((tx) =>
-      tx
+    Database.transaction(async (tx) => {
+      return tx
         .select()
         .from(AccountTable)
         .where(eq(AccountTable.id, id))
-        .then((rows) => rows[0]),
-    ),
+        .execute()
+        .then((rows) => rows[0])
+    }),
   )
 }

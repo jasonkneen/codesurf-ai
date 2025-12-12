@@ -4,7 +4,7 @@ import { cmd } from "./cmd"
 import { AgentSideConnection, ndJsonStream } from "@agentclientprotocol/sdk"
 import { ACP } from "@/acp/agent"
 import { Server } from "@/server/server"
-import { createOpencodeClient } from "@opencode-ai/sdk/v2"
+import { createOpencodeClient } from "@opencode-ai/sdk"
 
 const log = Log.create({ service: "acp-command" })
 
@@ -17,7 +17,7 @@ process.on("unhandledRejection", (reason, promise) => {
 
 export const AcpCommand = cmd({
   command: "acp",
-  describe: "start ACP (Agent Client Protocol) server",
+  describe: "Start ACP (Agent Client Protocol) server",
   builder: (yargs) => {
     return yargs
       .option("cwd", {

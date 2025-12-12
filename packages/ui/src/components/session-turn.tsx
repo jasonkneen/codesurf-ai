@@ -1,9 +1,7 @@
 import { AssistantMessage } from "@opencode-ai/sdk"
 import { useData } from "../context"
-import { useDiffComponent } from "../context/diff"
 import { Binary } from "@opencode-ai/util/binary"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
-import { checksum } from "@opencode-ai/util/encode"
 import { createEffect, createMemo, createSignal, For, Match, onMount, ParentProps, Show, Switch } from "solid-js"
 import { DiffChanges } from "./diff-changes"
 import { Typewriter } from "./typewriter"
@@ -13,10 +11,10 @@ import { Accordion } from "./accordion"
 import { StickyAccordionHeader } from "./sticky-accordion-header"
 import { FileIcon } from "./file-icon"
 import { Icon } from "./icon"
+import { Diff } from "./diff"
 import { Card } from "./card"
 import { MessageProgress } from "./message-progress"
 import { Collapsible } from "./collapsible"
-import { Dynamic } from "solid-js/web"
 
 export function SessionTurn(
   props: ParentProps<{
@@ -30,7 +28,6 @@ export function SessionTurn(
   }>,
 ) {
   const data = useData()
-  const diffComponent = useDiffComponent()
   const match = Binary.search(data.store.session, props.sessionID, (s) => s.id)
   if (!match.found) throw new Error(`Session ${props.sessionID} not found`)
 
@@ -170,17 +167,14 @@ export function SessionTurn(
                               </Accordion.Trigger>
                             </StickyAccordionHeader>
                             <Accordion.Content data-slot="session-turn-accordion-content">
-                              <Dynamic
-                                component={diffComponent}
+                              <Diff
                                 before={{
                                   name: diff.file!,
                                   contents: diff.before!,
-                                  cacheKey: checksum(diff.before!),
                                 }}
                                 after={{
                                   name: diff.file!,
                                   contents: diff.after!,
-                                  cacheKey: checksum(diff.after!),
                                 }}
                               />
                             </Accordion.Content>

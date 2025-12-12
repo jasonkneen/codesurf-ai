@@ -165,20 +165,7 @@ export namespace Installation {
   export const CHANNEL = typeof OPENCODE_CHANNEL === "string" ? OPENCODE_CHANNEL : "local"
   export const USER_AGENT = `opencode/${CHANNEL}/${VERSION}`
 
-  export async function latest(installMethod?: Method) {
-    const detectedMethod = installMethod || (await method())
-    if (detectedMethod === "brew") {
-      const formula = await getBrewFormula()
-      if (formula === "opencode") {
-        return fetch("https://formulae.brew.sh/api/formula/opencode.json")
-          .then((res) => {
-            if (!res.ok) throw new Error(res.statusText)
-            return res.json()
-          })
-          .then((data: any) => data.versions.stable)
-      }
-    }
-
+  export async function latest() {
     const registry = await iife(async () => {
       const r = (await $`npm config get registry`.quiet().nothrow().text()).trim()
       const reg = r || "https://registry.npmjs.org"

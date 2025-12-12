@@ -47,7 +47,7 @@ export namespace Provider {
     }),
     async ({ provider }) => {
       Actor.assertAdmin()
-      return Database.use((tx) =>
+      return Database.transaction((tx) =>
         tx
           .delete(ProviderTable)
           .where(and(eq(ProviderTable.provider, provider), eq(ProviderTable.workspaceID, Actor.workspace()))),

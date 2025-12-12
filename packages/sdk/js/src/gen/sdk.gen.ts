@@ -8,23 +8,6 @@ import type {
   ProjectListResponses,
   ProjectCurrentData,
   ProjectCurrentResponses,
-  PtyListData,
-  PtyListResponses,
-  PtyCreateData,
-  PtyCreateResponses,
-  PtyCreateErrors,
-  PtyRemoveData,
-  PtyRemoveResponses,
-  PtyRemoveErrors,
-  PtyGetData,
-  PtyGetResponses,
-  PtyGetErrors,
-  PtyUpdateData,
-  PtyUpdateResponses,
-  PtyUpdateErrors,
-  PtyConnectData,
-  PtyConnectResponses,
-  PtyConnectErrors,
   ConfigGetData,
   ConfigGetResponses,
   ConfigUpdateData,
@@ -148,18 +131,6 @@ import type {
   McpAddData,
   McpAddResponses,
   McpAddErrors,
-  McpAuthRemoveData,
-  McpAuthRemoveResponses,
-  McpAuthRemoveErrors,
-  McpAuthStartData,
-  McpAuthStartResponses,
-  McpAuthStartErrors,
-  McpAuthCallbackData,
-  McpAuthCallbackResponses,
-  McpAuthCallbackErrors,
-  McpAuthAuthenticateData,
-  McpAuthAuthenticateResponses,
-  McpAuthAuthenticateErrors,
   LspStatusData,
   LspStatusResponses,
   FormatterStatusData,
@@ -262,76 +233,6 @@ class Project extends _HeyApiClient {
   public current<ThrowOnError extends boolean = false>(options?: Options<ProjectCurrentData, ThrowOnError>) {
     return (options?.client ?? this._client).get<ProjectCurrentResponses, unknown, ThrowOnError>({
       url: "/project/current",
-      ...options,
-    })
-  }
-}
-
-class Pty extends _HeyApiClient {
-  /**
-   * List all PTY sessions
-   */
-  public list<ThrowOnError extends boolean = false>(options?: Options<PtyListData, ThrowOnError>) {
-    return (options?.client ?? this._client).get<PtyListResponses, unknown, ThrowOnError>({
-      url: "/pty",
-      ...options,
-    })
-  }
-
-  /**
-   * Create a new PTY session
-   */
-  public create<ThrowOnError extends boolean = false>(options?: Options<PtyCreateData, ThrowOnError>) {
-    return (options?.client ?? this._client).post<PtyCreateResponses, PtyCreateErrors, ThrowOnError>({
-      url: "/pty",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
-    })
-  }
-
-  /**
-   * Remove a PTY session
-   */
-  public remove<ThrowOnError extends boolean = false>(options: Options<PtyRemoveData, ThrowOnError>) {
-    return (options.client ?? this._client).delete<PtyRemoveResponses, PtyRemoveErrors, ThrowOnError>({
-      url: "/pty/{id}",
-      ...options,
-    })
-  }
-
-  /**
-   * Get PTY session info
-   */
-  public get<ThrowOnError extends boolean = false>(options: Options<PtyGetData, ThrowOnError>) {
-    return (options.client ?? this._client).get<PtyGetResponses, PtyGetErrors, ThrowOnError>({
-      url: "/pty/{id}",
-      ...options,
-    })
-  }
-
-  /**
-   * Update PTY session
-   */
-  public update<ThrowOnError extends boolean = false>(options: Options<PtyUpdateData, ThrowOnError>) {
-    return (options.client ?? this._client).put<PtyUpdateResponses, PtyUpdateErrors, ThrowOnError>({
-      url: "/pty/{id}",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    })
-  }
-
-  /**
-   * Connect to a PTY session
-   */
-  public connect<ThrowOnError extends boolean = false>(options: Options<PtyConnectData, ThrowOnError>) {
-    return (options.client ?? this._client).get<PtyConnectResponses, PtyConnectErrors, ThrowOnError>({
-      url: "/pty/{id}/connect",
       ...options,
     })
   }
@@ -866,68 +767,6 @@ class App extends _HeyApiClient {
   }
 }
 
-class Auth extends _HeyApiClient {
-  /**
-   * Remove OAuth credentials for an MCP server
-   */
-  public remove<ThrowOnError extends boolean = false>(options: Options<McpAuthRemoveData, ThrowOnError>) {
-    return (options.client ?? this._client).delete<McpAuthRemoveResponses, McpAuthRemoveErrors, ThrowOnError>({
-      url: "/mcp/{name}/auth",
-      ...options,
-    })
-  }
-
-  /**
-   * Start OAuth authentication flow for an MCP server
-   */
-  public start<ThrowOnError extends boolean = false>(options: Options<McpAuthStartData, ThrowOnError>) {
-    return (options.client ?? this._client).post<McpAuthStartResponses, McpAuthStartErrors, ThrowOnError>({
-      url: "/mcp/{name}/auth",
-      ...options,
-    })
-  }
-
-  /**
-   * Complete OAuth authentication with authorization code
-   */
-  public callback<ThrowOnError extends boolean = false>(options: Options<McpAuthCallbackData, ThrowOnError>) {
-    return (options.client ?? this._client).post<McpAuthCallbackResponses, McpAuthCallbackErrors, ThrowOnError>({
-      url: "/mcp/{name}/auth/callback",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    })
-  }
-
-  /**
-   * Start OAuth flow and wait for callback (opens browser)
-   */
-  public authenticate<ThrowOnError extends boolean = false>(options: Options<McpAuthAuthenticateData, ThrowOnError>) {
-    return (options.client ?? this._client).post<McpAuthAuthenticateResponses, McpAuthAuthenticateErrors, ThrowOnError>(
-      {
-        url: "/mcp/{name}/auth/authenticate",
-        ...options,
-      },
-    )
-  }
-
-  /**
-   * Set authentication credentials
-   */
-  public set<ThrowOnError extends boolean = false>(options: Options<AuthSetData, ThrowOnError>) {
-    return (options.client ?? this._client).put<AuthSetResponses, AuthSetErrors, ThrowOnError>({
-      url: "/auth/{id}",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    })
-  }
-}
-
 class Mcp extends _HeyApiClient {
   /**
    * Get MCP server status
@@ -952,7 +791,6 @@ class Mcp extends _HeyApiClient {
       },
     })
   }
-  auth = new Auth({ client: this._client })
 }
 
 class Lsp extends _HeyApiClient {
@@ -1124,6 +962,22 @@ class Tui extends _HeyApiClient {
   control = new Control({ client: this._client })
 }
 
+class Auth extends _HeyApiClient {
+  /**
+   * Set authentication credentials
+   */
+  public set<ThrowOnError extends boolean = false>(options: Options<AuthSetData, ThrowOnError>) {
+    return (options.client ?? this._client).put<AuthSetResponses, AuthSetErrors, ThrowOnError>({
+      url: "/auth/{id}",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    })
+  }
+}
+
 class Event extends _HeyApiClient {
   /**
    * Get events
@@ -1194,7 +1048,6 @@ export class OpencodeClient extends _HeyApiClient {
   }
   global = new Global({ client: this._client })
   project = new Project({ client: this._client })
-  pty = new Pty({ client: this._client })
   config = new Config({ client: this._client })
   tool = new Tool({ client: this._client })
   instance = new Instance({ client: this._client })

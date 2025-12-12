@@ -16,12 +16,6 @@ import { type ToolDefinition } from "./tool"
 
 export * from "./tool"
 
-export type ProviderContext = {
-  source: "env" | "config" | "custom" | "api"
-  info: Provider
-  options: Record<string, any>
-}
-
 export type PluginInput = {
   client: ReturnType<typeof createOpencodeClient>
   project: Project
@@ -159,7 +153,7 @@ export interface Hooks {
    * Modify parameters sent to LLM
    */
   "chat.params"?: (
-    input: { sessionID: string; agent: string; model: Model; provider: ProviderContext; message: UserMessage },
+    input: { sessionID: string; agent: string; model: Model; provider: Provider; message: UserMessage },
     output: { temperature: number; topP: number; options: Record<string, any> },
   ) => Promise<void>
   /**
@@ -191,9 +185,5 @@ export interface Hooks {
       output: string
       metadata: any
     },
-  ) => Promise<void>
-  "experimental.text.complete"?: (
-    input: { sessionID: string; messageID: string; partID: string },
-    output: { text: string },
   ) => Promise<void>
 }
